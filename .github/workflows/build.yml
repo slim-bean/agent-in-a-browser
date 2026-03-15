@@ -68,7 +68,7 @@ jobs:
       - name: Build and Test
         timeout-minutes: 30
         run: |
-          moon run \
+          setsid moon run \
             runtime:fmt-check \
             runtime:check \
             runtime:build-wasm \
