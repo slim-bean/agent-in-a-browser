@@ -10,9 +10,10 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
-  # Skip Moon's proto toolchain setup — tools are installed by dedicated actions.
-  # Moon 2.x SetupEnvironment hangs on self-hosted runners with stale proto state.
+  # Moon 2.x SetupEnvironment hangs on self-hosted runners (zombie pidfd issue).
+  # Skip toolchain setup — tools installed by dedicated actions + cargo binstall step.
   MOON_TOOLCHAIN_FORCE_GLOBALS: true
+  MOON_SKIP_SETUP_TOOLCHAIN: true
 
 jobs:
   ci:
@@ -28,13 +29,18 @@ jobs:
         run: git submodule update --init stripe-cli-wasm/stripe-cli
 
       # Self-hosted runner: tools persist on disk, no need for GitHub cache API.
-      # Rust, Node, pnpm managed by Moon's proto toolchain.
-      # Go installed via actions/setup-go (no remote cache).
+      # MOON_SKIP_SETUP_TOOLCHAIN bypasses Moon's proto setup, so we install
+      # Rust cargo tools explicitly here.
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-wasip2
           components: rustfmt
+
+      - name: Install Cargo tools
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          cargo binstall -y --log-level info cargo-component wit-deps-cli wasm-tools
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
