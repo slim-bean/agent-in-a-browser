@@ -10,6 +10,9 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  # Skip Moon's proto toolchain setup — tools are installed by dedicated actions.
+  # Moon 2.x SetupEnvironment hangs on self-hosted runners with stale proto state.
+  MOON_TOOLCHAIN_FORCE_GLOBALS: true
 
 jobs:
   ci:
