@@ -10,10 +10,6 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
-  # Moon 2.x SetupEnvironment hangs on self-hosted runners (zombie pidfd issue).
-  # Skip toolchain setup — tools installed by dedicated actions + cargo binstall step.
-  MOON_TOOLCHAIN_FORCE_GLOBALS: true
-  MOON_SKIP_SETUP_TOOLCHAIN: true
 
 jobs:
   ci:
@@ -28,9 +24,7 @@ jobs:
       - name: Checkout submodules
         run: git submodule update --init stripe-cli-wasm/stripe-cli
 
-      # Self-hosted runner: tools persist on disk, no need for GitHub cache API.
-      # MOON_SKIP_SETUP_TOOLCHAIN bypasses Moon's proto setup, so we install
-      # Rust cargo tools explicitly here.
+      # Self-hosted runner: tools persist on disk between runs.
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -62,13 +56,14 @@ jobs:
       - name: Install Node dependencies
         run: pnpm install --frozen-lockfile
 
-      # Moon manages the full pipeline including Go→WASM build.
-      # On self-hosted runner, all build caches (Rust target/, GOCACHE, node_modules)
-      # persist on local disk between runs — no remote cache needed.
+      # Moon 2.x SetupEnvironment deadlocks on self-hosted runners in LXC:
+      # child processes complete as zombies but pidfd wait never signals.
+      # Workaround: run moon via 'script' to allocate a PTY, which changes
+      # how child process signals are delivered and fixes the deadlock.
       - name: Build and Test
         timeout-minutes: 30
         run: |
-          setsid moon run \
+          script -qec "moon run \
             runtime:fmt-check \
             runtime:check \
             runtime:build-wasm \
@@ -77,7 +72,7 @@ jobs:
             runtime:test \
             frontend:build \
             frontend:copy-externals \
-            frontend:test
+            frontend:test" /dev/null
 
       - name: Upload frontend artifact
         uses: actions/upload-artifact@v4
