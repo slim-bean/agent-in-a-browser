@@ -52,73 +52,32 @@ jobs:
       - name: Install Node dependencies
         run: pnpm install --frozen-lockfile
 
-      # Moon 2.x deadlocks on self-hosted LXC runners due to a pidfd/zombie
-      # reaping bug in its SetupEnvironment action. Bypass Moon entirely and
-      # run the build pipeline directly. Order matches Moon's dependency graph.
-      - name: Fetch WIT dependencies
-        working-directory: runtime
-        run: wit-deps update
+      # Moon 2.x uses tokio which relies on pidfd_open() for child process
+      # monitoring on Linux. In containerized CI (GitHub Actions, LXC), the
+      # pidfd epoll notification never fires, causing Moon to hang forever.
+      # This LD_PRELOAD shim intercepts pidfd_open() and returns ENOSYS,
+      # forcing tokio to fall back to reliable SIGCHLD-based reaping.
+      - name: Build pidfd workaround
+        run: gcc -shared -fPIC -o /tmp/no_pidfd.so scripts/no_pidfd.c -ldl
 
-      - name: Check formatting
-        working-directory: runtime
-        run: cargo fmt --all --check
-
-      - name: Cargo check
-        working-directory: runtime
-        run: cargo check --workspace --exclude wasmtime-runner
-
-      - name: Build WASM components
-        working-directory: runtime
+      - name: Moon CI
+        env:
+          LD_PRELOAD: /tmp/no_pidfd.so
+          MOON_TOOLCHAIN_FORCE_GLOBALS: "true"
         run: |
-          cargo component build --release --target wasm32-wasip2 \
-            -p ts-runtime-mcp -p tsx-engine -p sqlite-module -p ratatui-demo \
-            -p edtui-module -p stripe-module -p web-agent-tui -p web-headless-agent
-          cargo fmt --all
-
-      - name: Verify WASM outputs
-        run: |
-          for f in ts_runtime_mcp tsx_engine sqlite_module ratatui_demo \
-                   edtui_module stripe_module web_agent_tui web_headless_agent; do
-            test -f "target/wasm32-wasip2/release/${f}.wasm" || \
-            test -f "target/wasm32-wasip1/release/${f}.wasm" || \
-              { echo "Missing: ${f}.wasm"; exit 1; }
-          done
-          echo "All WASM components verified"
-
-      - name: Build Go WASM (stripe-cli)
-        working-directory: stripe-cli-wasm
-        run: |
-          cd stripe-cli && GOOS=wasip1 GOARCH=wasm go build -o ../stripe.wasm ./cmd/stripe
-          cd ..
-          wasm-tools component embed wit/ --world stripe:cli/stripe-cli stripe.wasm -o stripe-embedded.wasm
-          wasm-tools component new stripe-embedded.wasm --adapt wasi_snapshot_preview1=adapters/wasi_snapshot_preview1.command.wasm -o stripe-component.wasm
-          mkdir -p ../target/wasm32-wasip2/release
-          cp stripe-component.wasm ../target/wasm32-wasip2/release/stripe_go.wasm
-
-      - name: Check native (wasmtime-runner)
-        working-directory: runtime
-        run: cargo check -p wasmtime-runner
-
-      - name: Run Rust tests
-        working-directory: runtime
-        run: cargo test --features sqlite
-
-      - name: Transpile WASM to JS
-        run: |
-          node scripts/transpile.mjs
-          node scripts/transpile.mjs --sync
-
-      - name: Build packages and frontend
-        run: pnpm -r --filter '!frontend' run build && pnpm --filter frontend run build
-
-      - name: Copy externals
-        working-directory: frontend
-        run: |
-          mkdir -p dist/wasi-shims && cp ../packages/wasi-shims/browser-dist/*.js ../packages/wasi-shims/browser-dist/*.js.map dist/wasi-shims/ 2>/dev/null; cp ../packages/wasi-shims/dist/error.js ../packages/wasi-shims/dist/random.js dist/wasi-shims/ 2>/dev/null || true
-          mkdir -p dist/wasm-loader && cp ../packages/wasm-loader/dist/*.js ../packages/wasm-loader/dist/*.js.map dist/wasm-loader/ 2>/dev/null || true
-
-      - name: Run frontend tests
-        run: pnpm --filter frontend test
+          pnpm exec moon run \
+            runtime:fmt-check \
+            runtime:check \
+            runtime:build-wasm \
+            runtime:verify-wasm \
+            runtime:check-native \
+            runtime:test \
+            stripe-cli-wasm:build-go-wasm \
+            stripe-cli-wasm:adapt-component \
+            stripe-cli-wasm:copy-to-target \
+            frontend:build \
+            frontend:copy-externals \
+            frontend:test
 
       - name: Upload frontend artifact
         uses: actions/upload-artifact@v4
