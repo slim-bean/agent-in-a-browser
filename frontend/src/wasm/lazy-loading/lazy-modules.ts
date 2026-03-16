@@ -448,7 +448,7 @@ function createDirectGoAdapter(
                         httpBridge,
                     });
 
-                    goInstance.run();
+                    await goInstance.run();
                     exitCode = 0;
                     return 0;
                 } catch (err: unknown) {
