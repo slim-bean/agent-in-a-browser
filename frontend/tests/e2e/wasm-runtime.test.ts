@@ -468,8 +468,11 @@ test.describe('WASM Stripe CLI (Go Component)', () => {
         // Longer timeout for first load of 35MB Go WASM
         test.setTimeout(120000);
         const result = await shellEval(page, 'stripe --help');
-        // The Go CLI should output help text to stdout
-        expect(result.output).toContain('stripe');
+        // Go Cobra CLI writes help to stderr and exits with code 1,
+        // so the MCP tool returns it as an error result.
+        // Check both output and error fields for the help text.
+        const combined = result.output || result.error || '';
+        expect(combined).toContain('stripe');
     });
 
     test('stripe version returns version string', async ({ page }) => {
