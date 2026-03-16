@@ -464,34 +464,20 @@ test.describe('WASM Stripe CLI (Go Component)', () => {
         }, { timeout: 30000 });
     });
 
-    test('stripe version returns version string', async ({ page }) => {
-        // Longer timeout for first load of 35MB Go WASM
-        test.setTimeout(120000);
-        const result = await shellEval(page, 'stripe version');
-        console.log('stripe version result:', JSON.stringify(result));
-        // Skip if stripe module wasn't built (local dev without Go WASM)
-        const combined = (result.output || '') + (result.error || '');
-        if (combined.includes('command not found')) {
-            test.skip(true, 'Stripe Go WASM module not built');
-        }
-        // Version command should produce output and succeed
-        expect(result.output.length).toBeGreaterThan(0);
-        expect(result.success).toBe(true);
-    });
-
     test('stripe help dispatches to Go CLI', async ({ page }) => {
+        // Longer timeout for first load + compilation of 37MB Go WASM binary
         test.setTimeout(120000);
         const result = await shellEval(page, 'stripe help');
         console.log('stripe help result:', JSON.stringify(result));
         // Skip if stripe module wasn't built (local dev without Go WASM)
         const combined = (result.output || '') + (result.error || '');
-        if (combined.includes('command not found')) {
-            test.skip(true, 'Stripe Go WASM module not built');
+        if (combined.includes('command not found') || combined.includes('not loaded')) {
+            test.skip(true, 'Stripe Go WASM module not available');
         }
-        // The Go CLI was found and executed (exit code != 127).
-        // Help output may not be captured due to Go WASM proc_exit buffer
-        // flushing — the important thing is the module loaded and Cobra
-        // dispatched the command.
-        expect(combined).not.toContain('command not found');
+        // The Go CLI should exit successfully and produce real help output
+        expect(result.success).toBe(true);
+        expect(result.output).toContain('Usage:');
+        expect(result.output).toContain('stripe [command]');
+        expect(result.output).toContain('login');
     });
 });

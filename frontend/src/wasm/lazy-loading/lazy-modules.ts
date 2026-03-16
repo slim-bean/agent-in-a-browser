@@ -390,103 +390,75 @@ async function loadEdtuiModule(): Promise<CommandModule> {
  * configures the WASI CLI shims (args, env, streams) before calling run().
  */
 async function loadStripeModule(): Promise<CommandModule> {
-    console.log('[LazyLoader] Loading stripe-module (Go CLI)...');
+    console.log('[LazyLoader] Loading stripe-module (Go CLI, direct wasip1)...');
     const startTime = performance.now();
 
-    // Import the CLI shim configuration functions
-    const cliShim = await import('@tjfontaine/wasi-shims/ghostty-cli-shim.js');
+    // Import the direct wasip1 loader — bypasses the WASM Component Model
+    // to avoid stack overflow from adapter + JCO trampoline overhead.
+    // The raw wasip1 Go binary works fine; the component model adds too many
+    // call stack frames for Go's 568 init functions.
+    const { loadGoWasip1Module, GoWasmExit } = await import('./go-wasip1-loader.js');
 
-    // Dynamic import based on JSPI support
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let module: any;
-    if (hasJSPI) {
-        module = await import('@tjfontaine/wasm-stripe/wasm/stripe-module.js');
-    } else {
-        module = await import('@tjfontaine/wasm-stripe/wasm-sync/stripe-module.js');
-    }
+    // Import the HTTP bridge for network requests
+    const httpBridge = await import('@tjfontaine/wasi-shims/http-bridge-impl.js');
 
-    // With --tla-compat, we must await $init before accessing exports
-    if ('$init' in module) {
-        await (module as { $init: Promise<void> }).$init;
-    }
+    // The raw wasip1 binary is served from /wasm-stripe/stripe.wasm
+    const wasmUrl = '/wasm-stripe/stripe.wasm';
 
     const loadTime = performance.now() - startTime;
-    console.log(`[LazyLoader] stripe-module loaded in ${loadTime.toFixed(0)}ms`);
+    console.log(`[LazyLoader] stripe-module imports loaded in ${loadTime.toFixed(0)}ms`);
 
-    // The JCO-transpiled Go component exports `run` as a namespace containing `run()`.
-    // module.run.run() is the actual entry point (wasi:cli/run@0.2.6#run).
-    return createGoCliAdapter({ run: module.run.run.bind(module.run) }, cliShim);
+    return createDirectGoAdapter(loadGoWasip1Module, GoWasmExit, wasmUrl, httpBridge);
 }
 
 /**
- * Create an adapter that wraps a Go WASI CLI component (exporting wasi:cli/run)
- * to match the shell:unix/command interface expected by the lazy module system.
+ * Create a direct Go CLI adapter that instantiates the raw wasip1 binary
+ * per invocation, bypassing the WASM Component Model entirely.
  *
- * The Go component reads args/env from wasi:cli/environment and I/O from
- * wasi:cli/stdin/stdout/stderr. We configure the ghostty-cli-shim before
- * calling run() and clean up afterward.
+ * Go's _start() can only run once per WASM instance, so we create a fresh
+ * instance for each command invocation. The raw binary is ~37MB but compilation
+ * is cached by the browser after the first load.
  */
-function createGoCliAdapter(
-    goModule: { run: () => void | Promise<void> },
-    cliShim: {
-        setArguments: (args: string[]) => void;
-        setEnvironment: (env: [string, string][]) => void;
-        setInitialCwd: (cwd: string) => void;
-        clearCliConfig: () => void;
-        setPipedStreams: (
-            stdoutWrite: ((contents: Uint8Array) => bigint) | null,
-            stderrWrite: ((contents: Uint8Array) => bigint) | null,
-        ) => void;
-        clearPipedStreams: () => void;
+function createDirectGoAdapter(
+    loadGoWasip1Module: typeof import('./go-wasip1-loader.js')['loadGoWasip1Module'],
+    GoWasmExit: typeof import('./go-wasip1-loader.js')['GoWasmExit'],
+    wasmUrl: string,
+    httpBridge: {
+        request: (method: string, url: string, headers: string, body: Uint8Array) => number | Promise<number>;
+        responseStatus: (handle: number) => number;
+        responseHeaders: (handle: number) => string;
+        responseBodyRead: (handle: number, maxBytes: number) => Uint8Array;
+        responseClose: (handle: number) => void;
     },
 ): CommandModule {
     return {
         spawn(name, args, env, _stdin, stdout, stderr) {
-            console.log(`[GoCliAdapter] spawn: name=${name}, args=`, args);
+            console.log(`[GoDirectAdapter] spawn: name=${name}, args=`, args);
 
-            // Configure the WASI CLI shims so the Go component sees the right args/env
-            cliShim.setArguments([name, ...args]);
-            cliShim.setEnvironment(env.vars);
-            cliShim.setInitialCwd(env.cwd);
-
-            // Route stdout/stderr to the lazy loader's output streams
-            cliShim.setPipedStreams(
-                (contents: Uint8Array) => {
-                    stdout.write(contents);
-                    return BigInt(contents.length);
-                },
-                (contents: Uint8Array) => {
-                    stderr.write(contents);
-                    return BigInt(contents.length);
-                },
-            );
-
-            // Run the Go CLI component and track completion
             let exitCode: number | undefined;
-
-            const cleanup = () => {
-                cliShim.clearPipedStreams();
-                cliShim.clearCliConfig();
-            };
-
-            const extractExitCode = (err: unknown): number => {
-                if (err && typeof err === 'object' && 'exitError' in err) {
-                    return (err as { code?: number }).code ?? 1;
-                }
-                console.error('[GoCliAdapter] run() error:', err);
-                return 1;
-            };
 
             const executionPromise = (async () => {
                 try {
-                    await goModule.run();
+                    const goInstance = await loadGoWasip1Module(wasmUrl, {
+                        args: [name, ...args],
+                        env: env.vars,
+                        cwd: env.cwd,
+                        stdoutWrite: (data) => stdout.write(data),
+                        stderrWrite: (data) => stderr.write(data),
+                        httpBridge,
+                    });
+
+                    goInstance.run();
                     exitCode = 0;
                     return 0;
                 } catch (err: unknown) {
-                    exitCode = extractExitCode(err);
-                    return exitCode;
-                } finally {
-                    cleanup();
+                    if (err instanceof GoWasmExit) {
+                        exitCode = err.code;
+                        return err.code;
+                    }
+                    console.error('[GoDirectAdapter] run() error:', err);
+                    exitCode = 1;
+                    return 1;
                 }
             })();
 
