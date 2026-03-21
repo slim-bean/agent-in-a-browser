@@ -4,7 +4,7 @@
  * Compute-only worker — WASM assets are served from R2 CDN (cdn.edge-agent.dev).
  *
  * Routes:
- * - *.wasm                        → 301/302 redirect to cdn.edge-agent.dev
+ * - *.wasm                        → 301 redirect to cdn.edge-agent.dev/builds/{BUILD_ID}/...
  * - /cors-proxy                   → CORS proxy (allowlisted domains)
  * - /api/v1/*                     → Session management API
  * - {sid}.{tid}.sessions.edge-agent.dev/mcp       → MCP endpoint (→ SessionRelay DO)

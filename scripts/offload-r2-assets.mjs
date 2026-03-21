@@ -54,7 +54,9 @@ function walkDir(dir) {
 function collectAssets() {
     const assets = [];
 
-    // 1. All .wasm files from frontend/dist (Vite output)
+    // 1. All .wasm files from frontend/dist (Vite-bundled WASM components).
+    //    Deleted from dist after upload — the deploy workflow also strips them
+    //    because Workers static assets has a 25 MiB per-file limit.
     if (existsSync(DIST_DIR)) {
         for (const filePath of walkDir(DIST_DIR).filter(f => f.endsWith('.wasm'))) {
             assets.push({
@@ -65,7 +67,10 @@ function collectAssets() {
         }
     }
 
-    // 2. stripe.wasm — built separately by Go, not in dist
+    // 2. stripe.wasm — built separately by the Go toolchain, lives in
+    //    stripe-cli-wasm/ (not in dist). Kept in place after upload because
+    //    it's a build output, not a dist artifact, and Moon may need it for
+    //    cache validation.
     const stripeWasm = join(ROOT_DIR, 'stripe-cli-wasm', 'stripe.wasm');
     if (existsSync(stripeWasm)) {
         assets.push({

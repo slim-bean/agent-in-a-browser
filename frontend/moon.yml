@@ -53,6 +53,11 @@ tasks:
       - "web-agent-core:transpile"
       - "web-agent-core:transpile-sync"
 
+  # Copy non-Vite assets into dist/ that the app expects at runtime.
+  # stripe.wasm is included here for local dev (`vite dev`) and E2E tests
+  # (`vite preview`) which serve dist/ directly without a Worker to redirect
+  # .wasm requests to R2 CDN. In production, the Worker redirects *.wasm to
+  # cdn.edge-agent.dev and deploy-pages.yml strips .wasm from dist before deploy.
   copy-externals:
     script: "mkdir -p dist/wasi-shims && cp ../packages/wasi-shims/browser-dist/*.js ../packages/wasi-shims/browser-dist/*.js.map dist/wasi-shims/ 2>/dev/null; cp ../packages/wasi-shims/dist/error.js ../packages/wasi-shims/dist/random.js dist/wasi-shims/ 2>/dev/null || true && mkdir -p dist/wasm-loader && cp ../packages/wasm-loader/dist/*.js ../packages/wasm-loader/dist/*.js.map dist/wasm-loader/ 2>/dev/null || true && mkdir -p dist/wasm-stripe && cp ../stripe-cli-wasm/stripe.wasm dist/wasm-stripe/stripe.wasm 2>/dev/null || true"
     inputs:

@@ -38,8 +38,16 @@ binding = "API_KEYS"
 id = "2b0dabb7574f4bfb95aea34b7ec539d4"
 preview_id = "2322559f992941ba989985ae3acc4806"
 
-# Build ID for CDN asset versioning — overridden at deploy time via --var
-# Local dev uses "dev" so wasm redirects go to cdn.edge-agent.dev/builds/dev/...
+# WASM CDN asset versioning.
+#
+# All .wasm files are too large for Workers static assets (25 MiB limit) and
+# live on R2 instead (cdn.edge-agent.dev). The Worker redirects *.wasm requests
+# to cdn.edge-agent.dev/builds/{BUILD_ID}/... so each deploy gets a unique,
+# immutably-cached namespace. See worker/src/index.ts `redirectToCdn()`.
+#
+# In CI, deploy-pages.yml overrides this with `--var BUILD_ID:{github.sha}`.
+# The matching R2 upload happens in build.yml via scripts/offload-r2-assets.mjs.
+# Local dev uses "dev" — upload assets with `BUILD_ID=dev node scripts/offload-r2-assets.mjs`.
 [vars]
 BUILD_ID = "dev"
 

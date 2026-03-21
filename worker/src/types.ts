@@ -16,6 +16,9 @@ export interface Env {
     ASSETS: Fetcher;
     SESSION_RELAY: DurableObjectNamespace;
     API_KEYS: KVNamespace;
+    /** Git SHA injected at deploy time via `--var BUILD_ID:{sha}`.
+     *  Used to construct versioned CDN paths (cdn.edge-agent.dev/builds/{BUILD_ID}/...).
+     *  Each deploy gets a unique namespace so all .wasm redirects are 301 + immutable. */
     BUILD_ID: string;
 }
 

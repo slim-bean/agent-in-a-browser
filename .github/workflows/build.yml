@@ -79,6 +79,10 @@ jobs:
             frontend:copy-externals \
             frontend:test
 
+      # IMPORTANT: Artifact upload must happen BEFORE the R2 offload step.
+      # The offload script deletes .wasm files from dist/ after uploading them
+      # to R2. E2E tests (which download this artifact) need those .wasm files
+      # because they use `vite preview` with no Worker to redirect to the CDN.
       - name: Upload frontend artifact
         uses: actions/upload-artifact@v4
         if: always()
@@ -88,6 +92,10 @@ jobs:
           include-hidden-files: true
           retention-days: 7
 
+      # Upload all WASM assets to R2 at builds/{sha}/... paths.
+      # This includes both Vite-bundled .wasm from dist/ and stripe.wasm
+      # (built separately by Go). The script deletes dist .wasm files after
+      # upload — they're no longer needed here since the artifact is already saved.
       - name: Upload WASM assets to R2 CDN
         run: node scripts/offload-r2-assets.mjs
         env:
