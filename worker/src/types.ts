@@ -16,6 +16,7 @@ export interface Env {
     ASSETS: Fetcher;
     SESSION_RELAY: DurableObjectNamespace;
     API_KEYS: KVNamespace;
+    BUILD_ID: string;
 }
 
 // ============ Session Hostname Parsing ============

@@ -38,6 +38,11 @@ binding = "API_KEYS"
 id = "2b0dabb7574f4bfb95aea34b7ec539d4"
 preview_id = "2322559f992941ba989985ae3acc4806"
 
+# Build ID for CDN asset versioning — overridden at deploy time via --var
+# Local dev uses "dev" so wasm redirects go to cdn.edge-agent.dev/builds/dev/...
+[vars]
+BUILD_ID = "dev"
+
 # Observability configuration for better logging
 [observability]
 enabled = true

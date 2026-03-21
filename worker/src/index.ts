@@ -1,13 +1,15 @@
 /**
  * Edge Agent Cloudflare Worker
  *
+ * Compute-only worker — WASM assets are served from R2 CDN (cdn.edge-agent.dev).
+ *
  * Routes:
- * - agent.edge-agent.dev         → Main app (static assets with COOP/COEP headers)
- * - {sid}.{tid}.sessions.edge-agent.dev/mcp         → MCP endpoint (→ SessionRelay DO)
- * - {sid}.{tid}.sessions.edge-agent.dev/relay/ws     → Browser WebSocket (→ DO)
- * - {sid}.{tid}.sessions.edge-agent.dev/relay/status → Health check (→ DO)
- * - {sid}.{tid}.sessions.edge-agent.dev/*            → Frontend app (static assets)
- * - /cors-proxy                                       → CORS proxy (allowlisted domains)
+ * - *.wasm                        → 301/302 redirect to cdn.edge-agent.dev
+ * - /cors-proxy                   → CORS proxy (allowlisted domains)
+ * - /api/v1/*                     → Session management API
+ * - {sid}.{tid}.sessions.edge-agent.dev/mcp       → MCP endpoint (→ SessionRelay DO)
+ * - {sid}.{tid}.sessions.edge-agent.dev/relay/*   → WebSocket/status (→ DO)
+ * - everything else               → Static assets with COOP/COEP headers
  */
 
 import type { Env, CreateSessionRequest, CreateSessionResponse } from './types.js';
@@ -138,6 +140,26 @@ async function handleCorsProxy(request: Request): Promise<Response> {
         const message = err instanceof Error ? err.message : String(err);
         return new Response(`Proxy error: ${message}`, { status: 502 });
     }
+}
+
+// ============ CDN Redirect for WASM Assets ============
+
+/**
+ * Redirect .wasm requests to the R2 CDN (cdn.edge-agent.dev).
+ *
+ * All WASM files are served from an R2 public bucket with a custom domain.
+ * This avoids the 25 MiB per-file Workers static asset limit and keeps the
+ * Worker focused on compute (CORS proxy, sessions, Durable Objects).
+ *
+ * R2 keys are prefixed with `builds/{BUILD_ID}/` so each deploy gets a unique
+ * namespace. Since the URL changes per deploy, all redirects are 301 with
+ * immutable caching — browsers never serve stale content.
+ */
+const CDN_ORIGIN = 'https://cdn.edge-agent.dev';
+
+function redirectToCdn(pathname: string, buildId: string): Response {
+    const cdnUrl = `${CDN_ORIGIN}/builds/${buildId}${pathname}`;
+    return Response.redirect(cdnUrl, 301);
 }
 
 // ============ Static Assets with COOP/COEP ============
@@ -338,6 +360,11 @@ async function routeToSessionRelay(
     const url = new URL(request.url);
     const pathname = url.pathname;
 
+    // Redirect WASM requests to R2 CDN
+    if (pathname.endsWith('.wasm')) {
+        return redirectToCdn(pathname, env.BUILD_ID);
+    }
+
     // Only route session-specific paths to the DO
     if (pathname === '/mcp' || pathname.startsWith('/relay/')) {
         const doId = env.SESSION_RELAY.idFromName(`${tenantId}:${sid}`);
@@ -389,6 +416,11 @@ export default {
         // CORS proxy route (works on any hostname)
         if (url.pathname === '/cors-proxy') {
             return handleCorsProxy(request);
+        }
+
+        // Redirect WASM requests to R2 CDN
+        if (url.pathname.endsWith('.wasm')) {
+            return redirectToCdn(url.pathname, env.BUILD_ID);
         }
 
         // Default: serve static assets with COOP/COEP headers
