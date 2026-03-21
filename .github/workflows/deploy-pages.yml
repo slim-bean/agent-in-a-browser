@@ -30,6 +30,9 @@ jobs:
           if_no_artifact_found: warn
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Remove WASM assets from dist (served from R2 CDN)
+        run: find frontend/dist -name '*.wasm' -delete
+
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
