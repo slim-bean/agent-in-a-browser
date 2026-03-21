@@ -44,8 +44,9 @@ jobs:
             --repo WebAssembly/wasi-sdk \
             --pattern "wasi-sdk-${WASI_SDK_VERSION}.0-x86_64-linux.tar.gz" \
             --dir /tmp
-          tar xzf /tmp/wasi-sdk-${WASI_SDK_VERSION}.0-x86_64-linux.tar.gz -C /opt/
-          echo "WASI_SDK_PATH=/opt/wasi-sdk-${WASI_SDK_VERSION}.0-x86_64-linux" >> $GITHUB_ENV
+          mkdir -p "$HOME/.local"
+          tar xzf /tmp/wasi-sdk-${WASI_SDK_VERSION}.0-x86_64-linux.tar.gz -C "$HOME/.local/"
+          echo "WASI_SDK_PATH=$HOME/.local/wasi-sdk-${WASI_SDK_VERSION}.0-x86_64-linux" >> $GITHUB_ENV
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
