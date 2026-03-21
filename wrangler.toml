@@ -26,9 +26,12 @@ bindings = [
     { name = "SESSION_RELAY", class_name = "SessionRelay" }
 ]
 
+# Cloudflare free plan requires new_sqlite_classes (not new_classes) for
+# Durable Objects. This uses SQLite-backed storage which is the only option
+# available on free plans as of 2026.
 [[migrations]]
 tag = "v1"
-new_classes = ["SessionRelay"]
+new_sqlite_classes = ["SessionRelay"]
 
 # KV namespace for API key storage (deployer auth)
 # Create with: wrangler kv:namespace create API_KEYS
