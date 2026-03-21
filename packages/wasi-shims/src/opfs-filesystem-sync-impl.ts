@@ -54,6 +54,16 @@ interface TreeEntry {
     symlink?: string;
 }
 
+/** WASI descriptor-flags record — matches JCO-generated DescriptorFlags interface */
+interface DescriptorFlags {
+    read?: boolean;
+    write?: boolean;
+    fileIntegritySync?: boolean;
+    dataIntegritySync?: boolean;
+    requestedWriteSync?: boolean;
+    mutateDirectory?: boolean;
+}
+
 // Shared state with helper worker
 let controlArray: Int32Array | null = null;
 let dataArray: Uint8Array | null = null;
@@ -321,13 +331,19 @@ class _DescriptorSync {
     private path: string;
     private treeEntry: TreeEntry;
     private isRoot: boolean;
+    private descriptorFlags: DescriptorFlags;
 
-    constructor(path: string, entry: TreeEntry) {
+    constructor(path: string, entry: TreeEntry, flags?: DescriptorFlags) {
         this.path = path;
         this.treeEntry = entry;
         this.isRoot = path === '' || path === '/';
+        this.descriptorFlags = flags ?? { read: true, write: true };
         // Symbol marker for patched instanceof checks (cross-bundle validation)
         Object.defineProperty(this, DESCRIPTOR_SYNC_MARKER, { value: true, enumerable: false });
+    }
+
+    getFlags(): DescriptorFlags {
+        return this.descriptorFlags;
     }
 
     getType(): 'directory' | 'regular-file' {
@@ -419,8 +435,7 @@ class _DescriptorSync {
         _pathFlags: number,
         subpath: string,
         openFlags: { create?: boolean; directory?: boolean; truncate?: boolean },
-        _descriptorFlags: number,
-        _modes: number
+        descriptorFlags: DescriptorFlags,
     ): Descriptor {
         let fullPath = resolvePath(this.path, subpath);
         let entry = getTreeEntry(fullPath);
@@ -460,7 +475,7 @@ class _DescriptorSync {
             entry.size = 0;
         }
 
-        return new Descriptor(fullPath, entry);
+        return new Descriptor(fullPath, entry, descriptorFlags);
     }
 
     // SYNC: create directory
@@ -680,6 +695,23 @@ class _DescriptorSync {
     symlinkAt(oldPath: string, newPath: string): void {
         const fullNewPath = resolvePath(this.path, newPath);
         setTreeEntry(fullNewPath, { symlink: oldPath });
+    }
+
+    /**
+     * Called by JCO's resource-drop trampoline when WASI closes a file descriptor.
+     * No-op for the sync shim — the helper worker manages file handles.
+     */
+    private _dispose(): void {
+        // Intentionally empty: sqlite-module wraps statements in BEGIN EXCLUSIVE /
+        // COMMIT which flushes all dirty pages (including the header) to disk.
+    }
+
+    [Symbol.dispose](): void {
+        this._dispose();
+    }
+
+    [Symbol.for('dispose')](): void {
+        this._dispose();
     }
 
     isSameObject(other: Descriptor): boolean {

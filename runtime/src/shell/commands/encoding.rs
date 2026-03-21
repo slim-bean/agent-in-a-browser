@@ -223,10 +223,23 @@ impl EncodingCommands {
             let (_, remaining) = parse_common(&args);
             let mut reverse = false;
             let mut file = None;
+            let mut skip: usize = 0;
+            let mut length: Option<usize> = None;
 
-            for arg in &remaining {
+            let mut iter = remaining.iter();
+            while let Some(arg) = iter.next() {
                 match arg.as_str() {
                     "-r" => reverse = true,
+                    "-s" => {
+                        if let Some(val) = iter.next() {
+                            skip = val.parse().unwrap_or(0);
+                        }
+                    }
+                    "-l" | "-len" => {
+                        if let Some(val) = iter.next() {
+                            length = val.parse().ok();
+                        }
+                    }
                     s if !s.starts_with('-') => file = Some(s.to_string()),
                     _ => {}
                 }
@@ -272,11 +285,21 @@ impl EncodingCommands {
                 }
                 let _ = stdout.write_all(&bytes).await;
             } else {
+                // Apply -s (skip) and -l (length) to select a slice of input
+                let start = skip.min(input.len());
+                let end = if let Some(l) = length {
+                    (start + l).min(input.len())
+                } else {
+                    input.len()
+                };
+                let data = &input[start..end];
+
                 // Create hexdump
-                for (offset, chunk) in input.chunks(16).enumerate() {
-                    // Offset
+                for (idx, chunk) in data.chunks(16).enumerate() {
+                    // Offset (relative to original file, not the slice)
+                    let offset = start + idx * 16;
                     let _ = stdout
-                        .write_all(format!("{:08x}: ", offset * 16).as_bytes())
+                        .write_all(format!("{:08x}: ", offset).as_bytes())
                         .await;
 
                     // Hex bytes

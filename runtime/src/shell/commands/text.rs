@@ -1,6 +1,6 @@
 //! Text processing commands: grep, wc, sort, uniq, head, tail, tee
 
-use futures_lite::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use futures_lite::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use futures_lite::StreamExt;
 use lexopt::prelude::*;
 use runtime_macros::shell_commands;
@@ -470,14 +470,21 @@ impl TextCommands {
             };
 
             if files.is_empty() {
-                let mut content = String::new();
-                let reader = BufReader::new(stdin);
-                let mut lines_iter = reader.lines();
-                while let Some(Ok(line)) = lines_iter.next().await {
-                    content.push_str(&line);
-                    content.push('\n');
+                // Read raw bytes from stdin for accurate byte counting
+                let mut raw = Vec::new();
+                let mut reader = BufReader::new(stdin);
+                let mut buf = [0u8; 4096];
+                loop {
+                    match reader.read(&mut buf).await {
+                        Ok(0) => break,
+                        Ok(n) => raw.extend_from_slice(&buf[..n]),
+                        Err(_) => break,
+                    }
                 }
-                let (l, w, c) = count_content(&content);
+                let content = String::from_utf8_lossy(&raw);
+                let (l, w, _) = count_content(&content);
+                // Byte count from raw data (not string) for -c accuracy
+                let c = raw.len();
                 let _ = stdout
                     .write_all(format_counts(l, w, c, None).as_bytes())
                     .await;
@@ -486,9 +493,13 @@ impl TextCommands {
                 for file in &files {
                     let path = resolve_path(&cwd, &file);
 
-                    match std::fs::read_to_string(&path) {
-                        Ok(content) => {
-                            let (l, w, c) = count_content(&content);
+                    // Read as bytes first for accurate byte counting,
+                    // then convert to string for line/word counting
+                    match std::fs::read(&path) {
+                        Ok(data) => {
+                            let content = String::from_utf8_lossy(&data);
+                            let (l, w, _) = count_content(&content);
+                            let c = data.len();
                             total.0 += l;
                             total.1 += w;
                             total.2 += c;

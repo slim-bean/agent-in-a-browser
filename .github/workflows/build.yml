@@ -35,6 +35,16 @@ jobs:
           curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
           cargo binstall -y --log-level info cargo-component wit-deps-cli wasm-tools
 
+      - name: Install wasi-sdk
+        run: |
+          WASI_SDK_VERSION=32
+          gh release download "wasi-sdk-${WASI_SDK_VERSION}" \
+            --repo WebAssembly/wasi-sdk \
+            --pattern "wasi-sdk-${WASI_SDK_VERSION}.0-x86_64-linux.tar.gz" \
+            --dir /tmp
+          tar xzf /tmp/wasi-sdk-${WASI_SDK_VERSION}.0-x86_64-linux.tar.gz -C /opt/
+          echo "WASI_SDK_PATH=/opt/wasi-sdk-${WASI_SDK_VERSION}.0-x86_64-linux" >> $GITHUB_ENV
+
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 

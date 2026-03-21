@@ -45,10 +45,21 @@ import {
 } from './symlink-store';
 import { hasJSPI } from './execution-mode';
 
+/** WASI descriptor-flags record — matches JCO-generated DescriptorFlags interface */
+interface DescriptorFlags {
+    read?: boolean;
+    write?: boolean;
+    fileIntegritySync?: boolean;
+    dataIntegritySync?: boolean;
+    requestedWriteSync?: boolean;
+    mutateDirectory?: boolean;
+}
+
 // Global buffer cache for files being written via streams without sync handles.
 // This persists data across writeViaStream() calls since each call creates a new OutputStream.
 // Key: normalized file path, Value: accumulated binary data
 const fileBufferCache = new Map<string, Uint8Array>();
+
 // Register with directory-tree so getEntryFromOpfs can find buffered files
 registerFileBufferCache(fileBufferCache);
 
@@ -114,23 +125,54 @@ const DESCRIPTOR_MARKER = Symbol.for('wasi:filesystem/types@0.2.9#Descriptor');
 class OpfsDescriptor {
     // Factory method to ensure we always use the singleton class for instantiation.
     // Works even if the module is loaded multiple times (e.g. via @fs bypass).
-    static create(path: string, entry: TreeEntry): OpfsDescriptor {
+    static create(path: string, entry: TreeEntry, flags?: DescriptorFlags): OpfsDescriptor {
         const KEY = Symbol.for('wasi:Descriptor');
         const singletons = globalThis as unknown as Record<symbol, typeof OpfsDescriptor | undefined>;
         const Ctor = singletons[KEY] ?? OpfsDescriptor;
-        return new Ctor(path, entry);
+        return new Ctor(path, entry, flags);
     }
 
     private path: string;
     private treeEntry: TreeEntry;
     private isRoot: boolean;
+    private descriptorFlags: DescriptorFlags;
 
-    constructor(path: string, entry: TreeEntry) {
+    constructor(path: string, entry: TreeEntry, flags?: DescriptorFlags) {
         this.path = path;
         this.treeEntry = entry;
         this.isRoot = path === '' || path === '/';
+        this.descriptorFlags = flags ?? { read: true, write: true };
         // Symbol marker for patched instanceof checks (cross-bundle validation)
         Object.defineProperty(this, DESCRIPTOR_MARKER, { value: true, enumerable: false });
+    }
+
+    /**
+     * Called by JCO's resource-drop trampoline when WASI closes a file descriptor.
+     * Releases the SyncAccessHandle so the file can be opened again or removed.
+     * JCO uses `Symbol.dispose || Symbol.for('dispose')` — we implement both.
+     */
+    private _dispose(): void {
+        const normalizedPath = normalizePath(this.path);
+        const handle = syncHandleCache.get(normalizedPath);
+        if (handle) {
+            try {
+                handle.flush();
+                handle.close();
+            } catch (_e) {
+                // Already closed
+            }
+            syncHandleCache.delete(normalizedPath);
+        }
+        // Flush any buffered data
+        fileBufferCache.delete(normalizedPath);
+    }
+
+    [Symbol.dispose](): void {
+        this._dispose();
+    }
+
+    [Symbol.for('dispose')](): void {
+        this._dispose();
     }
 
     getType(): 'directory' | 'regular-file' {
@@ -148,7 +190,20 @@ class OpfsDescriptor {
             type = 'directory';
         } else if (this.treeEntry.size !== undefined) {
             type = 'regular-file';
-            size = BigInt(this.treeEntry.size);
+
+            // Use the SyncAccessHandle's authoritative size when available,
+            // falling back to treeEntry.size (which may be stale after writes
+            // from a different descriptor or prior invocation).
+            const handle = syncHandleCache.get(normalizePath(this.path));
+            if (handle) {
+                try {
+                    size = BigInt(handle.getSize());
+                } catch {
+                    size = BigInt(this.treeEntry.size);
+                }
+            } else {
+                size = BigInt(this.treeEntry.size);
+            }
         }
 
         const mtime = msToDatetime(this.treeEntry.mtime);
@@ -181,9 +236,18 @@ class OpfsDescriptor {
         } else if (entry.symlink !== undefined) {
             type = 'symbolic-link';
         } else {
-            // File (size may be 0 or undefined for newly created files)
+            // File — prefer SyncAccessHandle's authoritative size
             type = 'regular-file';
-            size = BigInt(entry.size || 0);
+            const handle = syncHandleCache.get(normalizePath(resolvedPath));
+            if (handle) {
+                try {
+                    size = BigInt(handle.getSize());
+                } catch {
+                    size = BigInt(entry.size || 0);
+                }
+            } else {
+                size = BigInt(entry.size || 0);
+            }
         }
 
         const mtime = msToDatetime(entry.mtime);
@@ -202,8 +266,7 @@ class OpfsDescriptor {
         pathFlags: number,
         subpath: string,
         openFlags: { create?: boolean; directory?: boolean; truncate?: boolean },
-        _descriptorFlags: number,
-        _modes: number
+        descriptorFlags: DescriptorFlags,
     ): Promise<Descriptor> {
         const rawPath = this.resolvePath(subpath);
         // Follow symlinks: check path-flags bit 0, but also always resolve
@@ -265,7 +328,29 @@ class OpfsDescriptor {
             }
         }
 
-        return OpfsDescriptor.create(fullPath, entry);
+        // For regular files, eagerly acquire a SyncAccessHandle so reads/writes
+        // use the sync path and unlinkFileAt can reliably close it before removal.
+        if (entry.dir === undefined && entry.symlink === undefined) {
+            const cachedHandle = syncHandleCache.get(normalizedPath);
+            if (!cachedHandle) {
+                try {
+                    const fileHandle = await getOpfsFile(normalizedPath, !!openFlags.create);
+                    const syncHandle = await fileHandle.createSyncAccessHandle();
+                    syncHandleCache.set(normalizedPath, syncHandle);
+
+                    // If truncate requested, truncate via the sync handle
+                    if (openFlags.truncate) {
+                        syncHandle.truncate(0);
+                        syncHandle.flush();
+                    }
+                } catch (e) {
+                    // Non-fatal: reads/writes will use async fallback
+                    console.error('[opfs-fs] openAt: FAILED to acquire sync handle:', normalizedPath, e);
+                }
+            }
+        }
+
+        return OpfsDescriptor.create(fullPath, entry, descriptorFlags);
     }
 
     private async createOpfsFile(path: string): Promise<void> {
@@ -342,10 +427,10 @@ class OpfsDescriptor {
 
         const handle = syncHandleCache.get(normalizedPath);
         if (handle) {
-            const size = handle.getSize();
-
             return new InputStream({
                 read(len: bigint): Uint8Array {
+                    // Always get current size — file may have grown since stream creation
+                    const size = handle.getSize();
                     if (offset >= size) {
                         return new Uint8Array(0);
                     }
@@ -356,6 +441,7 @@ class OpfsDescriptor {
                     return buffer;
                 },
                 blockingRead(len: bigint): Uint8Array {
+                    const size = handle.getSize();
                     if (offset >= size) {
                         return new Uint8Array(0);
                     }
@@ -468,6 +554,7 @@ class OpfsDescriptor {
         const path = this.path;
         const normalizedPath = normalizePath(path);
         let offset = Number(_offset);
+
         const entry = this.treeEntry;
 
         const handle = syncHandleCache.get(normalizedPath);
@@ -583,7 +670,8 @@ class OpfsDescriptor {
     }
 
     sync(): void {
-        const handle = syncHandleCache.get(this.path);
+        const np = normalizePath(this.path);
+        const handle = syncHandleCache.get(np);
         if (handle) {
             handle.flush();
         }
@@ -661,9 +749,8 @@ class OpfsDescriptor {
         // Advisory information for access pattern - no-op for OPFS
     }
 
-    getFlags(): number {
-        // Return default flags (read/write)
-        return 0;
+    getFlags(): DescriptorFlags {
+        return this.descriptorFlags;
     }
 
     /**
@@ -947,9 +1034,9 @@ class OpfsDescriptor {
             return;
         }
 
+        // Close any SyncAccessHandle held for this path (or children if directory)
+        // to avoid NoModificationAllowedError during OPFS removal
         if (isDirectory) {
-            // Close all sync handles for files under this directory
-            // to avoid NoModificationAllowedError during recursive removal
             const pathPrefix = path + '/';
             for (const [handlePath, handle] of syncHandleCache) {
                 if (handlePath === path || handlePath.startsWith(pathPrefix)) {
@@ -963,7 +1050,26 @@ class OpfsDescriptor {
             }
             await parentDir.removeEntry(name, { recursive: true });
         } else {
-            await parentDir.removeEntry(name);
+            const cachedHandle = syncHandleCache.get(path);
+            if (cachedHandle) {
+                try {
+                    cachedHandle.close();
+                } catch (e) {
+                    console.warn('[opfs-fs] Failed to close handle during unlink:', path, e);
+                }
+                syncHandleCache.delete(path);
+            }
+            // Also clear any buffered data for this file
+            fileBufferCache.delete(path);
+            try {
+                await parentDir.removeEntry(name);
+            } catch (e) {
+                // OPFS may reject removeEntry if a handle is still open from
+                // a concurrent operation. Retry once after a microtask yield
+                // to allow pending handle closes to complete.
+                await new Promise(r => setTimeout(r, 0));
+                await parentDir.removeEntry(name);
+            }
         }
     }
     isSameObject(other: Descriptor): boolean { return other === this; }

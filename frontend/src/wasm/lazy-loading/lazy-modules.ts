@@ -242,7 +242,9 @@ async function loadSqliteModule(): Promise<CommandModule> {
         return wrapJspiModule(module.command as unknown as Parameters<typeof wrapJspiModule>[0]);
     }
     // Wrap the sync command interface to provide spawn()
-    return wrapSyncModule(module.command);
+    // Cast through unknown: sqlite's JCO-generated InputStream includes subscribe()
+    // (used by libsqlite3-sys internally) while tsx's does not, causing structural mismatch.
+    return wrapSyncModule(module.command as unknown as Parameters<typeof wrapSyncModule>[0]);
 }
 
 /**

@@ -456,6 +456,444 @@ test.describe('Git Commands', () => {
     });
 });
 
+test.describe('OPFS SyncAccessHandle Primitives', () => {
+    // These tests exercise OPFS directly in a dedicated Worker,
+    // completely bypassing the WASM/WASI/shim stack.
+    // This validates our assumptions about browser OPFS behavior.
+
+    /**
+     * Run an OPFS test inside a dedicated Worker via page.evaluate().
+     * The function string is executed in a Worker context with access to
+     * navigator.storage.getDirectory() and SyncAccessHandle APIs.
+     */
+    async function opfsWorkerTest(page: Page, testFn: string): Promise<{ ok: boolean; result: string; error?: string }> {
+        return await page.evaluate(async (fnBody) => {
+            // Create a blob URL for a Worker that runs the test
+            const workerCode = `
+                self.onmessage = async function() {
+                    try {
+                        const root = await navigator.storage.getDirectory();
+                        // Helper to get/create a test file
+                        async function getTestFile(name, create = true) {
+                            if (create) {
+                                return await root.getFileHandle(name, { create: true });
+                            }
+                            return await root.getFileHandle(name);
+                        }
+                        // Helper to remove a test file
+                        async function removeTestFile(name) {
+                            try { await root.removeEntry(name); } catch(e) {}
+                        }
+                        ${fnBody}
+                    } catch(e) {
+                        self.postMessage({ ok: false, result: '', error: e.message || String(e) });
+                    }
+                };
+            `;
+            const blob = new Blob([workerCode], { type: 'application/javascript' });
+            const url = URL.createObjectURL(blob);
+            const worker = new Worker(url);
+
+            return new Promise<{ ok: boolean; result: string; error?: string }>((resolve) => {
+                const timeout = setTimeout(() => {
+                    worker.terminate();
+                    resolve({ ok: false, result: '', error: 'Worker timeout (10s)' });
+                }, 10000);
+
+                worker.onmessage = (e) => {
+                    clearTimeout(timeout);
+                    worker.terminate();
+                    URL.revokeObjectURL(url);
+                    resolve(e.data);
+                };
+
+                worker.onerror = (e) => {
+                    clearTimeout(timeout);
+                    worker.terminate();
+                    URL.revokeObjectURL(url);
+                    resolve({ ok: false, result: '', error: e.message || 'Worker error' });
+                };
+
+                worker.postMessage('run');
+            });
+        }, testFn);
+    }
+
+    test('SyncAccessHandle write and read at offset 0', async ({ page }) => {
+        await page.goto('/wasm-test.html');
+        const r = await opfsWorkerTest(page, `
+            await removeTestFile('test-basic.dat');
+            const fh = await getTestFile('test-basic.dat');
+            const handle = await fh.createSyncAccessHandle();
+            const data = new TextEncoder().encode('HELLO');
+            handle.write(data, { at: 0 });
+            handle.flush();
+            const readBuf = new Uint8Array(5);
+            handle.read(readBuf, { at: 0 });
+            handle.close();
+            await removeTestFile('test-basic.dat');
+            const got = new TextDecoder().decode(readBuf);
+            self.postMessage({ ok: got === 'HELLO', result: got });
+        `);
+        expect(r.error).toBeUndefined();
+        expect(r.ok).toBe(true);
+        expect(r.result).toBe('HELLO');
+    });
+
+    test('SyncAccessHandle write at two offsets preserves both', async ({ page }) => {
+        await page.goto('/wasm-test.html');
+        const r = await opfsWorkerTest(page, `
+            await removeTestFile('test-offsets.dat');
+            const fh = await getTestFile('test-offsets.dat');
+            const handle = await fh.createSyncAccessHandle();
+            // Write "AAAA" at offset 0
+            handle.write(new TextEncoder().encode('AAAA'), { at: 0 });
+            // Write "BBBB" at offset 4096
+            handle.write(new TextEncoder().encode('BBBB'), { at: 4096 });
+            handle.flush();
+            // Read back both
+            const buf1 = new Uint8Array(4);
+            handle.read(buf1, { at: 0 });
+            const buf2 = new Uint8Array(4);
+            handle.read(buf2, { at: 4096 });
+            handle.close();
+            await removeTestFile('test-offsets.dat');
+            const got1 = new TextDecoder().decode(buf1);
+            const got2 = new TextDecoder().decode(buf2);
+            self.postMessage({ ok: got1 === 'AAAA' && got2 === 'BBBB', result: got1 + '|' + got2 });
+        `);
+        expect(r.error).toBeUndefined();
+        expect(r.ok).toBe(true);
+        expect(r.result).toBe('AAAA|BBBB');
+    });
+
+    test('SyncAccessHandle getSize reflects writes', async ({ page }) => {
+        await page.goto('/wasm-test.html');
+        const r = await opfsWorkerTest(page, `
+            await removeTestFile('test-size.dat');
+            const fh = await getTestFile('test-size.dat');
+            const handle = await fh.createSyncAccessHandle();
+            // Write 8192 bytes
+            handle.write(new Uint8Array(8192), { at: 0 });
+            handle.flush();
+            const size = handle.getSize();
+            handle.close();
+            await removeTestFile('test-size.dat');
+            self.postMessage({ ok: size === 8192, result: 'size=' + size });
+        `);
+        expect(r.error).toBeUndefined();
+        expect(r.ok).toBe(true);
+        expect(r.result).toBe('size=8192');
+    });
+
+    test('SyncAccessHandle close and reopen preserves data', async ({ page }) => {
+        await page.goto('/wasm-test.html');
+        const r = await opfsWorkerTest(page, `
+            await removeTestFile('test-reopen.dat');
+            const fh1 = await getTestFile('test-reopen.dat');
+            const h1 = await fh1.createSyncAccessHandle();
+            // Write two pages
+            const page1 = new Uint8Array(4096);
+            page1.set(new TextEncoder().encode('PAGE1'));
+            h1.write(page1, { at: 0 });
+            const page2 = new Uint8Array(4096);
+            page2.set(new TextEncoder().encode('PAGE2'));
+            h1.write(page2, { at: 4096 });
+            h1.flush();
+            h1.close();
+
+            // Reopen and read
+            const fh2 = await getTestFile('test-reopen.dat', false);
+            const h2 = await fh2.createSyncAccessHandle();
+            const size = h2.getSize();
+            const r1 = new Uint8Array(5);
+            h2.read(r1, { at: 0 });
+            const r2 = new Uint8Array(5);
+            h2.read(r2, { at: 4096 });
+            h2.close();
+            await removeTestFile('test-reopen.dat');
+            const s1 = new TextDecoder().decode(r1);
+            const s2 = new TextDecoder().decode(r2);
+            self.postMessage({ ok: s1 === 'PAGE1' && s2 === 'PAGE2' && size === 8192, result: s1 + '|' + s2 + '|size=' + size });
+        `);
+        expect(r.error).toBeUndefined();
+        expect(r.ok).toBe(true);
+        expect(r.result).toBe('PAGE1|PAGE2|size=8192');
+    });
+
+    test('SyncAccessHandle overwrite at offset preserves other data', async ({ page }) => {
+        await page.goto('/wasm-test.html');
+        const r = await opfsWorkerTest(page, `
+            await removeTestFile('test-overwrite.dat');
+            const fh = await getTestFile('test-overwrite.dat');
+            const handle = await fh.createSyncAccessHandle();
+            // Write 8192 zeros
+            handle.write(new Uint8Array(8192), { at: 0 });
+            // Write "PAGE1" at 0 and "PAGE2" at 4096
+            handle.write(new TextEncoder().encode('PAGE1'), { at: 0 });
+            handle.write(new TextEncoder().encode('PAGE2'), { at: 4096 });
+            handle.flush();
+            // Overwrite only offset 4096
+            handle.write(new TextEncoder().encode('XXXXX'), { at: 4096 });
+            handle.flush();
+            // Read both back
+            const b1 = new Uint8Array(5);
+            handle.read(b1, { at: 0 });
+            const b2 = new Uint8Array(5);
+            handle.read(b2, { at: 4096 });
+            handle.close();
+            await removeTestFile('test-overwrite.dat');
+            const s1 = new TextDecoder().decode(b1);
+            const s2 = new TextDecoder().decode(b2);
+            self.postMessage({ ok: s1 === 'PAGE1' && s2 === 'XXXXX', result: s1 + '|' + s2 });
+        `);
+        expect(r.error).toBeUndefined();
+        expect(r.ok).toBe(true);
+        expect(r.result).toBe('PAGE1|XXXXX');
+    });
+
+    test('SyncAccessHandle simulates SQLite write pattern', async ({ page }) => {
+        // Mimics what SQLite does: write header page, write data page,
+        // close, reopen, read back
+        await page.goto('/wasm-test.html');
+        const r = await opfsWorkerTest(page, `
+            await removeTestFile('test-sqlite-pattern.db');
+            const fh1 = await getTestFile('test-sqlite-pattern.db');
+            const h1 = await fh1.createSyncAccessHandle();
+
+            // Write SQLite-like header (page 1, 4096 bytes)
+            const headerPage = new Uint8Array(4096);
+            const magic = new TextEncoder().encode('SQLite format 3');
+            headerPage.set(magic, 0);
+            headerPage[0x10] = 0x10; // page_size = 4096 (big-endian)
+            headerPage[0x11] = 0x00;
+            headerPage[0x1C] = 0x00; // page_count = 2 (big-endian)
+            headerPage[0x1D] = 0x00;
+            headerPage[0x1E] = 0x00;
+            headerPage[0x1F] = 0x02;
+            h1.write(headerPage, { at: 0 });
+
+            // Write data page (page 2, 4096 bytes)
+            const dataPage = new Uint8Array(4096);
+            dataPage.set(new TextEncoder().encode('TABLE_DATA_HERE'), 0);
+            h1.write(dataPage, { at: 4096 });
+            h1.flush();
+            h1.close();
+
+            // Reopen and verify
+            const fh2 = await getTestFile('test-sqlite-pattern.db', false);
+            const h2 = await fh2.createSyncAccessHandle();
+            const size = h2.getSize();
+
+            // Read header
+            const hdr = new Uint8Array(32);
+            h2.read(hdr, { at: 0 });
+            const magicRead = new TextDecoder().decode(hdr.slice(0, 15));
+            const pageCount = (hdr[0x1C] << 24) | (hdr[0x1D] << 16) | (hdr[0x1E] << 8) | hdr[0x1F];
+
+            // Read data page
+            const dp = new Uint8Array(15);
+            h2.read(dp, { at: 4096 });
+            const dataRead = new TextDecoder().decode(dp);
+            h2.close();
+            await removeTestFile('test-sqlite-pattern.db');
+
+            const allOk = size === 8192 && magicRead === 'SQLite format 3' && pageCount === 2 && dataRead === 'TABLE_DATA_HERE';
+            self.postMessage({ ok: allOk, result: 'size=' + size + ' magic=' + magicRead + ' pages=' + pageCount + ' data=' + dataRead });
+        `);
+        expect(r.error).toBeUndefined();
+        expect(r.ok).toBe(true);
+        expect(r.result).toContain('size=8192');
+        expect(r.result).toContain('magic=SQLite format 3');
+        expect(r.result).toContain('pages=2');
+        expect(r.result).toContain('data=TABLE_DATA_HERE');
+    });
+});
+
+test.describe('OPFS via WASI Shim (through Rust)', () => {
+    // These tests exercise the OPFS shim through the WASM/WASI layer
+    // using shell commands that work (echo, cat, wc, xxd, writeFile/readFile).
+    // This validates the shim's stat, write, read, and cross-invocation persistence.
+
+    test.beforeEach(async ({ page }) => {
+        await page.goto('/wasm-test.html');
+        await page.waitForFunction(() => {
+            return window.testHarness?.ready === true;
+        }, { timeout: 30000 });
+    });
+
+    test('text file persists across shell invocations', async ({ page }) => {
+        const write = await shellEval(page, `echo "hello world" > /tmp/opfs-text.txt`);
+        expect(write.success).toBe(true);
+        const read = await shellEval(page, `cat /tmp/opfs-text.txt`);
+        expect(read.success).toBe(true);
+        expect(read.output.trim()).toBe('hello world');
+    });
+
+    test('writeFile/readFile MCP tools persist content', async ({ page }) => {
+        await writeFile(page, '/tmp/opfs-mcp.txt', 'mcp content');
+        const content = await readFile(page, '/tmp/opfs-mcp.txt');
+        expect(content).toBe('mcp content');
+    });
+
+    test('wc -c reports correct file size', async ({ page }) => {
+        // Write a known-size file via echo (no trailing newline surprise)
+        const write = await shellEval(page, `echo -n "${'x'.repeat(100)}" > /tmp/opfs-wc.txt`);
+        expect(write.success).toBe(true);
+        const wc = await shellEval(page, `wc -c < /tmp/opfs-wc.txt`);
+        expect(wc.success).toBe(true);
+        expect(parseInt(wc.output.trim())).toBe(100);
+    });
+
+    test('file created by sqlite3 has correct header via xxd', async ({ page }) => {
+        // Create a database, then verify the raw bytes on disk
+        const create = await shellEval(page, `sqlite3 /tmp/opfs-header.db "CREATE TABLE t(x); INSERT INTO t VALUES(1)"`);
+        expect(create.success).toBe(true);
+
+        // Read the first 16 bytes — should be SQLite magic
+        const xxd = await shellEval(page, `xxd -l 16 /tmp/opfs-header.db`);
+        expect(xxd.success).toBe(true);
+        expect(xxd.output).toContain('5351 4c69 7465 2066 6f72 6d61 7420 33');
+    });
+
+    test('large text file survives close and reopen', async ({ page }) => {
+        // Write a file larger than a single OPFS page
+        const bigContent = 'ABCDEFGH'.repeat(1024); // 8KB
+        await writeFile(page, '/tmp/opfs-large.txt', bigContent);
+        const read = await readFile(page, '/tmp/opfs-large.txt');
+        expect(read.length).toBe(bigContent.length);
+        expect(read).toBe(bigContent);
+    });
+
+    test('overwrite replaces file content', async ({ page }) => {
+        await writeFile(page, '/tmp/opfs-overwrite.txt', 'first');
+        await writeFile(page, '/tmp/opfs-overwrite.txt', 'second');
+        const content = await readFile(page, '/tmp/opfs-overwrite.txt');
+        expect(content).toBe('second');
+    });
+
+    test('sqlite3 file size grows with data', async ({ page }) => {
+        // Create a database and check size
+        await shellEval(page, `sqlite3 /tmp/opfs-grow.db "CREATE TABLE t(x TEXT)"`);
+        const size1 = await shellEval(page, `wc -c < /tmp/opfs-grow.db`);
+        expect(size1.success).toBe(true);
+        const s1 = parseInt(size1.output.trim());
+
+        // Insert enough data to force page allocation (>4088 usable bytes per page)
+        await shellEval(page, `sqlite3 /tmp/opfs-grow.db "INSERT INTO t VALUES('${'x'.repeat(8000)}')"`);
+        const size2 = await shellEval(page, `wc -c < /tmp/opfs-grow.db`);
+        expect(size2.success).toBe(true);
+        const s2 = parseInt(size2.output.trim());
+        expect(s2).toBeGreaterThan(s1);
+    });
+});
+
+test.describe('SQLite3 (rusqlite WASM)', () => {
+    test.beforeEach(async ({ page }) => {
+        await page.goto('/wasm-test.html');
+        await page.waitForFunction(() => {
+            return window.testHarness?.ready === true;
+        }, { timeout: 30000 });
+    });
+
+    test('sqlite3 executes inline SQL on :memory:', async ({ page }) => {
+        const result = await shellEval(page, 'sqlite3 "SELECT 1 + 2"');
+        expect(result.success).toBe(true);
+        expect(result.output.trim()).toBe('3');
+    });
+
+    test('sqlite3 creates table and inserts rows', async ({ page }) => {
+        const result = await shellEval(page, `sqlite3 "CREATE TABLE t(id INTEGER, name TEXT); INSERT INTO t VALUES(1,'alice'),(2,'bob'); SELECT * FROM t"`);
+        expect(result.success).toBe(true);
+        expect(result.output).toContain('1|alice');
+        expect(result.output).toContain('2|bob');
+    });
+
+    test('sqlite3 supports multiple statements', async ({ page }) => {
+        const result = await shellEval(page, `sqlite3 "CREATE TABLE nums(n); INSERT INTO nums VALUES(10),(20),(30); SELECT SUM(n) FROM nums"`);
+        expect(result.success).toBe(true);
+        expect(result.output.trim()).toBe('60');
+    });
+
+    test('sqlite3 handles NULL values', async ({ page }) => {
+        const result = await shellEval(page, `sqlite3 "SELECT NULL, 42, 'text'"`);
+        expect(result.success).toBe(true);
+        expect(result.output.trim()).toBe('|42|text');
+    });
+
+    test('sqlite3 supports aggregate functions', async ({ page }) => {
+        const result = await shellEval(page, `sqlite3 "CREATE TABLE scores(v REAL); INSERT INTO scores VALUES(1.5),(2.5),(3.0); SELECT COUNT(*), AVG(v), MIN(v), MAX(v) FROM scores"`);
+        expect(result.success).toBe(true);
+        const cols = result.output.trim().split('|');
+        expect(cols[0]).toBe('3');
+        expect(parseFloat(cols[1])).toBeCloseTo(2.333, 2);
+        expect(parseFloat(cols[2])).toBe(1.5);
+        expect(parseFloat(cols[3])).toBe(3.0);
+    });
+
+    test('sqlite3 reads SQL from stdin via pipe', async ({ page }) => {
+        const result = await shellEval(page, `echo "SELECT 'piped'" | sqlite3`);
+        expect(result.success).toBe(true);
+        expect(result.output.trim()).toBe('piped');
+    });
+
+    test('sqlite3 CREATE + INSERT on file-backed db', async ({ page }) => {
+        const r = await shellEval(page, `sqlite3 /tmp/test-ci.db "CREATE TABLE t(x); INSERT INTO t VALUES(1)"`);
+        expect(r.success).toBe(true);
+    });
+
+    test('sqlite3 file size after CREATE TABLE', async ({ page }) => {
+        // Create a database with just a table
+        const create = await shellEval(page, `sqlite3 /tmp/test-size.db "CREATE TABLE t(x)"`);
+        expect(create.success).toBe(true);
+
+        // Check the file size via wc
+        const wc = await shellEval(page, `wc -c < /tmp/test-size.db`);
+        console.log('wc -c:', JSON.stringify(wc));
+
+        // Check via xxd (reads raw binary data)
+        const xxd = await shellEval(page, `xxd -l 32 /tmp/test-size.db`);
+        console.log('xxd:', xxd.output);
+
+        // Check via ls -l
+        const ls = await shellEval(page, `ls -l /tmp/test-size.db`);
+        console.log('ls -l:', ls.output);
+
+        // The file should have data — xxd should show SQLite magic
+        expect(xxd.success).toBe(true);
+        expect(xxd.output).toContain('5351 4c69'); // "SQLi" in hex
+    });
+
+    test('sqlite3 persists data to a file-backed database', async ({ page }) => {
+        // Write data in first invocation
+        const write = await shellEval(page, `sqlite3 /tmp/test.db "CREATE TABLE IF NOT EXISTS kv(k TEXT, v TEXT); INSERT INTO kv VALUES('hello','world'); SELECT v FROM kv WHERE k='hello'"`);
+        expect(write.success).toBe(true);
+        expect(write.output.trim()).toBe('world');
+
+        // Read back in a separate invocation
+        const read = await shellEval(page, `sqlite3 /tmp/test.db "SELECT v FROM kv WHERE k='hello'"`);
+        expect(read.success).toBe(true);
+        expect(read.output.trim()).toBe('world');
+    });
+
+    test('sqlite3 reports error on invalid SQL', async ({ page }) => {
+        const result = await shellEval(page, 'sqlite3 "NOT VALID SQL"');
+        expect(result.success).toBe(false);
+    });
+
+    test('sqlite3 supports FTS5 full-text search', async ({ page }) => {
+        const result = await shellEval(page, `sqlite3 "CREATE VIRTUAL TABLE docs USING fts5(content); INSERT INTO docs VALUES('the quick brown fox'),('lazy dog jumps'); SELECT content FROM docs WHERE docs MATCH 'quick'"`);
+        expect(result.success).toBe(true);
+        expect(result.output.trim()).toBe('the quick brown fox');
+    });
+
+    test('sqlite3 supports JSON functions', async ({ page }) => {
+        const result = await shellEval(page, `sqlite3 "SELECT json_extract('{\"a\":1,\"b\":2}', '$.b')"`);
+        expect(result.success).toBe(true);
+        expect(result.output.trim()).toBe('2');
+    });
+});
+
 test.describe('WASM Stripe CLI (Go Component)', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/wasm-test.html');

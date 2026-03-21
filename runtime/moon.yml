@@ -39,6 +39,21 @@ tasks:
 
   build-wasm:
     script: "cargo component build --release --target wasm32-wasip2 -p ts-runtime-mcp -p tsx-engine -p sqlite-module -p ratatui-demo -p edtui-module -p stripe-module -p web-agent-tui -p web-headless-agent && cargo fmt --all"
+    env:
+      # libsqlite3-sys (bundled) needs a C cross-compiler targeting WASI.
+      # WASI_SDK_PATH must point to the wasi-sdk installation root.
+      # Set locally (e.g. export WASI_SDK_PATH=~/.local/wasi-sdk-32.0-arm64-macos)
+      # or via CI (see .github/workflows/build.yml).
+      CC_wasm32_wasip1: "${WASI_SDK_PATH}/bin/clang"
+      CC_wasm32_wasip2: "${WASI_SDK_PATH}/bin/clang"
+      CFLAGS_wasm32_wasip1: "--sysroot=${WASI_SDK_PATH}/share/wasi-sysroot"
+      # libsqlite3-sys build.rs only checks TARGET=="wasm32-wasi" (exact match),
+      # missing wasm32-wasip2. Pass the same flags it would set for wasm32-wasi:
+      # THREADSAFE=0 avoids pthread mutex calls; LONGDOUBLE_TYPE=double because
+      # WASM has no long double; _WASI_EMULATED_* enables emulated POSIX APIs.
+      # unix-none VFS bypasses fcntl locking (ENOSYS on WASI); the OPFS
+      # SyncAccessHandle provides implicit exclusive access instead.
+      CFLAGS_wasm32_wasip2: "-DSQLITE_THREADSAFE=0 -DLONGDOUBLE_TYPE=double -D_WASI_EMULATED_MMAN -D_WASI_EMULATED_GETPID -D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS -DSQLITE_DEFAULT_UNIX_VFS=\"unix-none\" --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot"
     inputs:
       - "@group(rust-sources)"
       - "@group(cargo-configs)"
