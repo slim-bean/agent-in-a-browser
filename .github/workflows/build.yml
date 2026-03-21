@@ -43,7 +43,7 @@ jobs:
           gh release download "wasi-sdk-${WASI_SDK_VERSION}" \
             --repo WebAssembly/wasi-sdk \
             --pattern "wasi-sdk-${WASI_SDK_VERSION}.0-x86_64-linux.tar.gz" \
-            --dir /tmp
+            --dir /tmp --clobber
           mkdir -p "$HOME/.local"
           tar xzf /tmp/wasi-sdk-${WASI_SDK_VERSION}.0-x86_64-linux.tar.gz -C "$HOME/.local/"
           echo "WASI_SDK_PATH=$HOME/.local/wasi-sdk-${WASI_SDK_VERSION}.0-x86_64-linux" >> $GITHUB_ENV
