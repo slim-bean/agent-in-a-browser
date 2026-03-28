@@ -24,8 +24,10 @@ jobs:
       - name: Checkout submodules
         run: git submodule update --init stripe-cli-wasm/stripe-cli
 
+      # Pin Rust toolchain — 1.94.0 introduced a wasm-component-ld linker
+      # regression. Unpin once the issue is resolved upstream.
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.93.0
         with:
           targets: wasm32-wasip2
           components: rustfmt
