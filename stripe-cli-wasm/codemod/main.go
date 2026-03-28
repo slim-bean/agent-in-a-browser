@@ -114,10 +114,11 @@ type Context struct {
 }
 
 func resolveOverlaysDir() string {
-	// Try relative to the Go source (for `go run ./codemod`)
+	// Try relative to the Go source (for `go run ./codemod` from stripe-cli-wasm/)
+	// Overlays live at stripe-cli-wasm/overlays/ (sibling to codemod/)
 	candidates := []string{
-		filepath.Join("codemod", "overlays"),  // from stripe-cli-wasm/
-		"overlays",                            // from codemod/
+		"overlays",                                // from stripe-cli-wasm/
+		filepath.Join("..", "overlays"),            // from codemod/
 	}
 	for _, c := range candidates {
 		if abs, err := filepath.Abs(c); err == nil && dirExists(abs) {
@@ -126,7 +127,7 @@ func resolveOverlaysDir() string {
 	}
 	// Fallback: relative to executable
 	if exe, err := os.Executable(); err == nil {
-		d := filepath.Join(filepath.Dir(exe), "overlays")
+		d := filepath.Join(filepath.Dir(exe), "..", "overlays")
 		if dirExists(d) {
 			return d
 		}

@@ -13,10 +13,12 @@ tasks:
   # Step 0: Apply WASM codemod to stripe-cli checkout
   # Idempotent — safe to re-run on already-patched code
   apply-codemod:
-    script: "cd codemod && go run . --target ../stripe-cli"
+    script: "cd codemod && GOTOOLCHAIN=auto go run . --target ../stripe-cli"
     inputs:
       - "codemod/**/*"
+      - "overlays/**/*"
       - "patches/**/*"
+      - "stripe-cli/go.mod"
 
   # Step 1: Compile the Go stripe-cli fork to wasip1
   # Requires: Go installed, stripe-cli submodule initialized
