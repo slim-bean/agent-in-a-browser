@@ -61,6 +61,8 @@ jobs:
         with:
           go-version: "1.24"
           cache: false
+        env:
+          GOTOOLCHAIN: auto
 
       - name: Install Node dependencies
         run: pnpm install --frozen-lockfile

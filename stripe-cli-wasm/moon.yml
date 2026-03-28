@@ -10,10 +10,20 @@ workspace:
     exclude: ["build"]
 
 tasks:
+  # Step 0: Apply WASM codemod to stripe-cli checkout
+  # Idempotent — safe to re-run on already-patched code
+  apply-codemod:
+    script: "cd codemod && GOTOOLCHAIN=auto go run . --target ../stripe-cli"
+    inputs:
+      - "codemod/**/*"
+      - "overlays/**/*"
+      - "patches/**/*"
+      - "stripe-cli/go.mod"
+
   # Step 1: Compile the Go stripe-cli fork to wasip1
-  # Requires: Go 1.21+ installed, stripe-cli fork cloned to ./stripe-cli/
+  # Requires: Go installed, stripe-cli submodule initialized
   build-go-wasm:
-    script: "cd stripe-cli && GOOS=wasip1 GOARCH=wasm go build -o ../stripe.wasm ./cmd/stripe"
+    script: "cd stripe-cli && GOTOOLCHAIN=auto GOOS=wasip1 GOARCH=wasm go build -o ../stripe.wasm ./cmd/stripe"
     inputs:
       - "stripe-cli/**/*.go"
       - "stripe-cli/go.mod"
@@ -21,6 +31,8 @@ tasks:
       - "patches/**/*.go"
     outputs:
       - "stripe.wasm"
+    deps:
+      - "~:apply-codemod"
 
   # Step 2: Embed WIT metadata for custom bridge imports, then adapt wasip1→wasip2
   # The embed step tells wasm-tools about the stripe:bridge imports.

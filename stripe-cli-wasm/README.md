@@ -6,83 +6,94 @@ Go-compiled Stripe CLI adapted for browser execution as a WASM component.
 
 ```
 stripe-cli (Go fork)
+    ↓ codemod/apply (Go AST transforms)
+stripe-cli (patched for wasip1)
     ↓ GOOS=wasip1 GOARCH=wasm go build
 stripe.wasm (core module)
     ↓ wasm-tools component new --adapt p1→p2
 stripe-component.wasm (wasip2 component)
-    ↓ wasm-tools compose with Rust shim
-stripe_module.wasm (exports shell:unix/command)
     ↓ JCO transpile (scripts/transpile.mjs)
 packages/wasm-stripe/wasm/stripe-module.js
     ↓ lazy-loaded by frontend
 Browser terminal: `stripe customers list`
 ```
 
+## Codemod
+
+The `codemod/` directory contains a Go tool that transforms a clean upstream
+stripe-cli checkout into a wasip1-compatible build. It uses Go's native AST
+tooling (`go/ast`, `go/parser`, `golang.org/x/tools/go/ast/astutil`) for
+correct, idempotent transformations.
+
+### What the codemod does
+
+1. **Copies overlay files** — new Go files (wasmbridge package, wasip1 stubs,
+   platform-split function files) into the stripe-cli source tree
+2. **Injects build tags** — prepends `//go:build !wasip1` to files that use
+   unavailable syscalls (gRPC, subprocess, git, terminal hardware)
+3. **Extracts functions** — moves `newHTTPClient` and `EditConfig` out of their
+   original files into platform-split pairs (`_wasip1.go` / `!wasip1`)
+4. **Removes unused imports** — cleans up imports left behind by extraction
+5. **Patches go.mod** — adds `replace` directive for WASI-compatible logrus
+
+### Running the codemod
+
+```sh
+cd codemod && go run . --target ../stripe-cli
+# Or with build verification:
+cd codemod && go run . --target ../stripe-cli --verify
+# Dry run (no changes):
+cd codemod && go run . --target ../stripe-cli --dry-run
+```
+
+### Updating to a new upstream version
+
+```sh
+cd stripe-cli
+git fetch upstream
+git rebase upstream/master
+# Re-apply codemod (idempotent — skips already-applied changes)
+cd ../codemod && go run . --target ../stripe-cli --verify
+# Commit and push
+cd ../stripe-cli && git add -A && git commit -m "feat: update wasip1 WASM support"
+git push origin wasip1-wasm-support --force-with-lease
+```
+
+If upstream introduced new files that break the WASM build, update
+`codemod/manifest.go` to add new exclusions or stubs, add any needed overlay
+files to `codemod/overlays/`, then re-run.
+
 ## Setup
 
-### 1. Fork & Clone stripe-cli
+### 1. Initialize the submodule
 
 ```sh
-cd stripe-cli-wasm/
-git clone https://github.com/YOUR_FORK/stripe-cli.git
+git submodule update --init stripe-cli-wasm/stripe-cli
 ```
 
-### 2. Apply WASM patches to the fork
-
-The Go code needs these modifications for wasip1 compatibility:
-
-**Replace HTTP transport** — In `pkg/stripe/client.go`, inject the WASM bridge `RoundTripper`:
-
-```go
-//go:build wasip1
-
-package stripe
-
-import "github.com/stripe/stripe-cli/stripe-cli-wasm/wasm-bridge"
-
-func newHTTPClient(unixSocket string) *http.Client {
-    return &http.Client{Transport: &wasmbridge.Transport{}}
-}
-```
-
-**Replace WebSocket** — In `pkg/websocket/client.go`, use the WASM bridge WebSocket.
-
-**Build-tag exclusions** — Add `//go:build !wasip1` to files using:
-- `pkg/rpcservice/` (gRPC server)
-- `pkg/plugins/` (HashiCorp go-plugin)
-- `pkg/open/` (browser opening)
-- `pkg/git/editor.go` (external editor)
-- `pkg/useragent/uname_unix.go` (syscall.Uname)
-
-**Stub replacements** — Add `//go:build wasip1` stubs for:
-- Signal handling (no-op)
-- Terminal detection (always true)
-- Keyring (in-memory)
-- os.Hostname (returns "wasm")
-- homedir (returns "/")
-
-### 3. Download the p1→p2 adapter
+### 2. Download the p1→p2 adapter
 
 ```sh
-# Download from bytecodealliance/wasmtime releases
 curl -L -o adapters/wasi_snapshot_preview1.command.wasm \
   https://github.com/bytecodealliance/wasmtime/releases/latest/download/wasi_snapshot_preview1.command.wasm
 ```
 
-### 4. Build via Moon
+### 3. Build via Moon
 
 ```sh
-# Full pipeline: Go build → adapt → compose → transpile
-moon run stripe-cli-wasm:compose wasm-stripe:transpile wasm-stripe:transpile-sync
+# Full pipeline: codemod → Go build → adapt → transpile
+moon run stripe-cli-wasm:build-go-wasm stripe-cli-wasm:adapt-component \
+  stripe-cli-wasm:copy-to-target wasm-stripe:transpile wasm-stripe:transpile-sync
 ```
 
 Or step by step:
 ```sh
-moon run stripe-cli-wasm:build-go-wasm     # Step 1: Go → wasip1 WASM
-moon run stripe-cli-wasm:adapt-component   # Step 2: wasip1 → wasip2 component
-moon run stripe-cli-wasm:compose           # Step 3: Compose with Rust shim
-moon run wasm-stripe:transpile             # Step 4: JCO transpile (JSPI)
-moon run wasm-stripe:transpile-sync        # Step 5: JCO transpile (sync)
+moon run stripe-cli-wasm:apply-codemod       # Step 0: Apply WASM codemod
+moon run stripe-cli-wasm:build-go-wasm       # Step 1: Go → wasip1 WASM
+moon run stripe-cli-wasm:adapt-component     # Step 2: wasip1 → wasip2 component
+moon run stripe-cli-wasm:copy-to-target      # Step 3: Copy to shared target
+moon run wasm-stripe:transpile               # Step 4: JCO transpile (JSPI)
+moon run wasm-stripe:transpile-sync          # Step 5: JCO transpile (sync)
 ```
 
 ## Directory Structure
@@ -91,11 +102,24 @@ moon run wasm-stripe:transpile-sync        # Step 5: JCO transpile (sync)
 stripe-cli-wasm/
 ├── moon.yml                    # Moon build tasks
 ├── README.md
-├── stripe-cli/                 # Forked stripe-cli repo (git submodule)
-├── wasm-bridge/
-│   ├── transport.go            # HTTP RoundTripper via //go:wasmimport
-│   ├── websocket.go            # WebSocket client via //go:wasmimport
-│   └── stubs.go                # OS stubs (terminal, hostname, etc.)
+├── stripe-cli/                 # Fork of stripe/stripe-cli (git submodule)
+├── codemod/
+│   ├── main.go                 # CLI entry point
+│   ├── manifest.go             # Declarative spec of all modifications
+│   ├── overlay.go              # Copy overlay files
+│   ├── buildtag.go             # Build tag injection/amendment
+│   ├── extract.go              # Function extraction via go/ast
+│   ├── replace.go              # Inline replacements + import cleanup
+│   ├── gomod.go                # go.mod patching via x/mod/modfile
+│   └── overlays/               # New Go files copied into stripe-cli
+│       ├── pkg/wasmbridge/     # HTTP/WS bridge via //go:wasmimport
+│       ├── pkg/stripe/         # Platform-split HTTP client
+│       ├── pkg/config/         # Platform-split EditConfig
+│       ├── cmd/stripe/         # Platform-split telemetry client
+│       └── ...                 # wasip1 stub files
+├── patches/
+│   └── logrus/                 # WASI-compatible logrus fork
+├── wasm-bridge/                # Reference copies of bridge Go files
 ├── wit/
 │   ├── http-bridge.wit         # WIT for http_bridge imports
 │   └── ws-bridge.wit           # WIT for ws_bridge imports
@@ -114,7 +138,7 @@ These are mapped by JCO in `scripts/transpile.mjs` via `--map` flags.
 
 ## Risks & Known Issues
 
-- **Binary size**: Go WASM binaries are large (~30-50MB). Consider `wasm-opt -Oz` and brotli compression.
+- **Binary size**: Go WASM binaries are large (~40MB). Consider `wasm-opt -Oz` and brotli compression.
 - **Goroutine scheduler**: Go's goroutine scheduler in WASM is single-threaded. Concurrent HTTP requests are serialized.
 - **CORS**: Browser cross-origin restrictions apply. Stripe API calls may need the CORS proxy (`/cors-proxy`).
 - **Custom sections**: Go's wasip1 output may include custom sections that `wasm-tools component new` doesn't handle. Use `wasm-tools strip` if needed.
