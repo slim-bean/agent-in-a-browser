@@ -13,12 +13,17 @@ import (
 	"golang.org/x/tools/go/ast/astutil"
 )
 
-// applyFunctionExtractions removes functions from source files.
-// The functions have already been placed in overlay files; this prevents
+// applyFunctionExtractions removes functions and vars from source files.
+// The declarations have already been placed in overlay files; this prevents
 // duplicate symbol errors.
 func applyFunctionExtractions(ctx *Context) error {
 	for _, ext := range Manifest.FuncExtractions {
 		if err := extractFunction(ctx, ext); err != nil {
+			return err
+		}
+	}
+	for _, ext := range Manifest.VarExtractions {
+		if err := extractVar(ctx, ext); err != nil {
 			return err
 		}
 	}
@@ -91,6 +96,101 @@ func extractFunction(ctx *Context, ext FuncExtraction) error {
 	f.Decls = newDecls
 
 	// Write back
+	var buf bytes.Buffer
+	cfg := &printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
+	if err := cfg.Fprint(&buf, fset, f); err != nil {
+		return fmt.Errorf("print %s: %w", ext.File, err)
+	}
+
+	return os.WriteFile(path, buf.Bytes(), 0o644)
+}
+
+// extractVar removes a package-level var declaration from a source file.
+// Handles `var Name = ...` patterns (including `var Name = func(...) { ... }`).
+func extractVar(ctx *Context, ext VarExtraction) error {
+	path := filepath.Join(ctx.TargetDir, ext.File)
+	if !fileExists(path) {
+		fmt.Printf("  [skip] %s (not found)\n", ext.File)
+		return nil
+	}
+
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
+	if err != nil {
+		return fmt.Errorf("parse %s: %w", ext.File, err)
+	}
+
+	found := false
+	var newDecls []ast.Decl
+	for _, decl := range f.Decls {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if !ok || genDecl.Tok != token.VAR {
+			newDecls = append(newDecls, decl)
+			continue
+		}
+
+		// Check if this GenDecl contains our target var
+		match := false
+		for _, spec := range genDecl.Specs {
+			vs, ok := spec.(*ast.ValueSpec)
+			if !ok {
+				continue
+			}
+			for _, name := range vs.Names {
+				if name.Name == ext.VarName {
+					match = true
+					break
+				}
+			}
+		}
+
+		if !match {
+			newDecls = append(newDecls, decl)
+			continue
+		}
+
+		// If the GenDecl has multiple specs, only remove the matching one
+		if len(genDecl.Specs) > 1 {
+			var newSpecs []ast.Spec
+			for _, spec := range genDecl.Specs {
+				vs, ok := spec.(*ast.ValueSpec)
+				if ok {
+					isTarget := false
+					for _, name := range vs.Names {
+						if name.Name == ext.VarName {
+							isTarget = true
+						}
+					}
+					if isTarget {
+						found = true
+						continue
+					}
+				}
+				newSpecs = append(newSpecs, spec)
+			}
+			genDecl.Specs = newSpecs
+			newDecls = append(newDecls, decl)
+		} else {
+			found = true
+			if genDecl.Doc != nil {
+				removeCommentGroup(f, genDecl.Doc)
+			}
+		}
+	}
+
+	if !found {
+		fmt.Printf("  [skip] %s: var %s not found (already extracted?)\n", ext.File, ext.VarName)
+		return nil
+	}
+
+	fmt.Printf("  removed var %s from %s\n", ext.VarName, ext.File)
+
+	if ctx.DryRun {
+		return nil
+	}
+
+	f.Decls = newDecls
+
 	var buf bytes.Buffer
 	cfg := &printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
 	if err := cfg.Fprint(&buf, fset, f); err != nil {

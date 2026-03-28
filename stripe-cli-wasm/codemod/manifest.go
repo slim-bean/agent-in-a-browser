@@ -50,11 +50,19 @@ type GoModReplace struct {
 	Comment     string
 }
 
+// VarExtraction describes a package-level var to remove from a source file.
+// Used for `var Name = func(...)` patterns where the var has been moved to an overlay.
+type VarExtraction struct {
+	File    string // Relative path to the Go source file
+	VarName string // Variable name to remove
+}
+
 // Spec is the complete codemod specification.
 type Spec struct {
 	BuildTagExclusions  []BuildTagExclusion
 	BuildTagAmendments  []BuildTagAmendment
 	FuncExtractions     []FuncExtraction
+	VarExtractions      []VarExtraction
 	InlineReplacements  []InlineReplacement
 	ImportRemovals      []ImportRemoval
 	GoModReplaces       []GoModReplace
@@ -89,9 +97,8 @@ var Manifest = Spec{
 		{File: "pkg/cmd/samples/create.go"},
 		{File: "pkg/cmd/samples/list.go"},
 
-		// pkg/fixtures/ — requires file I/O patterns unavailable in WASI
-		{File: "pkg/fixtures/fixtures.go"},
-		{File: "pkg/fixtures/triggers.go"},
+		// NOTE: pkg/fixtures/ is NO LONGER excluded — real fixtures work in WASM.
+		// The Edit var (which imports pkg/git) is extracted to platform-split files.
 
 		// pkg/git/ — requires subprocess (git, editor)
 		{File: "pkg/git/editor.go"},
@@ -119,6 +126,14 @@ var Manifest = Spec{
 		{File: "pkg/stripe/client.go", FuncName: "newHTTPClient"},
 		// EditConfig extracted to edit_config.go / edit_config_wasip1.go
 		{File: "pkg/config/config.go", FuncName: "EditConfig", Receiver: "*Config"},
+		// getFixtureFilenameWithWildcard extracted to fixtures_edit.go (uses os.CreateTemp pattern)
+		{File: "pkg/fixtures/fixtures.go", FuncName: "getFixtureFilenameWithWildcard"},
+	},
+
+	VarExtractions: []VarExtraction{
+		// Edit var extracted to fixtures_edit.go / fixtures_edit_wasip1.go
+		// (imports pkg/git which is excluded from wasip1 builds)
+		{File: "pkg/fixtures/fixtures.go", VarName: "Edit"},
 	},
 
 	InlineReplacements: []InlineReplacement{
@@ -136,6 +151,8 @@ var Manifest = Spec{
 		{File: "pkg/stripe/client.go", ImportPath: "time"},
 		// After extracting EditConfig, this import is no longer needed in config.go
 		{File: "pkg/config/config.go", ImportPath: "github.com/stripe/stripe-cli/pkg/git"},
+		// After extracting Edit var, git import is no longer needed in fixtures.go
+		{File: "pkg/fixtures/fixtures.go", ImportPath: "github.com/stripe/stripe-cli/pkg/git"},
 		// After inline replacement in main.go
 		{File: "cmd/stripe/main.go", ImportPath: "net/http"},
 		{File: "cmd/stripe/main.go", ImportPath: "time"},
