@@ -101,7 +101,7 @@ runtime/
 │   │
 │   ├── sqlite-module/      # SQLite database support
 │   │   ├── Cargo.toml
-│   │   ├── src/lib.rs      # turso_core SQLite wrapper
+│   │   ├── src/lib.rs      # rusqlite SQLite wrapper
 │   │   └── wit/            # Component world definition
 │   │
 │   ├── edtui-module/       # Vim-style editor

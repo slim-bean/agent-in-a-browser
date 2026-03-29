@@ -25,8 +25,6 @@ mod archive;
 mod git;
 #[cfg(feature = "sqlite")]
 mod sql;
-#[cfg(feature = "sqlite")]
-mod wasi_io;
 
 pub use self::core::CoreCommands;
 pub use self::encoding::EncodingCommands;

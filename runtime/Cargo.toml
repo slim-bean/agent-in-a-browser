@@ -24,8 +24,8 @@ tsx = [
     "dep:swc_ecma_visit",
 ]
 
-# SQLite database (turso_core)
-sqlite = ["dep:turso_core"]
+# SQLite database (rusqlite, bundled)
+sqlite = ["dep:rusqlite"]
 
 # Archive tools (tar, gzip, bzip2, zip)
 archive = ["dep:tar", "dep:flate2", "dep:bzip2", "dep:zip_next"]
@@ -107,10 +107,9 @@ brush-parser = "0.3.0"
 regex = "1"
 itertools = "0.14"
 
-# SQLite - Turso core (optional)
-turso_core = { git = "https://github.com/tjfontaine/turso.git", branch = "fix/simsimd-wasm-conditional", default-features = false, features = [
-    "fs",
-    "uuid",
+# SQLite (optional, bundled compiles sqlite3.c from source)
+rusqlite = { version = "0.32", default-features = false, features = [
+    "bundled",
 ], optional = true }
 
 # Archive handling - pure Rust implementations (optional)

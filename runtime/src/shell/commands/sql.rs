@@ -1,19 +1,17 @@
 //! SQL commands: sqlite3
 //!
-//! Provides SQL database functionality using turso_core.
+//! Provides SQL database functionality using rusqlite (bundled sqlite3).
 //! Matches the standard sqlite3 CLI interface.
 
 use futures_lite::io::AsyncWriteExt;
 use runtime_macros::shell_commands;
-use std::sync::Arc;
+
+use rusqlite::{Connection, OpenFlags};
 
 use super::super::ShellEnv;
 use super::parse_common;
-use super::wasi_io::WasiIO;
 
-use turso_core::{Database, MemoryIO, IO};
-
-/// SQL commands using turso_core.
+/// SQL commands using rusqlite.
 pub struct SqlCommands;
 
 #[shell_commands]
@@ -34,14 +32,10 @@ impl SqlCommands {
         Box::pin(async move {
             let (_, remaining) = parse_common(&args);
             // Parse positional arguments: [DATABASE] [SQL]
-            // If only one arg, it could be DATABASE or SQL
-            // If arg looks like a path or :memory:, treat as DATABASE
-            // Otherwise treat as SQL
             let (db_path, sql_arg): (String, Option<String>) = match remaining.len() {
                 0 => (":memory:".to_string(), None),
                 1 => {
                     let arg = &remaining[0];
-                    // If it looks like a database path/name, use it as database
                     if arg == ":memory:"
                         || arg.ends_with(".db")
                         || arg.ends_with(".sqlite")
@@ -50,12 +44,10 @@ impl SqlCommands {
                     {
                         (arg.clone(), None)
                     } else {
-                        // Treat as SQL
                         (":memory:".to_string(), Some(arg.clone()))
                     }
                 }
                 _ => {
-                    // First arg is database, rest is SQL
                     let db = remaining[0].clone();
                     let sql = remaining[1..].join(" ");
                     (db, Some(sql))
@@ -66,7 +58,6 @@ impl SqlCommands {
             let sql = if let Some(s) = sql_arg {
                 s
             } else {
-                // Read from stdin
                 use futures_lite::io::AsyncReadExt;
                 let mut buf = Vec::new();
                 let mut reader = stdin;
@@ -79,89 +70,123 @@ impl SqlCommands {
                 return 1;
             }
 
-            // Create IO backend based on database path
-            let io: Arc<dyn IO> = if db_path == ":memory:" {
-                Arc::new(MemoryIO::new())
-            } else {
-                Arc::new(WasiIO::new())
-            };
+            // Run all SQLite operations synchronously (rusqlite types are !Send),
+            // then write collected output asynchronously.
+            let result = execute_sql(&db_path, &sql);
 
-            // Open database
-            let db = match Database::open_file(io.clone(), &db_path) {
-                Ok(db) => db,
-                Err(e) => {
-                    let msg = format!("Error: unable to open database \"{}\": {}\n", db_path, e);
-                    let _ = stderr.write_all(msg.as_bytes()).await;
-                    return 1;
-                }
-            };
-
-            // Get a connection
-            let conn = match db.connect() {
-                Ok(c) => c,
-                Err(e) => {
-                    let msg = format!("Error: {}\n", e);
-                    let _ = stderr.write_all(msg.as_bytes()).await;
-                    return 1;
-                }
-            };
-
-            // Execute SQL statements (split by semicolon for multiple statements)
-            let statements: Vec<&str> = sql
-                .split(';')
-                .map(|s| s.trim())
-                .filter(|s| !s.is_empty())
-                .collect();
-
-            for stmt_sql in statements {
-                // Query returns Option<Statement>
-                let mut stmt = match conn.query(stmt_sql) {
-                    Ok(Some(s)) => s,
-                    Ok(None) => {
-                        // Empty statement, skip
-                        continue;
+            match result {
+                Ok(output) => {
+                    for line in &output {
+                        let _ = stdout.write_all(line.as_bytes()).await;
+                        let _ = stdout.write_all(b"\n").await;
                     }
-                    Err(e) => {
-                        let msg = format!("Error: {}\n", e);
-                        let _ = stderr.write_all(msg.as_bytes()).await;
-                        return 1;
-                    }
-                };
-
-                // Collect rows first, then write — avoids nested block_on which panics in WASM
-                let mut rows: Vec<String> = Vec::new();
-                let result = stmt.run_with_row_callback(|row| {
-                    let values = row.get_values();
-                    let formatted: Vec<String> = values.map(format_value).collect();
-                    rows.push(formatted.join("|"));
-                    Ok(())
-                });
-
-                if let Err(e) = result {
-                    let msg = format!("Error: {}\n", e);
-                    let _ = stderr.write_all(msg.as_bytes()).await;
-                    return 1;
+                    0
                 }
-
-                // Write collected rows to stdout
-                for row in &rows {
-                    let _ = stdout.write_all(row.as_bytes()).await;
-                    let _ = stdout.write_all(b"\n").await;
+                Err(msg) => {
+                    let _ = stderr.write_all(msg.as_bytes()).await;
+                    1
                 }
             }
-
-            0
         })
     }
 }
 
-/// Format a Value for output
-fn format_value(val: &turso_core::Value) -> String {
-    match val {
-        turso_core::Value::Null => "".to_string(), // sqlite3 shows empty for NULL
-        turso_core::Value::Integer(i) => i.to_string(),
-        turso_core::Value::Float(f) => f.to_string(),
-        turso_core::Value::Text(s) => s.to_string(),
-        turso_core::Value::Blob(b) => format!("<blob:{} bytes>", b.len()),
+/// Execute SQL synchronously, returning output lines or an error message.
+/// Separated from the async shell command so rusqlite's !Send types
+/// don't cross await boundaries.
+fn execute_sql(db_path: &str, sql: &str) -> Result<Vec<String>, String> {
+    // Open database
+    let conn = if db_path == ":memory:" {
+        Connection::open_in_memory().map_err(|e| format!("Error: {}\n", e))?
+    } else {
+        let flags = OpenFlags::SQLITE_OPEN_READ_WRITE
+            | OpenFlags::SQLITE_OPEN_CREATE
+            | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+        let c = Connection::open_with_flags_and_vfs(db_path, flags, "unix-none")
+            .map_err(|e| format!("Error: unable to open database \"{}\": {}\n", db_path, e))?;
+        // MEMORY journal: OPFS doesn't support POSIX unlink-while-open semantics
+        let _ = c.pragma_update(None, "journal_mode", "MEMORY");
+        c
+    };
+
+    let statements: Vec<&str> = sql
+        .split(';')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    // For file-backed databases, wrap in an explicit EXCLUSIVE transaction
+    // to prevent re-validation failures under WASI's stream I/O model.
+    let has_user_txn = statements.iter().any(|s| {
+        let upper = s.to_uppercase();
+        upper.starts_with("BEGIN")
+            || upper.starts_with("COMMIT")
+            || upper.starts_with("ROLLBACK")
+    });
+    let use_explicit_txn = db_path != ":memory:" && !has_user_txn;
+    if use_explicit_txn {
+        conn.execute_batch("BEGIN EXCLUSIVE")
+            .map_err(|e| format!("Error: {}\n", e))?;
     }
+
+    let mut output = Vec::new();
+
+    for stmt_sql in statements {
+        let mut stmt = match conn.prepare(stmt_sql) {
+            Ok(s) => s,
+            Err(_) => {
+                conn.execute_batch(stmt_sql)
+                    .map_err(|e| format!("Error: {}\n", e))?;
+                continue;
+            }
+        };
+
+        let col_count = stmt.column_count();
+        if col_count == 0 {
+            stmt.execute([])
+                .map_err(|e| format!("Error: {}\n", e))?;
+            continue;
+        }
+
+        let mut rows = stmt
+            .query([])
+            .map_err(|e| format!("Error: {}\n", e))?;
+
+        loop {
+            match rows.next() {
+                Ok(Some(row)) => {
+                    let mut values: Vec<String> = Vec::with_capacity(col_count);
+                    for i in 0..col_count {
+                        let val = match row.get_ref(i) {
+                            Ok(rusqlite::types::ValueRef::Null) => String::new(),
+                            Ok(rusqlite::types::ValueRef::Integer(n)) => n.to_string(),
+                            Ok(rusqlite::types::ValueRef::Real(f)) => f.to_string(),
+                            Ok(rusqlite::types::ValueRef::Text(s)) => {
+                                String::from_utf8_lossy(s).to_string()
+                            }
+                            Ok(rusqlite::types::ValueRef::Blob(b)) => {
+                                format!("<blob:{} bytes>", b.len())
+                            }
+                            Err(_) => String::new(),
+                        };
+                        values.push(val);
+                    }
+                    output.push(values.join("|"));
+                }
+                Ok(None) => break,
+                Err(e) => return Err(format!("Error: {}\n", e)),
+            }
+        }
+    }
+
+    if use_explicit_txn {
+        conn.execute_batch("COMMIT")
+            .map_err(|e| format!("Error: COMMIT: {}\n", e))?;
+    }
+
+    if let Err((_, e)) = conn.close() {
+        return Err(format!("Warning: close error: {}\n", e));
+    }
+
+    Ok(output)
 }

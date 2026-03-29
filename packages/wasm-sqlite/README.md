@@ -50,7 +50,7 @@ registerModule({
 
 The underlying WASM module provides:
 
-- **Full SQLite functionality** via turso_core
+- **Full SQLite functionality** via rusqlite (bundled sqlite3)
 - **Persistent storage** using WASI filesystem (OPFS)
 - **In-memory databases** with `:memory:`
 - **SQL script execution** from files or stdin
