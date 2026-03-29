@@ -109,7 +109,8 @@ async function forceExitVim(page: Page): Promise<void> {
     await page.waitForTimeout(500);
 }
 
-test.describe('Vim Navigation Performance', () => {
+// Skipped: Requires /sh shell mode which doesn't exist in Codex TUI.
+test.describe.skip('Vim Navigation Performance', () => {
     // Skip by default - CI runners are slower than local machines.
     // Run manually with: pnpm test:e2e --grep "navigation latency"
     test.skip('navigation latency with syntax-highlighted file stays under threshold', async ({ page }) => {

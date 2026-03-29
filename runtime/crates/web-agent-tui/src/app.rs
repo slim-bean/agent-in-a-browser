@@ -414,20 +414,28 @@ impl<R: PollableRead, W: Write> App<R, W> {
     }
 
     fn handle_input(&mut self) {
-        // Read all available bytes (for paste support)
-        // Keep reading until we'd block or process a special sequence
+        // First read blocks (waits for user input via JSPI suspension)
+        let mut buf = [0u8; 32];
+        match self.stdin.read(&mut buf) {
+            Ok(0) | Err(_) => return,
+            Ok(n) => {
+                if self.process_input_bytes(&buf[..n]) {
+                    return;
+                }
+            }
+        }
+
+        // Drain any remaining buffered bytes without blocking (for paste support)
         loop {
-            let mut buf = [0u8; 32]; // Read in larger chunks to catch escape sequences
-            match self.stdin.read(&mut buf) {
-                Ok(0) => break, // No more data
+            let mut buf = [0u8; 32];
+            match self.stdin.try_read(&mut buf) {
+                Ok(0) => break,
                 Ok(n) => {
-                    let bytes = &buf[..n];
-                    let should_break = self.process_input_bytes(bytes);
-                    if should_break {
+                    if self.process_input_bytes(&buf[..n]) {
                         break;
                     }
                 }
-                Err(_) => break, // Error or would block
+                Err(_) => break,
             }
         }
     }

@@ -1,21 +1,24 @@
 /**
- * TUI Loader - Connects ghostty-web terminal to web-agent-tui WASM
- * 
+ * TUI Loader - Connects ghostty-web terminal to codex-wasm-tui WASM
+ *
  * This module provides the bridge between ghostty-web's terminal emulator
- * and the ratatui-based TUI running as a WASM component.
+ * and the Codex CLI TUI running as a WASM component.
  */
 
 // Import ghostty-web terminal
 import { init as initGhostty, Terminal } from 'ghostty-web';
 
-// Import the TUI WASM module (transpiled with jco)
-import { run } from '../web-agent-tui/web-agent-tui.js';
+// Import the Codex TUI WASM module (transpiled with jco)
+import { run } from '../codex-tui/codex-wasm-tui.js';
 
-// Import the CLI shim to set up the terminal
-import { setTerminal, setTerminalSize } from '@tjfontaine/wasi-shims/ghostty-cli-shim.js';
+// Import the CLI shim to set up the terminal and environment
+import { setTerminal, setTerminalSize, setEnvironment } from '@tjfontaine/wasi-shims/ghostty-cli-shim.js';
 
-// Import transport handler for routing MCP requests  
+// Import transport handler for routing MCP requests
 import { setTransportHandler } from '@tjfontaine/wasi-shims/wasi-http-impl.js';
+
+// Import shell exec handler registration for Codex TUI command execution
+import { setExecHandler, type ExecEnv, type ExecResult } from '@tjfontaine/wasi-shims/shell-exec-impl.js';
 
 // Import sandbox for MCP routing
 import { fetchFromSandbox, initializeSandbox } from '../../agent/sandbox.js';
@@ -93,6 +96,75 @@ export async function launchTui(options: TuiLoaderOptions): Promise<{
     setTransportHandler(createSandboxTransport());
     console.log('[TUI Loader] Transport handler configured');
 
+    // Register shell exec handler — routes Codex TUI command execution
+    // through the sandbox worker's MCP shell tool
+    setExecHandler(async (
+        program: string,
+        args: string[],
+        env: ExecEnv,
+        stdin: Uint8Array | undefined,
+        timeoutMs: number | undefined,
+    ): Promise<ExecResult> => {
+        const command = [program, ...args].join(' ');
+        console.log('[TUI Loader] Shell exec:', command, 'cwd:', env.cwd);
+        const encoder = new TextEncoder();
+
+        try {
+            // Route through MCP shell tool via sandbox worker
+            const body = JSON.stringify({
+                jsonrpc: '2.0',
+                id: Date.now(),
+                method: 'tools/call',
+                params: {
+                    name: 'run_command',
+                    arguments: {
+                        command,
+                        cwd: env.cwd || '/workspace',
+                        stdin: stdin ? new TextDecoder().decode(stdin) : undefined,
+                        timeout_ms: timeoutMs ?? 30000,
+                    },
+                },
+            });
+
+            const response = await fetchFromSandbox('/mcp/message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body,
+            });
+
+            const result = await response.json();
+
+            if (result.error) {
+                return {
+                    exitCode: 1,
+                    stdout: new Uint8Array(0),
+                    stderr: encoder.encode(result.error.message || 'MCP error'),
+                };
+            }
+
+            // MCP tool result: content is an array of { type, text } items
+            const content = result.result?.content ?? [];
+            const text = content
+                .filter((c: { type: string }) => c.type === 'text')
+                .map((c: { text: string }) => c.text)
+                .join('\n');
+
+            return {
+                exitCode: 0,
+                stdout: encoder.encode(text),
+                stderr: new Uint8Array(0),
+            };
+        } catch (err) {
+            console.error('[TUI Loader] Shell exec error:', err);
+            return {
+                exitCode: 127,
+                stdout: new Uint8Array(0),
+                stderr: encoder.encode(`exec failed: ${err instanceof Error ? err.message : String(err)}`),
+            };
+        }
+    });
+    console.log('[TUI Loader] Shell exec handler registered');
+
     // Initialize OPFS filesystem for shell access (touch, mkdir, ls, etc.)
     console.log('[TUI Loader] Initializing OPFS filesystem...');
     await initFilesystem();
@@ -151,17 +223,19 @@ export async function launchTui(options: TuiLoaderOptions): Promise<{
             return true; // Prevent default (don't send Ctrl+C to terminal when copying)
         }
 
-        // Handle paste: Mod+V
+        // Handle paste: Mod+V — read clipboard and call terminal.paste()
+        // which wraps with bracketed paste markers (ESC[200~ ... ESC[201~).
+        // We preventDefault to stop the browser's native paste event from also
+        // firing on ghostty-web's hidden textarea (which would double-paste).
+        // Return false to prevent ghostty-web from sending raw Ctrl+V (0x16).
         if (modKey && event.key === 'v') {
+            event.preventDefault();
             navigator.clipboard.readText().then(text => {
                 if (text) {
                     terminal.paste(text);
-                    console.log('[TUI] Pasted from clipboard:', text.length, 'chars');
                 }
-            }).catch(err => {
-                console.error('[TUI] Failed to paste:', err);
-            });
-            return true; // Prevent default
+            }).catch(() => {});
+            return false;
         }
 
         // Handle select all: Cmd+A (Mac) or Ctrl+Shift+A (non-Mac)
@@ -200,11 +274,99 @@ export async function launchTui(options: TuiLoaderOptions): Promise<{
         setTransportHandler(null); // Clean up transport handler
     };
 
-    // Run the TUI (async)
-    run().then(exitCode => {
-        console.log('TUI exited with code:', exitCode);
-    }).catch(err => {
-        console.error('TUI error:', err);
+    // Set environment variables for the Codex TUI.
+    // HOME is required for find_codex_home() to locate ~/.codex/ config.
+    // In WASM, /tmp/codex-home maps to OPFS via the filesystem shim.
+    setEnvironment([
+        ['HOME', '/tmp/codex-home'],
+        ['CODEX_HOME', '/tmp/codex-home/.codex'],
+        ['TERM', 'xterm-256color'],
+        ['RUST_BACKTRACE', '1'],
+    ]);
+
+    // Pre-create the codex home directory in OPFS so find_codex_home() succeeds.
+    // The OPFS filesystem shim maps /tmp/ to the browser's Origin Private File System.
+    try {
+        const root = await navigator.storage.getDirectory();
+        const tmp = await root.getDirectoryHandle('tmp', { create: true });
+        const codexHome = await tmp.getDirectoryHandle('codex-home', { create: true });
+        await codexHome.getDirectoryHandle('.codex', { create: true });
+        console.log('[TUI Loader] Pre-created /tmp/codex-home/.codex in OPFS');
+    } catch (e) {
+        console.warn('[TUI Loader] Failed to pre-create codex home in OPFS:', e);
+    }
+
+    // Show loading indicator while WASM initializes
+    terminal.write('\r\n  Loading Codex...\r\n');
+
+    // Run the TUI (async via JSPI).
+    // The TUI startup does ~2s of synchronous work (config loading, app init)
+    // before reaching its first JSPI suspend point (blocking_read on stdin).
+    // Use requestAnimationFrame to ensure the loading message renders first.
+    await new Promise<void>(resolve => {
+        requestAnimationFrame(() => {
+            console.log('[TUI Loader] Calling run()...');
+
+            let tuiDone = false;
+            run().then(exitCode => {
+                tuiDone = true;
+                console.log('TUI exited with code:', exitCode);
+            }).catch(err => {
+                tuiDone = true;
+                console.error('TUI error:', err);
+            });
+
+            // Deadlock watchdog: active monitoring of WASM progress.
+            // Uses both stderr output tracking AND a direct activity flag
+            // that the stdin read timeout resets (every 33ms when healthy).
+            let lastActivityTime = Date.now();
+            const WATCHDOG_INTERVAL_MS = 5000;  // check every 5s
+            const STALL_THRESHOLD_MS = 30000;   // 30s without activity = stalled
+            let stallWarned = false;
+
+            // Activity hooks — track three signals:
+            // 1. stderr writes (WASM producing output)
+            // 2. stdin reads (WASM reading user input)
+            // 3. yield activity (cooperative scheduler yielding to JS via JSPI)
+            (globalThis as any).__wasmStderrTime = () => {
+                lastActivityTime = Date.now();
+                stallWarned = false;
+            };
+            (globalThis as any).__wasmStdinActivity = () => {
+                lastActivityTime = Date.now();
+                stallWarned = false;
+            };
+            (globalThis as any).__wasmYieldActivity = () => {
+                lastActivityTime = Date.now();
+                stallWarned = false;
+            };
+
+            const watchdog = setInterval(() => {
+                if (tuiDone) {
+                    clearInterval(watchdog);
+                    return;
+                }
+                const stalled = Date.now() - lastActivityTime;
+                if (stalled > STALL_THRESHOLD_MS && !stallWarned) {
+                    stallWarned = true;
+                    console.error(
+                        `[TUI Watchdog] WASM stalled — no activity for ${Math.round(stalled / 1000)}s. ` +
+                        `The cooperative scheduler is not yielding. This means a task ` +
+                        `is blocking inside poll_spawned_tasks or the main future. ` +
+                        `Check the last [poll_tasks] and [block_on] messages above ` +
+                        `to identify the blocking task.`
+                    );
+                } else if (stalled > STALL_THRESHOLD_MS) {
+                    // Keep reporting every interval
+                    console.warn(
+                        `[TUI Watchdog] Still stalled (${Math.round(stalled / 1000)}s)`
+                    );
+                }
+            }, WATCHDOG_INTERVAL_MS);
+
+            // run() returns a Promise immediately (JSPI), resolve to continue
+            resolve();
+        });
     });
 
     return { terminal, stop };

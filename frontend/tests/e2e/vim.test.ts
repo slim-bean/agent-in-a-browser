@@ -134,7 +134,10 @@ async function forceExitVim(page: Page): Promise<void> {
     await page.waitForTimeout(500);
 }
 
-test.describe('Vim Editor in Shell Mode', () => {
+// Skipped: Codex TUI doesn't have a /sh shell mode.
+// Vim is accessible when the agent executes shell commands via tool calls.
+// These tests need reworking to trigger vim through agent interaction.
+test.describe.skip('Vim Editor in Shell Mode', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
         await waitForTuiReady(page);

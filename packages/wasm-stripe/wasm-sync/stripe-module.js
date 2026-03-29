@@ -898,7 +898,7 @@ function trampoline8(arg0) {
   }
   curResourceBorrows = [];
   endCurrentTask(0);
-  if (!(ret ?.[Symbol.for('wasi:io/poll@0.2.9#Pollable')])) {
+  if (!(ret instanceof Pollable)) {
     throw new TypeError('Resource error: Not a valid "Pollable" resource.');
   }
   var handle3 = ret[symbolRscHandle];
@@ -940,7 +940,7 @@ function trampoline9(arg0) {
   }
   curResourceBorrows = [];
   endCurrentTask(0);
-  if (!(ret ?.[Symbol.for('wasi:io/poll@0.2.9#Pollable')])) {
+  if (!(ret instanceof Pollable)) {
     throw new TypeError('Resource error: Not a valid "Pollable" resource.');
   }
   var handle3 = ret[symbolRscHandle];
@@ -965,7 +965,7 @@ function trampoline10(arg0) {
   const ret = subscribeDuration(BigInt.asUintN(64, arg0));
   _debugLog('[iface="wasi:clocks/monotonic-clock@0.2.6", function="subscribe-duration"] [Instruction::CallInterface] (sync, @ post-call)');
   endCurrentTask(0);
-  if (!(ret ?.[Symbol.for('wasi:io/poll@0.2.9#Pollable')])) {
+  if (!(ret instanceof Pollable)) {
     throw new TypeError('Resource error: Not a valid "Pollable" resource.');
   }
   var handle0 = ret[symbolRscHandle];
@@ -990,7 +990,7 @@ function trampoline11(arg0) {
   const ret = subscribeInstant(BigInt.asUintN(64, arg0));
   _debugLog('[iface="wasi:clocks/monotonic-clock@0.2.6", function="subscribe-instant"] [Instruction::CallInterface] (sync, @ post-call)');
   endCurrentTask(0);
-  if (!(ret ?.[Symbol.for('wasi:io/poll@0.2.9#Pollable')])) {
+  if (!(ret instanceof Pollable)) {
     throw new TypeError('Resource error: Not a valid "Pollable" resource.');
   }
   var handle0 = ret[symbolRscHandle];
@@ -1015,7 +1015,7 @@ function trampoline13() {
   const ret = getStderr();
   _debugLog('[iface="wasi:cli/stderr@0.2.6", function="get-stderr"] [Instruction::CallInterface] (sync, @ post-call)');
   endCurrentTask(0);
-  if (!(ret ?.[Symbol.for('wasi:io/streams@0.2.9#OutputStream')])) {
+  if (!(ret instanceof OutputStream)) {
     throw new TypeError('Resource error: Not a valid "OutputStream" resource.');
   }
   var handle0 = ret[symbolRscHandle];
@@ -1040,7 +1040,7 @@ function trampoline14() {
   const ret = getStdin();
   _debugLog('[iface="wasi:cli/stdin@0.2.6", function="get-stdin"] [Instruction::CallInterface] (sync, @ post-call)');
   endCurrentTask(0);
-  if (!(ret ?.[Symbol.for('wasi:io/streams@0.2.9#InputStream')])) {
+  if (!(ret instanceof InputStream)) {
     throw new TypeError('Resource error: Not a valid "InputStream" resource.');
   }
   var handle0 = ret[symbolRscHandle];
@@ -1065,7 +1065,7 @@ function trampoline15() {
   const ret = getStdout();
   _debugLog('[iface="wasi:cli/stdout@0.2.6", function="get-stdout"] [Instruction::CallInterface] (sync, @ post-call)');
   endCurrentTask(0);
-  if (!(ret ?.[Symbol.for('wasi:io/streams@0.2.9#OutputStream')])) {
+  if (!(ret instanceof OutputStream)) {
     throw new TypeError('Resource error: Not a valid "OutputStream" resource.');
   }
   var handle0 = ret[symbolRscHandle];
@@ -3719,7 +3719,7 @@ function trampoline33(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
     case 'ok': {
       const e = variant9.val;
       dataView(memory0).setInt8(arg6 + 0, 0, true);
-      if (!(e ?.[Symbol.for('wasi:filesystem/types@0.2.9#Descriptor')])) {
+      if (!(e instanceof Descriptor)) {
         throw new TypeError('Resource error: Not a valid "Descriptor" resource.');
       }
       var handle7 = e[symbolRscHandle];
@@ -4786,7 +4786,7 @@ function trampoline38(arg0, arg1, arg2) {
     case 'ok': {
       const e = variant5.val;
       dataView(memory0).setInt8(arg2 + 0, 0, true);
-      if (!(e ?.[Symbol.for('wasi:io/streams@0.2.9#InputStream')])) {
+      if (!(e instanceof InputStream)) {
         throw new TypeError('Resource error: Not a valid "InputStream" resource.');
       }
       var handle3 = e[symbolRscHandle];
@@ -5002,7 +5002,7 @@ function trampoline39(arg0, arg1, arg2) {
     case 'ok': {
       const e = variant5.val;
       dataView(memory0).setInt8(arg2 + 0, 0, true);
-      if (!(e ?.[Symbol.for('wasi:io/streams@0.2.9#OutputStream')])) {
+      if (!(e instanceof OutputStream)) {
         throw new TypeError('Resource error: Not a valid "OutputStream" resource.');
       }
       var handle3 = e[symbolRscHandle];
@@ -5855,7 +5855,7 @@ function trampoline43(arg0, arg1) {
     case 'ok': {
       const e = variant5.val;
       dataView(memory0).setInt8(arg1 + 0, 0, true);
-      if (!(e ?.[Symbol.for('wasi:io/streams@0.2.9#OutputStream')])) {
+      if (!(e instanceof OutputStream)) {
         throw new TypeError('Resource error: Not a valid "OutputStream" resource.');
       }
       var handle3 = e[symbolRscHandle];
@@ -7046,7 +7046,7 @@ function trampoline52(arg0) {
   for (let i = 0; i < vec3.length; i++) {
     const e = vec3[i];
     const base = result3 + i * 12;var [tuple0_0, tuple0_1] = e;
-    if (!(tuple0_0 ?.[Symbol.for('wasi:filesystem/types@0.2.9#Descriptor')])) {
+    if (!(tuple0_0 instanceof Descriptor)) {
       throw new TypeError('Resource error: Not a valid "Descriptor" resource.');
     }
     var handle1 = tuple0_0[symbolRscHandle];
@@ -7503,13 +7503,10 @@ export const $init = (() => {
         path_filestat_set_times: exports0['21'],
         path_open: exports0['27'],
         path_readlink: exports0['22'],
-        'path_readlink [v2]': exports0['22'],
         path_remove_directory: exports0['23'],
-        'path_remove_directory [v2]': exports0['23'],
         path_rename: exports0['24'],
         path_symlink: exports0['25'],
         path_unlink_file: exports0['26'],
-        'path_unlink_file [v2]': exports0['26'],
         poll_oneoff: exports0['9'],
         proc_exit: exports0['1'],
         'proc_exit [v2]': exports0['1'],

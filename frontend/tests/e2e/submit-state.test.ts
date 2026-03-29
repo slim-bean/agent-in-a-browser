@@ -105,7 +105,8 @@ async function waitForTuiReady(page: Page, timeout = 30000): Promise<void> {
     await page.waitForTimeout(500);
 }
 
-test.describe('Submit State Transition', () => {
+// Skipped: Uses old TUI's /key command. Codex TUI handles auth differently.
+test.describe.skip('Submit State Transition', () => {
     // NOTE: No shared beforeEach - each test controls its own lifecycle
     // This is necessary because test 2 needs to seed config BEFORE navigating to TUI
 

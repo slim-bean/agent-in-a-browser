@@ -6,7 +6,7 @@
  */
 
 import './embed-demo.css';
-import { WebAgent, type AgentEvent } from '@tjfontaine/web-agent-core';
+import { CodexAgent, type AgentEvent } from '@tjfontaine/codex-agent-core';
 import { initializeSandbox, fetchFromSandbox } from './agent/sandbox';
 import { setTransportHandler } from '@tjfontaine/wasi-shims';
 
@@ -70,7 +70,7 @@ const SCENARIOS = [
 ];
 
 // --- State ---
-let agent: WebAgent | null = null;
+let agent: CodexAgent | null = null;
 let isRunning = false;
 let fileCache = new Map<string, string>();
 
@@ -366,19 +366,19 @@ async function initAgent(provider: string, apiKey: string) {
     // Agent
     // Auto-select model based on provider
     const models: Record<string, string> = {
-        anthropic: 'claude-haiku-4-5-20251001',
-        openai: 'o3-mini', // "Fast" option
+        anthropic: 'claude-sonnet-4-6',
+        openai: 'o4-mini',
         gemini: 'gemini-2.0-flash',
     };
     const model = models[provider] || 'gpt-4o';
 
-    agent = new WebAgent({
+    agent = new CodexAgent({
         provider,
         model,
         apiKey,
         preambleOverride: SYSTEM_PROMPT,
         mcpServers: [{ url: 'http://localhost:3000/mcp', name: 'sandbox' }],
-        maxTurns: 50 // Need many turns for verifying backend scripts and iterative coding
+        maxTurns: 50,
     });
 
     await agent.initialize();
