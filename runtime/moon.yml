@@ -68,8 +68,6 @@ tasks:
       - "/target/wasm32-wasip2/release/stripe_module.wasm"
       - "/target/wasm32-wasip2/release/web_agent_tui.wasm"
       - "/target/wasm32-wasip2/release/web_headless_agent.wasm"
-    deps:
-      - "~:wit-deps"
     options:
       runInCI: true
 
@@ -98,8 +96,6 @@ tasks:
       - "@group(rust-sources)"
       - "@group(cargo-configs)"
       - "@group(wit-files)"
-    deps:
-      - "~:wit-deps"
     options:
       runInCI: true
 
