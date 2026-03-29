@@ -142,6 +142,128 @@ impl CoreCommands {
     }
 
     /// true - exit with 0
+    /// sh / bash / /bin/sh / /bin/bash - re-entrant shell execution
+    ///
+    /// When the model or upstream code runs `/bin/sh -c "command"` or
+    /// `/bin/sh -lc "command"`, we extract the command and execute it
+    /// through our own shell pipeline. This is critical for the codex
+    /// TUI which wraps all tool calls in `/bin/sh -lc <command>`.
+    #[shell_command(
+        name = "sh",
+        usage = "sh [-c|-lc] COMMAND",
+        description = "Execute a command through the shell"
+    )]
+    fn cmd_sh(
+        args: Vec<String>,
+        env: &ShellEnv,
+        _stdin: piper::Reader,
+        mut stdout: piper::Writer,
+        mut stderr: piper::Writer,
+    ) -> futures_lite::future::Boxed<i32> {
+        let env_clone = env.clone();
+        Box::pin(async move {
+            // Parse args: sh [-c|-lc] command_string
+            let mut i = 0;
+            let mut login = false;
+            let mut command_str: Option<String> = None;
+
+            while i < args.len() {
+                match args[i].as_str() {
+                    "-c" => {
+                        // Everything after -c is the command
+                        if i + 1 < args.len() {
+                            command_str = Some(args[i + 1..].join(" "));
+                        }
+                        break;
+                    }
+                    "-lc" => {
+                        login = true;
+                        if i + 1 < args.len() {
+                            command_str = Some(args[i + 1..].join(" "));
+                        }
+                        break;
+                    }
+                    "-l" => {
+                        login = true;
+                        i += 1;
+                    }
+                    _ => {
+                        // Treat as a script file path (not supported, just run as command)
+                        command_str = Some(args[i..].join(" "));
+                        break;
+                    }
+                }
+            }
+
+            let _ = login; // login flag acknowledged but no special handling needed
+
+            if let Some(cmd) = command_str {
+                if cmd.is_empty() {
+                    return 0;
+                }
+                let mut env_mut = env_clone;
+                let result = super::super::run_pipeline(&cmd, &mut env_mut).await;
+                if !result.stdout.is_empty() {
+                    let _ = stdout.write_all(result.stdout.as_bytes()).await;
+                }
+                if !result.stderr.is_empty() {
+                    let _ = stderr.write_all(result.stderr.as_bytes()).await;
+                }
+                result.code
+            } else {
+                // No command provided — in interactive mode we'd start a REPL,
+                // but for tool execution just return success
+                0
+            }
+        })
+    }
+
+    #[shell_command(
+        name = "bash",
+        usage = "bash [-c|-lc] COMMAND",
+        description = "Execute a command through the shell (bash alias)"
+    )]
+    fn cmd_bash(
+        args: Vec<String>,
+        env: &ShellEnv,
+        stdin: piper::Reader,
+        stdout: piper::Writer,
+        stderr: piper::Writer,
+    ) -> futures_lite::future::Boxed<i32> {
+        Self::cmd_sh(args, env, stdin, stdout, stderr)
+    }
+
+    #[shell_command(
+        name = "/bin/sh",
+        usage = "/bin/sh [-c|-lc] COMMAND",
+        description = "Execute a command through the shell (absolute path)"
+    )]
+    fn cmd_bin_sh(
+        args: Vec<String>,
+        env: &ShellEnv,
+        stdin: piper::Reader,
+        stdout: piper::Writer,
+        stderr: piper::Writer,
+    ) -> futures_lite::future::Boxed<i32> {
+        Self::cmd_sh(args, env, stdin, stdout, stderr)
+    }
+
+    #[shell_command(
+        name = "/bin/bash",
+        usage = "/bin/bash [-c|-lc] COMMAND",
+        description = "Execute a command through the shell (absolute path)"
+    )]
+    fn cmd_bin_bash(
+        args: Vec<String>,
+        env: &ShellEnv,
+        stdin: piper::Reader,
+        stdout: piper::Writer,
+        stderr: piper::Writer,
+    ) -> futures_lite::future::Boxed<i32> {
+        Self::cmd_sh(args, env, stdin, stdout, stderr)
+    }
+
+    /// true - exit with 0
     #[shell_command(
         name = "true",
         usage = "true",

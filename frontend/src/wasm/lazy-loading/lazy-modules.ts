@@ -113,6 +113,8 @@ export const LAZY_COMMANDS: Record<string, string> = {
     'sh': 'brush-shell',
     'shell': 'brush-shell',
     'bash': 'brush-shell',
+    // Codex TUI (AI agent, launched from shell)
+    'codex': 'codex-tui',
 };
 
 /**
@@ -548,6 +550,77 @@ async function loadBrushShell(): Promise<CommandModule> {
 }
 
 /**
+ * Load the Codex TUI as a lazy-loaded interactive command.
+ *
+ * The Codex TUI module exports `run() -> s32` (reads stdin/stdout from wasi:cli).
+ * We wrap it to match the CommandModule interface. The ghostty-cli-shim already
+ * provides stdin/stdout/stderr, so the TUI will inherit the terminal streams.
+ */
+async function loadCodexTui(): Promise<CommandModule> {
+    console.log('[LazyLoader] Loading Codex TUI...');
+    const startTime = performance.now();
+
+    const tuiModule = await import('../codex-tui/codex-wasm-tui.js');
+
+    const loadTime = performance.now() - startTime;
+    console.log(`[LazyLoader] Codex TUI loaded in ${loadTime.toFixed(0)}ms`);
+
+    // Import the CLI shim to set arguments before TUI runs
+    const cliShim = await import('@tjfontaine/wasi-shims/ghostty-cli-shim.js');
+
+    return {
+        spawn(name, args, _env, _stdin, _stdout, _stderr) {
+            // Set CLI arguments so the TUI's clap parser can read them
+            // via wasi:cli/environment::get_arguments()
+            cliShim.setArguments([name, ...args]);
+
+            let exitCode: number | undefined = undefined;
+            let resolvePromise: ((code: number) => void) | null = null;
+            let rejectPromise: ((err: Error) => void) | null = null;
+
+            const executionPromise = new Promise<number>((resolve, reject) => {
+                resolvePromise = resolve;
+                rejectPromise = reject;
+            });
+
+            // The TUI's run() reads from wasi:cli/stdin (ghostty-cli-shim)
+            tuiModule.run()
+                .then((code: number) => {
+                    console.log(`[LazyLoader] Codex TUI exited with code: ${code}`);
+                    exitCode = code;
+                    resolvePromise?.(code);
+                })
+                .catch((err: Error) => {
+                    console.error(`[LazyLoader] Codex TUI error:`, err);
+                    exitCode = 1;
+                    rejectPromise?.(err);
+                });
+
+            return {
+                poll: () => exitCode,
+                resolve: () => executionPromise,
+            };
+        },
+        listCommands: () => ['codex'],
+    };
+}
+
+/**
+ * Register the Codex TUI as a lazy-loaded interactive command.
+ * Called from the worker after module setup is complete.
+ */
+export function registerCodexTui(): void {
+    registerModule({
+        name: 'codex-tui',
+        commands: [
+            { name: 'codex', mode: 'tui' as const },
+        ],
+        loader: loadCodexTui,
+    });
+    console.log('[LazyLoader] Codex TUI registered as interactive command');
+}
+
+/**
  * Load a lazy module by name
  */
 export async function loadLazyModule(moduleName: string): Promise<CommandModule> {
@@ -586,6 +659,9 @@ export async function loadLazyModule(moduleName: string): Promise<CommandModule>
             break;
         case 'stripe-module':
             loadPromise = loadStripeModule();
+            break;
+        case 'codex-tui':
+            loadPromise = loadCodexTui();
             break;
         default:
             throw new Error(`Unknown lazy module: ${moduleName}`);

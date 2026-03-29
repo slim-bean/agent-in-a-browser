@@ -1,13 +1,13 @@
 /**
  * Main entry point for Web Agent TUI
- * 
+ *
  * This uses the Rust/ratatui-based TUI instead of the React app.
- * The React code is kept for reference but not used.
+ * The WASM always runs in a Worker (via WorkerBridge) regardless of
+ * JSPI support, because OPFS createSyncAccessHandle requires Worker context.
+ *
+ * - JSPI browsers (Chrome/Firefox): Worker loads async WASM, uses JSPI suspension
+ * - Non-JSPI browsers (Safari): Worker loads sync WASM, uses Atomics.wait()
  */
-
-// NOTE: tui-loader is NOT statically imported because it contains static imports
-// of JSPI-transpiled WASM modules that fail in Safari (WebAssembly.Suspending is undefined)
-// Instead, we dynamically import it only when JSPI is available.
 
 import './index.css';
 
@@ -16,6 +16,9 @@ import './oauth-handler.js';
 
 import { hasJSPI } from '@tjfontaine/mcp-wasm-server';
 import { WorkerBridge } from '@tjfontaine/wasi-shims';
+
+// Debug instrumentation for diagnosing WASM/JSPI hangs
+import { installDebugAPI } from './debug/wasm-debug.js';
 
 // Import bundled worker URL - Vite's ?worker&url suffix ensures:
 // 1. The worker is bundled as JavaScript (not raw TypeScript)
@@ -35,120 +38,92 @@ const terminalEl = document.getElementById('terminal')!;
         console.log('[Main] Launching TUI...');
         console.log(`[Main] JSPI support: ${hasJSPI ? 'YES' : 'NO'}`);
 
-        let terminalInstance;
-        // Shared reference for relay setup (set in whichever code path runs)
-        let sandboxFetchForRelay: ((input: string, init?: RequestInit) => Promise<Response>) | null = null;
+        // Initialize the sandbox worker first (for MCP)
+        // This runs ts-runtime-mcp to handle MCP requests
+        // Use fetchFromSandboxSimple - MessageChannel ports fail silently in Safari workers
+        const { initializeSandbox, fetchFromSandboxSimple, fetchFromSandbox } = await import('./agent/sandbox.js');
+        console.log('[Main] Initializing sandbox for MCP...');
+        await initializeSandbox();
+        console.log('[Main] Sandbox ready');
 
-        if (!hasJSPI) {
-            console.log('[Main] Non-JSPI browser detected (Safari?), launching WorkerBridge...');
+        // Choose the appropriate sandbox fetch function
+        // JSPI path can use the richer fetchFromSandbox; non-JSPI needs fetchFromSandboxSimple
+        const sandboxFetchForRelay = hasJSPI ? fetchFromSandbox : fetchFromSandboxSimple;
 
-            // Initialize the sandbox worker first (for MCP)
-            // This runs ts-runtime-mcp to handle MCP requests
-            // Use fetchFromSandboxSimple for Safari - MessageChannel ports fail silently in Safari workers
-            const { initializeSandbox, fetchFromSandboxSimple } = await import('./agent/sandbox.js');
-            console.log('[Main] Initializing sandbox for MCP...');
-            await initializeSandbox();
-            console.log('[Main] Sandbox ready');
+        // Initialize ghostty-web and create terminal
+        const ghostty = await import('ghostty-web');
+        await ghostty.init();
 
-            // Store for relay setup
-            sandboxFetchForRelay = fetchFromSandboxSimple;
+        const terminal = new ghostty.Terminal({
+            fontSize: 14,
+            theme: {
+                background: '#1a1b26',
+                foreground: '#a9b1d6',
+                cursor: '#c0caf5',
+            }
+        });
+        terminal.open(terminalEl);
 
-            // Initialize ghostty-web and create terminal
-            const ghostty = await import('ghostty-web');
-            await ghostty.init();
+        // Expose terminal for E2E tests immediately (bridge.runModule doesn't return)
+        (window as unknown as { tuiTerminal: unknown }).tuiTerminal = terminal;
 
-            const terminal = new ghostty.Terminal({
-                fontSize: 14,
-                theme: {
-                    background: '#1a1b26',
-                    foreground: '#a9b1d6',
-                    cursor: '#c0caf5',
-                }
-            });
-            terminal.open(terminalEl);
-            terminalInstance = terminal;
+        // Load FitAddon for proper sizing
+        const fitAddon = new ghostty.FitAddon();
+        terminal.loadAddon(fitAddon);
+        fitAddon.fit();
 
-            // Expose terminal for E2E tests immediately (bridge.runModule doesn't return)
-            (window as unknown as { tuiTerminal: unknown }).tuiTerminal = terminal;
+        // Create MCP transport handler that routes through sandbox
+        const mcpTransport = async (
+            method: string,
+            url: string,
+            headers: Record<string, string>,
+            body: Uint8Array | null
+        ) => {
+            console.log('[Main] mcpTransport called:', method, url);
+            // Extract path from URL
+            const urlObj = new URL(url);
+            const path = urlObj.pathname;
 
-            // Load FitAddon for proper sizing (same as JSPI mode)
-            const fitAddon = new ghostty.FitAddon();
-            terminal.loadAddon(fitAddon);
-            fitAddon.fit();
+            console.log('[Main] Calling fetchFromSandboxSimple:', path);
+            const fetchOptions: RequestInit = { method, headers };
+            if (body) fetchOptions.body = new Blob([body as BlobPart]);
 
-            // Create MCP transport handler that routes through sandbox
-            const mcpTransport = async (
-                method: string,
-                url: string,
-                headers: Record<string, string>,
-                body: Uint8Array | null
-            ) => {
-                console.log('[Main] mcpTransport called:', method, url);
-                // Extract path from URL
-                const urlObj = new URL(url);
-                const path = urlObj.pathname;
+            const response = await fetchFromSandboxSimple(path, fetchOptions);
+            console.log('[Main] fetchFromSandboxSimple returned:', response.status);
+            const responseBody = new Uint8Array(await response.arrayBuffer());
 
-                console.log('[Main] Calling fetchFromSandboxSimple:', path);
-                const fetchOptions: RequestInit = { method, headers };
-                if (body) fetchOptions.body = new Blob([body as BlobPart]);
+            return { status: response.status, body: responseBody };
+        };
 
-                const response = await fetchFromSandboxSimple(path, fetchOptions);
-                console.log('[Main] fetchFromSandboxSimple returned:', response.status);
-                const responseBody = new Uint8Array(await response.arrayBuffer());
+        // Launch worker bridge with MCP transport and bundled worker URL
+        const workerUrl = new URL(wasmWorkerUrl, import.meta.url);
+        const bridge = new WorkerBridge(terminal, { mcpTransport, workerUrl });
+        await bridge.start();
 
-                return { status: response.status, body: responseBody };
-            };
+        // Install debug API on window.__wasmDebug and connect to Worker
+        // The probeWorker() function uses addEventListener which coexists with
+        // the bridge's onmessage handler.
+        installDebugAPI((bridge as any).getWorker?.() ?? (bridge as any).worker ?? undefined);
 
-            // Launch worker bridge with MCP transport and bundled worker URL
-            const workerUrl = new URL(wasmWorkerUrl, import.meta.url);
-            const bridge = new WorkerBridge(terminal, { mcpTransport, workerUrl });
-            await bridge.start();
+        // Wire terminal resize events to WorkerBridge
+        terminal.onResize(({ cols, rows }: { cols: number; rows: number }) => {
+            console.log('[Main] Terminal resized (ghostty):', cols, 'x', rows);
+            bridge.handleResize(cols, rows);
+        });
 
-            // Wire terminal resize events to WorkerBridge
-            terminal.onResize(({ cols, rows }: { cols: number; rows: number }) => {
-                console.log('[Main] Terminal resized (ghostty):', cols, 'x', rows);
-                bridge.handleResize(cols, rows);
-            });
+        // Use FitAddon's observeResize for automatic resize handling
+        fitAddon.observeResize();
+        console.log('[Main] FitAddon initialized:', terminal.cols, 'x', terminal.rows);
 
-            // Use FitAddon's observeResize for automatic resize handling
-            fitAddon.observeResize();
-            console.log('[Main] FitAddon initialized:', terminal.cols, 'x', terminal.rows);
+        // Send initial size to worker
+        bridge.handleResize(terminal.cols, terminal.rows);
 
-            // Send initial size to worker
-            bridge.handleResize(terminal.cols, terminal.rows);
-
-            // Run the TUI module
-            bridge.runModule('tui');
-
-        } else {
-            console.log('[Main] JSPI supported, launching direct WASM...');
-
-            // Dynamic import of tui-loader to prevent Safari from parsing JSPI modules
-            const { launchTui } = await import('./wasm/tui/tui-loader.js');
-
-            const { terminal } = await launchTui({
-                container: terminalEl,
-                fontSize: 14,
-                theme: {
-                    background: '#1a1b26',
-                    foreground: '#a9b1d6',
-                    cursor: '#c0caf5',
-                }
-            });
-            terminalInstance = terminal;
-
-            // Expose terminal for E2E tests
-            (window as unknown as { tuiTerminal: unknown }).tuiTerminal = terminal;
-
-            // JSPI path: sandbox is initialized inside launchTui, grab fetchFromSandbox for relay
-            const { fetchFromSandbox } = await import('./agent/sandbox.js');
-            sandboxFetchForRelay = fetchFromSandbox;
-        }
+        // Run the shell as the default entry point.
+        // The `codex` command is available within the shell to launch the Codex TUI.
+        bridge.runModule('shell', undefined, { jspi: hasJSPI });
 
         // Focus the terminal
-        if (terminalInstance) {
-            terminalInstance.focus();
-        }
+        terminal.focus();
 
         // ---- Cloud Relay Setup ----
         // If running on a session subdomain, connect the relay so external
@@ -182,7 +157,7 @@ const terminalEl = document.getElementById('terminal')!;
                     console.log('[Main] Not on a session subdomain, relay not started');
                 }
             } catch (err) {
-                // Relay is non-critical — don't break the TUI if it fails
+                // Relay is non-critical -- don't break the TUI if it fails
                 console.warn('[Main] Relay setup failed (non-fatal):', err);
             }
         }
