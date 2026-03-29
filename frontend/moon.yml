@@ -23,6 +23,14 @@ tasks:
       - "runtime:build-codex-tui"
       - "mcp-wasm-server:transpile-sync"
 
+  copy-pyodide:
+    command: "node ../scripts/copy-pyodide.mjs"
+    inputs:
+      - "/scripts/copy-pyodide.mjs"
+      - "/packages/wasm-python/package.json"
+    outputs:
+      - "public/pyodide"
+
   build:
     script: "tsc && vite build"
     inputs:
@@ -36,6 +44,7 @@ tasks:
       - "dist"
     deps:
       - "^:build"
+      - "~:copy-pyodide"
       - "~:transpile"
       - "~:transpile-sync"
       - "mcp-wasm-server:transpile"
