@@ -1,0 +1,13 @@
+$schema: "https://moonrepo.dev/schemas/project.json"
+
+tasks:
+  build:
+    deps:
+      - "wasm-loader:build"
+
+  copy-pyodide:
+    command: "node ../../scripts/copy-pyodide.mjs"
+    inputs:
+      - "/scripts/copy-pyodide.mjs"
+    outputs:
+      - "/frontend/public/pyodide"

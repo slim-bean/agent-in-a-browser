@@ -29,6 +29,7 @@ export default defineConfig(({ mode }) => ({
             '@tjfontaine/wasm-loader': path.resolve(__dirname, '../packages/wasm-loader/dist'),
             '@tjfontaine/wasm-vim': path.resolve(__dirname, '../packages/wasm-vim'),
             '@tjfontaine/wasm-stripe': path.resolve(__dirname, '../packages/wasm-stripe'),
+            '@tjfontaine/wasm-python': path.resolve(__dirname, '../packages/wasm-python'),
             // Use source directly for development (avoid needing `npm run build` for each change)
             '@tjfontaine/web-agent-core': path.resolve(__dirname, '../packages/web-agent-core/src'),
             // Enable packages outside frontend to resolve node polyfills

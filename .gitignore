@@ -80,6 +80,9 @@ packages/web-agent-core/node_modules/
 # Generated WASM for headless agent (jco transpile)
 frontend/src/wasm/web-headless-agent/
 
+# Pyodide static assets (copied from node_modules by scripts/copy-pyodide.mjs)
+frontend/public/pyodide/
+
 # Website build outputs
 website/dist/
 website/node_modules/

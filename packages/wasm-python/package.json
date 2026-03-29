@@ -1,0 +1,26 @@
+{
+    "name": "@tjfontaine/wasm-python",
+    "version": "0.1.0",
+    "description": "Python runtime WASM module for Edge Agent (Pyodide)",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "files": ["dist"],
+    "scripts": {
+        "build": "tsc",
+        "clean": "rm -rf dist"
+    },
+    "dependencies": {
+        "@tjfontaine/wasm-loader": "workspace:*",
+        "pyodide": "^0.27.7"
+    },
+    "devDependencies": {
+        "typescript": "^5.7.0"
+    }
+}

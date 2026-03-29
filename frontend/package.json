@@ -27,6 +27,7 @@
         "@tjfontaine/wasm-stripe": "workspace:*",
         "@tjfontaine/wasm-git": "workspace:*",
         "@tjfontaine/wasm-vim": "workspace:*",
+        "@tjfontaine/wasm-python": "workspace:*",
         "@tjfontaine/edge-agent-session": "workspace:*",
         "@tjfontaine/web-agent-core": "workspace:*",
         "ghostty-web": "^0.4.0",

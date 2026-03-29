@@ -35,6 +35,7 @@ import { metadata as ratatuiMetadata } from '@tjfontaine/wasm-ratatui';
 import { metadata as vimMetadata } from '@tjfontaine/wasm-vim';
 import { metadata as stripeMetadata } from '@tjfontaine/wasm-stripe';
 import { metadata as gitMetadata } from '@tjfontaine/wasm-git';
+import { metadata as pythonMetadata } from '@tjfontaine/wasm-python';
 
 // Import types for internal use (these modules are still loaded by our loaders for now)
 type TsxEngineModule = typeof import('@tjfontaine/wasm-tsx/wasm/tsx-engine.js');
@@ -80,6 +81,7 @@ export function registerAllModules(): void {
     registerModule({ ...vimMetadata, loader: loadEdtuiModule });
     registerModule({ ...stripeMetadata, loader: loadStripeModule });
     registerModule({ ...gitMetadata, loader: loadGitModule });
+    registerModule({ ...pythonMetadata, loader: loadPyodideModule });
 
     _modulesRegistered = true;
     console.log('[LazyLoader] All modules registered');
@@ -101,6 +103,10 @@ export const LAZY_COMMANDS: Record<string, string> = {
     'vim': 'edtui-module',
     'vi': 'edtui-module',
     'edit': 'edtui-module',
+    // Python (Pyodide)
+    'python3': 'pyodide-module',
+    'python': 'pyodide-module',
+    'pip': 'pyodide-module',
     // Stripe CLI
     'stripe': 'stripe-module',
     // Interactive shell (uses main runtime's shell:unix/command export)
@@ -477,6 +483,31 @@ function createDirectGoAdapter(
         },
         listCommands: () => [wasmUrl.includes('stripe') ? 'stripe' : 'git'],
     };
+}
+
+/**
+ * Load the pyodide-module (Python runtime)
+ *
+ * Pyodide is a CPython port to WebAssembly. Unlike Rust/Go WASM modules,
+ * it's a pre-built Emscripten binary with its own JS glue and loading mechanism.
+ * We wrap it with a JS adapter that implements the CommandModule interface.
+ *
+ * The Pyodide instance is cached as a singleton — Python startup is expensive
+ * so we keep the interpreter alive between invocations.
+ *
+ * OPFS is mounted into Pyodide's virtual FS via mountNativeFS() so Python
+ * has seamless access to the same files the shell uses.
+ */
+async function loadPyodideModule(): Promise<CommandModule> {
+    console.log('[LazyLoader] Loading pyodide-module (Python runtime)...');
+    const startTime = performance.now();
+
+    const { createPyodideModule } = await import('./pyodide-loader.js');
+
+    const loadTime = performance.now() - startTime;
+    console.log(`[LazyLoader] pyodide-module loader imported in ${loadTime.toFixed(0)}ms`);
+
+    return createPyodideModule();
 }
 
 /**
