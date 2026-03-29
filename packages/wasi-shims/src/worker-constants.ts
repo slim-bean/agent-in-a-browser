@@ -46,7 +46,7 @@ export interface WorkerInitMessage {
 
 export interface WorkerRunMessage {
     type: 'run';
-    module: 'tui' | 'mcp';
+    module: 'tui' | 'mcp' | 'shell';
     args?: string[];
     /** When true, load the JSPI (async) WASM variant instead of the sync variant */
     jspi?: boolean;

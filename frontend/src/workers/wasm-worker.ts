@@ -587,7 +587,7 @@ async function runTuiJspi(msg: WorkerRunMessage): Promise<void> {
         }
         const fetchOpts: RequestInit = { method, headers: fetchHeaders };
         if (body && body.length > 0) {
-            fetchOpts.body = body;
+            fetchOpts.body = body as BodyInit;
         }
         const response = await fetch(url, fetchOpts);
         const responseBody = new Uint8Array(await response.arrayBuffer());
@@ -805,7 +805,7 @@ async function runShellJspi(msg: WorkerRunMessage): Promise<void> {
         }
         const fetchOpts: RequestInit = { method, headers: fetchHeaders };
         if (body && body.length > 0) {
-            fetchOpts.body = body;
+            fetchOpts.body = body as BodyInit;
         }
         const response = await fetch(url, fetchOpts);
         const responseBody = new Uint8Array(await response.arrayBuffer());
