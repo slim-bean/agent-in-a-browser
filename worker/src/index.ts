@@ -29,6 +29,7 @@ export { SessionRelay } from './session-relay.js';
 // ============ CORS Proxy (preserved from index.js) ============
 
 const CORS_PROXY_ALLOWLIST = [
+    'dashboard.stripe.com',
     'mcp.stripe.com',
     'access.stripe.com',
     'api.githubcopilot.com',

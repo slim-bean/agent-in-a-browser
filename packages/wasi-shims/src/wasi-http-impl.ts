@@ -260,6 +260,7 @@ function shouldIntercept(url: string): boolean {
 // ============ CORS Proxy Configuration ============
 // Domains that should be routed through the CORS proxy
 const CORS_PROXY_DOMAINS = [
+    'dashboard.stripe.com',
     'mcp.stripe.com',
     'access.stripe.com',
     'api.githubcopilot.com',

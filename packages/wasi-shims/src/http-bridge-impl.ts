@@ -14,6 +14,38 @@
 import { hasJSPI } from './execution-mode';
 
 // ============================================================================
+// CORS Proxy Configuration
+// ============================================================================
+// Routes that must go through the same-origin CORS proxy because the
+// target server doesn't send Access-Control-Allow-Origin headers.
+// Scoped to specific host+path prefixes to avoid over-proxying.
+
+const CORS_PROXY_ROUTES: Array<{ host: string; pathPrefix: string }> = [
+    // Stripe CLI login flow: POST /stripecli/auth, GET /stripecli/auth/{id}
+    { host: 'dashboard.stripe.com', pathPrefix: '/stripecli/' },
+];
+
+const CORS_PROXY_PATH = '/cors-proxy';
+
+function shouldProxyViaCors(url: string): boolean {
+    try {
+        const parsed = new URL(url);
+        return CORS_PROXY_ROUTES.some(
+            r => r.host === parsed.hostname && parsed.pathname.startsWith(r.pathPrefix),
+        );
+    } catch {
+        return false;
+    }
+}
+
+function getCorsProxyUrl(targetUrl: string): string {
+    const origin = typeof globalThis !== 'undefined' && globalThis.location
+        ? globalThis.location.origin
+        : '';
+    return `${origin}${CORS_PROXY_PATH}?url=${encodeURIComponent(targetUrl)}`;
+}
+
+// ============================================================================
 // Response Handle Management
 // ============================================================================
 
@@ -60,6 +92,9 @@ async function requestAsync(
 ): Promise<number> {
     const parsedHeaders: Record<string, string> = headers ? JSON.parse(headers) : {};
 
+    // Route cross-origin requests through the CORS proxy
+    const fetchUrl = shouldProxyViaCors(url) ? getCorsProxyUrl(url) : url;
+
     const fetchInit: RequestInit = {
         method,
         headers: parsedHeaders,
@@ -70,7 +105,7 @@ async function requestAsync(
     }
 
     try {
-        const response = await fetch(url, fetchInit);
+        const response = await fetch(fetchUrl, fetchInit);
         const responseBody = new Uint8Array(await response.arrayBuffer());
 
         // Collect response headers as JSON
@@ -111,7 +146,9 @@ function requestSync(
     // In sync mode, we use XMLHttpRequest which can be synchronous
     // eslint-disable-next-line no-restricted-globals
     const xhr = new XMLHttpRequest();
-    xhr.open(method, url, false); // synchronous
+    // Route cross-origin requests through the CORS proxy
+    const fetchUrl = shouldProxyViaCors(url) ? getCorsProxyUrl(url) : url;
+    xhr.open(method, fetchUrl, false); // synchronous
     xhr.responseType = 'arraybuffer';
 
     const parsedHeaders: Record<string, string> = headers ? JSON.parse(headers) : {};
