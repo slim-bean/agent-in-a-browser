@@ -6,6 +6,7 @@ projects:
   - "worker"
   - "runtime"
   - "stripe-cli-wasm"
+  - "git-cli-wasm"
 
 vcs:
   client: git

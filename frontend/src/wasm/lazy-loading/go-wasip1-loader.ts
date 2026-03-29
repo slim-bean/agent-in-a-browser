@@ -954,6 +954,7 @@ export async function loadGoWasip1Module(
     const instance = await WebAssembly.instantiate(module, {
         wasi_snapshot_preview1: wasi as WebAssembly.ModuleImports,
         'stripe:bridge/http-bridge@0.1.0': bridge as WebAssembly.ModuleImports,
+        'git:bridge/http-bridge@0.1.0': bridge as WebAssembly.ModuleImports,
     });
 
     wasmMemory = instance.exports.memory as WebAssembly.Memory;

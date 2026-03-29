@@ -25,6 +25,17 @@ func applyBuildTags(ctx *Context) error {
 		}
 	}
 
+	for _, removal := range Manifest.BuildTagRemovals {
+		path := filepath.Join(ctx.TargetDir, removal.File)
+		if !fileExists(path) {
+			fmt.Printf("  [skip] %s (not found)\n", removal.File)
+			continue
+		}
+		if err := removeBuildTag(ctx, removal.File); err != nil {
+			return err
+		}
+	}
+
 	for _, amend := range Manifest.BuildTagAmendments {
 		path := filepath.Join(ctx.TargetDir, amend.File)
 		if !fileExists(path) {
@@ -145,6 +156,44 @@ func amendBuildTag(ctx *Context, relPath string) error {
 	}
 
 	fmt.Printf("  amended build tag in %s\n", relPath)
+	return nil
+}
+
+// removeBuildTag removes the `//go:build !wasip1` line from a file.
+// Used when a file was previously excluded from wasip1 builds but is now supported.
+func removeBuildTag(ctx *Context, relPath string) error {
+	path := filepath.Join(ctx.TargetDir, relPath)
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	src := string(content)
+
+	// Check if it has a standalone !wasip1 tag
+	if !strings.Contains(src, "//go:build !wasip1") {
+		fmt.Printf("  [skip] %s (no !wasip1 tag to remove)\n", relPath)
+		return nil
+	}
+
+	if ctx.DryRun {
+		fmt.Printf("  [dry-run] remove //go:build !wasip1 from %s\n", relPath)
+		return nil
+	}
+
+	// Remove the //go:build !wasip1 line (and the blank line after it)
+	newSrc := strings.Replace(src, "//go:build !wasip1\n\n", "", 1)
+	if newSrc == src {
+		// Try without double newline
+		newSrc = strings.Replace(src, "//go:build !wasip1\n", "", 1)
+	}
+
+	if err := os.WriteFile(path, []byte(newSrc), 0o644); err != nil {
+		return err
+	}
+
+	fmt.Printf("  removed //go:build !wasip1 from %s\n", relPath)
 	return nil
 }
 

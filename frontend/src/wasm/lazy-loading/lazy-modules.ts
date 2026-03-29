@@ -34,9 +34,7 @@ import { metadata as sqliteMetadata } from '@tjfontaine/wasm-sqlite';
 import { metadata as ratatuiMetadata } from '@tjfontaine/wasm-ratatui';
 import { metadata as vimMetadata } from '@tjfontaine/wasm-vim';
 import { metadata as stripeMetadata } from '@tjfontaine/wasm-stripe';
-
-// Static import for git-module (pure TS, not WASM - must be static for worker context)
-import * as gitModule from '../git/git-module.js';
+import { metadata as gitMetadata } from '@tjfontaine/wasm-git';
 
 // Import types for internal use (these modules are still loaded by our loaders for now)
 type TsxEngineModule = typeof import('@tjfontaine/wasm-tsx/wasm/tsx-engine.js');
@@ -81,6 +79,7 @@ export function registerAllModules(): void {
     registerModule({ ...ratatuiMetadata, loader: loadRatatuiDemo });
     registerModule({ ...vimMetadata, loader: loadEdtuiModule });
     registerModule({ ...stripeMetadata, loader: loadStripeModule });
+    registerModule({ ...gitMetadata, loader: loadGitModule });
 
     _modulesRegistered = true;
     console.log('[LazyLoader] All modules registered');
@@ -93,7 +92,6 @@ export const LAZY_COMMANDS: Record<string, string> = {
     'tsx': 'tsx-engine',
     'tsc': 'tsx-engine',
     'sqlite3': 'sqlite-module',
-    'git': 'git-module',
     // Interactive TUI demos
     'ratatui-demo': 'ratatui-demo',
     'tui-demo': 'ratatui-demo',
@@ -248,16 +246,24 @@ async function loadSqliteModule(): Promise<CommandModule> {
 }
 
 /**
- * Load the git-module (pure TypeScript, not WASM)
- * 
- * NOTE: git-module is statically imported because dynamic imports in worker
- * contexts fail in Playwright/Vite dev server. Since it's pure TypeScript
- * (not heavy WASM), the bundle size impact is minimal.
+ * Load the git-module (Go CLI via go-git)
+ *
+ * Go-compiled git CLI using go-git, adapted from wasip1 to wasip2 component model.
+ * Uses the same direct wasip1 loader pattern as stripe-module.
  */
 async function loadGitModule(): Promise<CommandModule> {
-    console.log('[LazyLoader] Loading git-module (static import)...');
-    // Use the statically imported module
-    return gitModule.command as unknown as CommandModule;
+    console.log('[LazyLoader] Loading git-module (Go CLI, direct wasip1)...');
+    const startTime = performance.now();
+
+    const { loadGoWasip1Module, GoWasmExit } = await import('./go-wasip1-loader.js');
+    const httpBridge = await import('@tjfontaine/wasi-shims/http-bridge-impl.js');
+
+    const wasmUrl = '/wasm-git/git.wasm';
+
+    const loadTime = performance.now() - startTime;
+    console.log(`[LazyLoader] git-module imports loaded in ${loadTime.toFixed(0)}ms`);
+
+    return createDirectGoAdapter(loadGoWasip1Module, GoWasmExit, wasmUrl, httpBridge);
 }
 
 /**
@@ -469,7 +475,7 @@ function createDirectGoAdapter(
                 resolve: () => executionPromise,
             };
         },
-        listCommands: () => ['stripe'],
+        listCommands: () => [wasmUrl.includes('stripe') ? 'stripe' : 'git'],
     };
 }
 
@@ -537,9 +543,6 @@ export async function loadLazyModule(moduleName: string): Promise<CommandModule>
             break;
         case 'sqlite-module':
             loadPromise = loadSqliteModule();
-            break;
-        case 'git-module':
-            loadPromise = loadGitModule();
             break;
         case 'ratatui-demo':
             loadPromise = loadRatatuiDemo();
@@ -637,10 +640,10 @@ export async function initializeForSyncMode(): Promise<void> {
     const moduleNames = [
         'tsx-engine',
         'sqlite-module',
-        'git-module',
         'edtui-module',   // Vim editor - now supports sync mode
+        // 'git-module' excluded: 17MB Go WASM is too large for eager preload.
         // 'stripe-module' excluded: 35MB Go WASM is too large for eager preload.
-        // Stripe CLI loads on-demand even in sync mode.
+        // Both Go CLIs load on-demand even in sync mode.
         'brush-shell',    // Interactive shell - now supports sync mode
     ];
     await Promise.all(moduleNames.map(name =>

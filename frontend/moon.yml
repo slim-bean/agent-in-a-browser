@@ -50,6 +50,8 @@ tasks:
       - "wasm-vim:transpile-sync"
       - "wasm-stripe:transpile"
       - "wasm-stripe:transpile-sync"
+      - "wasm-git:transpile"
+      - "wasm-git:transpile-sync"
       - "web-agent-core:transpile"
       - "web-agent-core:transpile-sync"
 
@@ -59,17 +61,19 @@ tasks:
   # .wasm requests to R2 CDN. In production, the Worker redirects *.wasm to
   # cdn.edge-agent.dev and deploy-pages.yml strips .wasm from dist before deploy.
   copy-externals:
-    script: "mkdir -p dist/wasi-shims && cp ../packages/wasi-shims/browser-dist/*.js ../packages/wasi-shims/browser-dist/*.js.map dist/wasi-shims/ 2>/dev/null; cp ../packages/wasi-shims/dist/error.js ../packages/wasi-shims/dist/random.js dist/wasi-shims/ 2>/dev/null || true && mkdir -p dist/wasm-loader && cp ../packages/wasm-loader/dist/*.js ../packages/wasm-loader/dist/*.js.map dist/wasm-loader/ 2>/dev/null || true && mkdir -p dist/wasm-stripe && cp ../stripe-cli-wasm/stripe.wasm dist/wasm-stripe/stripe.wasm 2>/dev/null || true"
+    script: "mkdir -p dist/wasi-shims && cp ../packages/wasi-shims/browser-dist/*.js ../packages/wasi-shims/browser-dist/*.js.map dist/wasi-shims/ 2>/dev/null; cp ../packages/wasi-shims/dist/error.js ../packages/wasi-shims/dist/random.js dist/wasi-shims/ 2>/dev/null || true && mkdir -p dist/wasm-loader && cp ../packages/wasm-loader/dist/*.js ../packages/wasm-loader/dist/*.js.map dist/wasm-loader/ 2>/dev/null || true && mkdir -p dist/wasm-stripe && cp ../stripe-cli-wasm/stripe.wasm dist/wasm-stripe/stripe.wasm 2>/dev/null || true && mkdir -p dist/wasm-git && cp ../git-cli-wasm/git.wasm dist/wasm-git/git.wasm 2>/dev/null || true"
     inputs:
       - "/packages/wasi-shims/browser-dist/**"
       - "/packages/wasi-shims/dist/error.js"
       - "/packages/wasi-shims/dist/random.js"
       - "/packages/wasm-loader/dist/**"
       - "/stripe-cli-wasm/stripe.wasm"
+      - "/git-cli-wasm/git.wasm"
     outputs:
       - "dist/wasi-shims"
       - "dist/wasm-loader"
       - "dist/wasm-stripe"
+      - "dist/wasm-git"
     deps:
       - "~:build"
       - "wasi-shims:build"

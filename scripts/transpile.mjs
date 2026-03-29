@@ -198,6 +198,22 @@ const MODULES = {
             'stripe:bridge/http-bridge@0.1.0#request',
         ],
     },
+    'git-module': {
+        // Go-compiled git CLI using go-git, adapted from wasip1 → wasip2 component model.
+        // Exports wasi:cli/run (standard CLI entry point), not shell:unix/command.
+        // The lazy loader wraps this with a JS adapter to provide the expected interface.
+        wasm: 'git_go.wasm',
+        jspiOut: `${PACKAGES}/wasm-git/wasm`,
+        syncOut: `${PACKAGES}/wasm-git/wasm-sync`,
+        shims: {
+            ...SHIMS,
+            'git:bridge/http-bridge': '@tjfontaine/wasi-shims/http-bridge-impl.js',
+        },
+        exports: ['wasi:cli/run@0.2.6#run'],
+        extraAsyncImports: [
+            'git:bridge/http-bridge@0.1.0#request',
+        ],
+    },
     'web-agent-tui': {
         wasm: 'web_agent_tui.wasm',
         jspiOut: `${FRONTEND}/src/wasm/web-agent-tui`,

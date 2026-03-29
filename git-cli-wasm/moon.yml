@@ -1,0 +1,46 @@
+$schema: "https://moonrepo.dev/schemas/project.json"
+
+language: go
+layer: library
+tags: ["go", "wasm"]
+
+# Exclude inherited Node tasks — this is a Go project
+workspace:
+  inheritedTasks:
+    exclude: ["build"]
+
+tasks:
+  # Step 1: Compile the Go git CLI to wasip1
+  build-go-wasm:
+    script: "GOTOOLCHAIN=auto GOOS=wasip1 GOARCH=wasm go build -o git.wasm ./cmd/git"
+    inputs:
+      - "cmd/**/*.go"
+      - "internal/**/*.go"
+      - "patches/**/*.go"
+      - "go.mod"
+      - "go.sum"
+    outputs:
+      - "git.wasm"
+
+  # Step 2: Embed WIT metadata for custom bridge imports, then adapt wasip1→wasip2
+  adapt-component:
+    script: "wasm-tools component embed wit/ --world git:cli/git-cli git.wasm -o git-embedded.wasm && wasm-tools component new git-embedded.wasm --adapt wasi_snapshot_preview1=adapters/wasi_snapshot_preview1.command.wasm -o git-component.wasm"
+    toolchain: rust
+    inputs:
+      - "git.wasm"
+      - "wit/**/*.wit"
+      - "adapters/wasi_snapshot_preview1.command.wasm"
+    outputs:
+      - "git-component.wasm"
+    deps:
+      - "~:build-go-wasm"
+
+  # Step 3: Copy the adapted component to the shared target directory
+  copy-to-target:
+    script: "mkdir -p ../target/wasm32-wasip2/release && cp git-component.wasm ../target/wasm32-wasip2/release/git_go.wasm"
+    inputs:
+      - "git-component.wasm"
+    outputs:
+      - "/target/wasm32-wasip2/release/git_go.wasm"
+    deps:
+      - "~:adapt-component"

@@ -11,9 +11,6 @@
 
 import { hasJSPI } from './async-mode.js';
 
-// Static import for git-module (pure TS, not WASM - must be static for worker context)
-import * as gitModule from '../git/git-module.js';
-
 // Import types from generated modules
 type TsxEngineModule = typeof import('../tsx-engine/tsx-engine.js');
 type SqliteModule = typeof import('../sqlite-module/sqlite-module.js');
@@ -157,16 +154,14 @@ async function loadSqliteModule(): Promise<CommandModule> {
 }
 
 /**
- * Load the git-module (pure TypeScript, not WASM)
- * 
- * NOTE: git-module is statically imported because dynamic imports in worker
- * contexts fail in Playwright/Vite dev server. Since it's pure TypeScript
- * (not heavy WASM), the bundle size impact is minimal.
+ * Load the git-module
+ *
+ * NOTE: This file is dead code — the frontend uses its own lazy-modules.ts
+ * at frontend/src/wasm/lazy-loading/lazy-modules.ts. The git command is now
+ * served by the Go WASM binary via @tjfontaine/wasm-git.
  */
 async function loadGitModule(): Promise<CommandModule> {
-    console.log('[LazyLoader] Loading git-module (static import)...');
-    // Use the statically imported module
-    return gitModule.command as unknown as CommandModule;
+    throw new Error('git-module not available in mcp-wasm-server context — use frontend lazy-modules.ts');
 }
 
 /**
