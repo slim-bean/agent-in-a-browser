@@ -349,8 +349,7 @@ impl std::future::Future for Notified {
         }
         // On subsequent polls, check again
         if self.flag.load(std::sync::atomic::Ordering::Acquire) {
-            self.flag
-                .store(false, std::sync::atomic::Ordering::Release);
+            self.flag.store(false, std::sync::atomic::Ordering::Release);
             std::task::Poll::Ready(())
         } else {
             std::task::Poll::Pending

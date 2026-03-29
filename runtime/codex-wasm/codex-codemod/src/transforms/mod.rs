@@ -4,8 +4,8 @@
 //! system that routes through `engine.rs` + `transform.rs`.
 
 mod globals;
-mod stubs;
 mod string_replacements;
+mod stubs;
 
 use crate::transform::Transform;
 

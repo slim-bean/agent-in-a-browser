@@ -46,12 +46,6 @@
             "@tjfontaine/wasm-loader/*": [
                 "../packages/wasm-loader/src/*"
             ],
-            "@tjfontaine/wasm-ratatui": [
-                "../packages/wasm-ratatui/src/index.ts"
-            ],
-            "@tjfontaine/wasm-ratatui/*": [
-                "../packages/wasm-ratatui/src/*"
-            ],
             "@tjfontaine/wasm-sqlite": [
                 "../packages/wasm-sqlite/src/index.ts"
             ],
@@ -73,20 +67,11 @@
             "@tjfontaine/wasm-vim": [
                 "../packages/wasm-vim/src/index.ts"
             ],
-            "@tjfontaine/codex-agent-core": [
-                "../packages/codex-agent-core/src/index.ts"
-            ],
-            "@tjfontaine/web-agent-core/*": [
-                "../packages/web-agent-core/src/*"
-            ],
             "@tjfontaine/wasm-git": [
                 "../packages/wasm-git/src/index.ts"
             ],
             "@tjfontaine/wasm-git/*": [
                 "../packages/wasm-git/src/*"
-            ],
-            "@tjfontaine/codex-agent-core/*": [
-                "../packages/codex-agent-core/src/*"
             ]
         }
     },
@@ -96,9 +81,6 @@
         "playwright.config.ts"
     ],
     "references": [
-        {
-            "path": "../packages/codex-agent-core"
-        },
         {
             "path": "../packages/edge-agent-session"
         },
@@ -115,9 +97,6 @@
             "path": "../packages/wasm-loader"
         },
         {
-            "path": "../packages/wasm-ratatui"
-        },
-        {
             "path": "../packages/wasm-sqlite"
         },
         {
@@ -128,9 +107,6 @@
         },
         {
             "path": "../packages/wasm-vim"
-        },
-        {
-            "path": "../packages/web-agent-core"
         }
     ]
 }

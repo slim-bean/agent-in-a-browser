@@ -62,15 +62,21 @@ pub fn transforms() -> Vec<Transform> {
         },
         Transform::ReplaceFile {
             path_suffix: "codex-api/src/endpoint/realtime_websocket/mod.rs",
-            content: include_str!("../../replacements/codex-api/src/endpoint/realtime_websocket/mod.rs"),
+            content: include_str!(
+                "../../replacements/codex-api/src/endpoint/realtime_websocket/mod.rs"
+            ),
         },
         Transform::ReplaceFile {
             path_suffix: "codex-api/src/endpoint/realtime_websocket/methods.rs",
-            content: include_str!("../../replacements/codex-api/src/endpoint/realtime_websocket/methods.rs"),
+            content: include_str!(
+                "../../replacements/codex-api/src/endpoint/realtime_websocket/methods.rs"
+            ),
         },
         Transform::ReplaceFile {
             path_suffix: "codex-api/src/endpoint/realtime_websocket/protocol.rs",
-            content: include_str!("../../replacements/codex-api/src/endpoint/realtime_websocket/protocol.rs"),
+            content: include_str!(
+                "../../replacements/codex-api/src/endpoint/realtime_websocket/protocol.rs"
+            ),
         },
         //
         // Tiny stubs (< 3 lines) — kept inline
@@ -104,7 +110,9 @@ pub fn transforms() -> Vec<Transform> {
         //
         Transform::ReplaceFile {
             path_suffix: "codex-api/src/endpoint/responses_websocket.rs",
-            content: include_str!("../../replacements/codex-api/src/endpoint/responses_websocket.rs"),
+            content: include_str!(
+                "../../replacements/codex-api/src/endpoint/responses_websocket.rs"
+            ),
         },
         Transform::ReplaceFile {
             path_suffix: "core/src/config_loader/macos.rs",

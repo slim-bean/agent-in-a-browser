@@ -22,17 +22,21 @@ jobs:
           fetch-depth: 0
 
       - name: Checkout submodules
-        run: git submodule update --init stripe-cli-wasm/stripe-cli git-cli-wasm/patches/go-git
+        run: |
+          git submodule deinit --all -f 2>/dev/null || true
+          git submodule update --init --force stripe-cli-wasm/stripe-cli git-cli-wasm/patches/go-git runtime/codex-upstream
 
-      # Pin Rust toolchain — 1.94.0 introduced a wasm-component-ld linker
-      # regression. Unpin once the issue is resolved upstream.
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.93.0
+        uses: moonrepo/setup-rust@v1
         with:
-          targets: wasm32-wasip2
+          channel: "1.94.0"
+          targets: wasm32-wasip2,wasm32-wasip1
           components: rustfmt
+          cache: false
 
       - name: Install Cargo tools
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
           cargo binstall -y --log-level info cargo-component wit-deps-cli wasm-tools

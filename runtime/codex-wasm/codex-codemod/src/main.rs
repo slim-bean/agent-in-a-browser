@@ -44,7 +44,6 @@ struct Args {
     /// Only run AST transforms (skip Cargo.toml transforms)
     #[arg(long)]
     ast_only: bool,
-
 }
 
 fn main() -> Result<()> {
@@ -73,8 +72,10 @@ fn main() -> Result<()> {
         let stats = engine::apply_transforms(&codex_rs, &all_transforms)?;
         println!(
             "  {} files transformed, {} stubbed, {} transforms applied ({} already applied)",
-            stats.files_transformed, stats.files_stubbed,
-            stats.transforms_applied, stats.transforms_already_applied
+            stats.files_transformed,
+            stats.files_stubbed,
+            stats.transforms_applied,
+            stats.transforms_already_applied
         );
         if !stats.transforms_not_matched.is_empty() {
             for desc in &stats.transforms_not_matched {

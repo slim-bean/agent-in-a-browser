@@ -31,7 +31,6 @@ import {
 // Loaders are attached locally when registering to avoid build-time resolution
 import { metadata as tsxMetadata } from '@tjfontaine/wasm-tsx';
 import { metadata as sqliteMetadata } from '@tjfontaine/wasm-sqlite';
-import { metadata as ratatuiMetadata } from '@tjfontaine/wasm-ratatui';
 import { metadata as vimMetadata } from '@tjfontaine/wasm-vim';
 import { metadata as stripeMetadata } from '@tjfontaine/wasm-stripe';
 import { metadata as gitMetadata } from '@tjfontaine/wasm-git';
@@ -40,7 +39,6 @@ import { metadata as pythonMetadata } from '@tjfontaine/wasm-python';
 // Import types for internal use (these modules are still loaded by our loaders for now)
 type TsxEngineModule = typeof import('@tjfontaine/wasm-tsx/wasm/tsx-engine.js');
 type SqliteModule = typeof import('@tjfontaine/wasm-sqlite/wasm/sqlite-module.js');
-type _RatatuiDemoModule = typeof import('@tjfontaine/wasm-ratatui/wasm/ratatui-demo.js');
 // Note: StripeModule type will resolve after `moon run wasm-stripe:transpile`
 // type _StripeModule = typeof import('@tjfontaine/wasm-stripe/wasm/stripe-module.js');
 
@@ -77,7 +75,6 @@ export function registerAllModules(): void {
     // Combine package metadata with local loader functions
     registerModule({ ...tsxMetadata, loader: loadTsxEngine });
     registerModule({ ...sqliteMetadata, loader: loadSqliteModule });
-    registerModule({ ...ratatuiMetadata, loader: loadRatatuiDemo });
     registerModule({ ...vimMetadata, loader: loadEdtuiModule });
     registerModule({ ...stripeMetadata, loader: loadStripeModule });
     registerModule({ ...gitMetadata, loader: loadGitModule });
@@ -94,11 +91,6 @@ export const LAZY_COMMANDS: Record<string, string> = {
     'tsx': 'tsx-engine',
     'tsc': 'tsx-engine',
     'sqlite3': 'sqlite-module',
-    // Interactive TUI demos
-    'ratatui-demo': 'ratatui-demo',
-    'tui-demo': 'ratatui-demo',
-    'counter': 'ratatui-demo',
-    'ansi-demo': 'ratatui-demo',
     // Vim-style editor
     'vim': 'edtui-module',
     'vi': 'edtui-module',
@@ -331,36 +323,6 @@ function wrapJspiModule(jspiModule: {
  * and returns control to JavaScript, allowing the event loop to deliver
  * keyboard input.
  */
-async function loadRatatuiDemo(): Promise<CommandModule> {
-    // Interactive TUI requires JSPI for stdin to work
-    if (!hasJSPI) {
-        throw new Error(
-            'Interactive TUI apps require JSPI (JavaScript Promise Integration). ' +
-            'Please use Chrome with JSPI enabled.'
-        );
-    }
-
-    console.log('[LazyLoader] Loading ratatui-demo (JSPI mode)...');
-    const startTime = performance.now();
-
-    // Dynamic import of the JSPI-transpiled module
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const module = await import('@tjfontaine/wasm-ratatui/wasm/ratatui-demo.js') as any;
-
-    // Await $init for the JSPI module initialization
-    if (module.$init) {
-        await module.$init;
-    }
-
-    const loadTime = performance.now() - startTime;
-    console.log(`[LazyLoader] ratatui-demo loaded in ${loadTime.toFixed(0)}ms`);
-
-    // Use JSPI wrapper since run() returns a Promise with async exports
-    // Note: jco generates types showing run() -> number, but with --async-exports
-    // it actually returns Promise<number>. We cast through unknown.
-    return wrapJspiModule(module.command as unknown as Parameters<typeof wrapJspiModule>[0]);
-}
-
 /**
  * Load the edtui-module (vim-style editor)
  * 
@@ -647,9 +609,6 @@ export async function loadLazyModule(moduleName: string): Promise<CommandModule>
             break;
         case 'sqlite-module':
             loadPromise = loadSqliteModule();
-            break;
-        case 'ratatui-demo':
-            loadPromise = loadRatatuiDemo();
             break;
         case 'edtui-module':
             loadPromise = loadEdtuiModule();

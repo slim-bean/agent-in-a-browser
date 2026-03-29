@@ -263,9 +263,7 @@ export default defineConfig(({ mode }) => ({
         rollupOptions: {
             input: {
                 main: 'index.html',
-                'embed-demo': 'embed-demo.html',
                 'mcp-bridge': 'mcp-bridge.html',
-                'wasm-test': 'wasm-test.html',
             },
             // Mark wasi-shims as external to prevent Rollup from inlining
             // This ensures a single shared module instance at runtime,

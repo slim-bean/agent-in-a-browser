@@ -167,13 +167,6 @@ const MODULES = {
         shims: SHIMS,
         exports: ['shell:unix/command@0.1.0#run'],
     },
-    'ratatui-demo': {
-        wasm: 'ratatui_demo.wasm',
-        jspiOut: `${PACKAGES}/wasm-ratatui/wasm`,
-        syncOut: `${PACKAGES}/wasm-ratatui/wasm-sync`,
-        shims: SHIMS,
-        exports: ['shell:unix/command@0.1.0#run'],
-    },
     'edtui-module': {
         wasm: 'edtui_module.wasm',
         jspiOut: `${PACKAGES}/wasm-vim/wasm`,
@@ -214,36 +207,6 @@ const MODULES = {
             'git:bridge/http-bridge@0.1.0#request',
         ],
     },
-    'web-agent-tui': {
-        wasm: 'web_agent_tui.wasm',
-        jspiOut: `${FRONTEND}/src/wasm/web-agent-tui`,
-        syncOut: `${FRONTEND}/src/wasm/web-agent-tui-sync`,
-        shims: {
-            ...SHIMS,
-            'codex:agent/shell-exec@0.1.0': '@tjfontaine/wasi-shims/shell-exec-impl.js',
-        },
-        // All exported functions that may suspend need --async-exports for JSPI
-        exports: ['create', 'destroy', 'sendMessage', 'poll', 'cancel', 'plan', 'execute', 'getHistory', 'clearHistory', 'listProviders', 'listModels', 'fetchModels'],
-        // shell-exec is async (suspends via JSPI while host runs the command)
-        extraAsyncImports: [
-            'codex:agent/shell-exec@0.1.0#exec',
-        ],
-    },
-    'codex-wasm-agent': {
-        wasm: 'codex_wasm_agent.wasm',
-        jspiOut: `${PACKAGES}/codex-agent-core/src/wasm`,
-        syncOut: `${PACKAGES}/codex-agent-core/src/wasm-sync`,
-        shims: {
-            ...SHIMS,
-            'codex:agent/shell-exec@0.1.0': '@tjfontaine/wasi-shims/shell-exec-impl.js',
-        },
-        // All exported functions that may suspend need --async-exports for JSPI
-        exports: ['create', 'destroy', 'sendMessage', 'poll', 'cancel', 'plan', 'execute', 'getHistory', 'clearHistory', 'listProviders', 'listModels', 'fetchModels'],
-        // shell-exec is async (suspends via JSPI while host runs the command)
-        extraAsyncImports: [
-            'codex:agent/shell-exec@0.1.0#exec',
-        ],
-    },
     'codex-wasm-tui': {
         wasm: 'codex_wasm_tui.wasm',
         jspiOut: `${FRONTEND}/src/wasm/codex-tui`,
@@ -264,42 +227,6 @@ const MODULES = {
             // HTTP outgoing-handler must be async for LLM API calls
             'wasi:http/outgoing-handler@0.2.9#handle',
         ],
-    },
-    // iOS-specific build: uses local:// scheme for ES module imports via WKURLSchemeHandler
-    'web-headless-agent-ios': {
-        wasm: 'web_headless_agent.wasm',
-        jspiOut: `${ROOT}/ios-edge-agent/EdgeAgent/Resources/WebRuntime/web-headless-agent`,
-        syncOut: `${ROOT}/ios-edge-agent/EdgeAgent/Resources/WebRuntime/web-headless-agent-sync`,
-        // local:// scheme paths served by WKURLSchemeHandler with CORS headers
-        // JSPI mode uses web-headless-agent path
-        shims: {
-            'wasi:cli/*': 'local://web-headless-agent/shims/ghostty-cli-shim.js#*',
-            'wasi:clocks/*': 'local://web-headless-agent/shims/clocks-impl.js#*',
-            'wasi:filesystem/*': 'local://web-headless-agent/shims/opfs-filesystem-impl.js#*',
-            'wasi:io/poll': 'local://web-headless-agent/shims/poll-impl.js',
-            'wasi:io/streams': 'local://web-headless-agent/shims/streams.js',
-            'wasi:io/*': 'local://web-headless-agent/shims/error.js#*',
-            'wasi:random/*': 'local://web-headless-agent/shims/random.js#*',
-            'wasi:sockets/*': 'local://web-headless-agent/shims/sockets-stub.js#*',
-            'wasi:http/types': 'local://web-headless-agent/shims/wasi-http-impl.js',
-            'wasi:http/outgoing-handler': 'local://web-headless-agent/shims/wasi-http-impl.js#outgoingHandler',
-            'terminal:info/size': 'local://web-headless-agent/shims/ghostty-cli-shim.js#size',
-        },
-        // Sync mode uses web-headless-agent-sync path (must match output directory)
-        syncShims: {
-            'wasi:cli/*': 'local://web-headless-agent-sync/shims/ghostty-cli-shim.js#*',
-            'wasi:clocks/*': 'local://web-headless-agent-sync/shims/clocks-impl.js#*',
-            'wasi:filesystem/*': 'local://web-headless-agent-sync/shims/opfs-filesystem-sync-impl.js#*',
-            'wasi:io/poll': 'local://web-headless-agent-sync/shims/poll-impl.js',
-            'wasi:io/streams': 'local://web-headless-agent-sync/shims/streams.js',
-            'wasi:io/*': 'local://web-headless-agent-sync/shims/error.js#*',
-            'wasi:random/*': 'local://web-headless-agent-sync/shims/random.js#*',
-            'wasi:sockets/*': 'local://web-headless-agent-sync/shims/sockets-stub.js#*',
-            'wasi:http/types': 'local://web-headless-agent-sync/shims/wasi-http-impl.js',
-            'wasi:http/outgoing-handler': 'local://web-headless-agent-sync/shims/wasi-http-impl.js#outgoingHandler',
-            'terminal:info/size': 'local://web-headless-agent-sync/shims/ghostty-cli-shim.js#size',
-        },
-        exports: ['create', 'send', 'poll', 'listProviders', 'listModels', 'fetchModels'],
     },
 };
 

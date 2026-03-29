@@ -2,12 +2,8 @@
 members = [
     "runtime",
     "runtime/runtime-macros",
-    "runtime/crates/core",
     "runtime/crates/tsx-engine",
     "runtime/crates/sqlite-module",
-    "runtime/crates/ratatui-demo",
-    "runtime/crates/web-agent-tui",
-    "runtime/crates/web-headless-agent",
     "runtime/crates/mcp-server-core",
     "runtime/crates/edtui-module",
     "runtime/crates/stripe-module",
@@ -23,10 +19,10 @@ members = [
     "runtime/codex-wasm/codex-codemod",
 ]
 exclude = [
-    # codex-wasm-agent depends on codex-upstream crates which require
+    # codex-wasm-tui depends on codex-upstream crates which require
     # the codemod to be applied first. It is built separately after
-    # the codemod runs: cargo component build -p codex-wasm-agent
-    "runtime/codex-wasm/codex-wasm-agent",
+    # the codemod runs: cargo component build -p codex-wasm-tui
+    "runtime/codex-wasm/codex-wasm-tui",
 ]
 resolver = "2"
 

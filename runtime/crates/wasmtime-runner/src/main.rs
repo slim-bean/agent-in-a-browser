@@ -12,7 +12,7 @@
 //! **Default (embed-wasm):** Bundles all WASM into a single binary.
 //! Requires WASM to be built first:
 //! ```bash
-//! cargo component build --release -p web-agent-tui -p ts-runtime-mcp ...
+//! cargo component build --release -p ts-runtime-mcp ...
 //! cargo build --release -p wasmtime-runner
 //! ```
 //!
@@ -40,12 +40,6 @@ use module_loader::ModuleLoader;
 #[cfg(feature = "embed-wasm")]
 #[allow(dead_code)] // EDTUI/SQLITE/TSX will be used for lazy-loading
 mod embedded {
-    /// TUI WASM component
-    pub static TUI_WASM: &[u8] = include_bytes!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../../target/wasm32-wasip2/release/web_agent_tui.wasm"
-    ));
-
     /// MCP server WASM component
     pub static MCP_WASM: &[u8] = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -169,7 +163,7 @@ async fn run(args: Args) -> Result<()> {
     #[cfg(feature = "embed-wasm")]
     let (tui_bytes, _mcp_bytes) = {
         eprintln!("Using embedded WASM components");
-        (embedded::TUI_WASM.to_vec(), embedded::MCP_WASM.to_vec())
+        (embedded::MCP_WASM.to_vec(), embedded::MCP_WASM.to_vec())
     };
 
     #[cfg(feature = "no-embed")]

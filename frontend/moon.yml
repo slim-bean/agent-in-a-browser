@@ -44,18 +44,12 @@ tasks:
       - "wasm-tsx:transpile-sync"
       - "wasm-sqlite:transpile"
       - "wasm-sqlite:transpile-sync"
-      - "wasm-ratatui:transpile"
-      - "wasm-ratatui:transpile-sync"
       - "wasm-vim:transpile"
       - "wasm-vim:transpile-sync"
       - "wasm-stripe:transpile"
       - "wasm-stripe:transpile-sync"
       - "wasm-git:transpile"
       - "wasm-git:transpile-sync"
-      - "web-agent-core:transpile"
-      - "web-agent-core:transpile-sync"
-      - "codex-agent-core:transpile"
-      - "codex-agent-core:transpile-sync"
 
   # Copy non-Vite assets into dist/ that the app expects at runtime.
   # stripe.wasm is included here for local dev (`vite dev`) and E2E tests

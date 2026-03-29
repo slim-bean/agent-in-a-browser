@@ -38,12 +38,13 @@ tasks:
       runInCI: true
 
   build-wasm:
-    script: "cargo component build --release --target wasm32-wasip2 -p ts-runtime-mcp -p tsx-engine -p sqlite-module -p ratatui-demo -p edtui-module -p stripe-module -p web-agent-tui -p web-headless-agent && cargo fmt --all"
+    script: "cargo component build --release --target wasm32-wasip2 -p ts-runtime-mcp -p tsx-engine -p sqlite-module -p edtui-module -p stripe-module && cargo fmt --all"
     env:
-      # libsqlite3-sys (bundled) needs a C cross-compiler targeting WASI.
-      # WASI_SDK_PATH must point to the wasi-sdk installation root.
-      # Set locally (e.g. export WASI_SDK_PATH=~/.local/wasi-sdk-32.0-arm64-macos)
-      # or via CI (see .github/workflows/build.yml).
+      # WASI_SDK_PATH must be inherited from the process environment.
+      # Set locally (e.g. export WASI_SDK_PATH=~/.local/wasi-sdk-32.0-x86_64-linux)
+      # or via CI ($GITHUB_ENV in .github/workflows/build.yml).
+      # Explicit passthrough ensures Moon doesn't shadow it.
+      WASI_SDK_PATH: "${WASI_SDK_PATH}"
       CC_wasm32_wasip1: "${WASI_SDK_PATH}/bin/clang"
       CC_wasm32_wasip2: "${WASI_SDK_PATH}/bin/clang"
       CFLAGS_wasm32_wasip1: "--sysroot=${WASI_SDK_PATH}/share/wasi-sysroot"
@@ -62,33 +63,12 @@ tasks:
       - "/target/wasm32-wasip2/release/ts_runtime_mcp.wasm"
       - "/target/wasm32-wasip2/release/tsx_engine.wasm"
       - "/target/wasm32-wasip2/release/sqlite_module.wasm"
-      - "/target/wasm32-wasip2/release/ratatui_demo.wasm"
       - "/target/wasm32-wasip2/release/edtui_module.wasm"
       - "/target/wasm32-wasip2/release/stripe_module.wasm"
-      - "/target/wasm32-wasip2/release/web_agent_tui.wasm"
-      - "/target/wasm32-wasip2/release/web_headless_agent.wasm"
     deps:
       - "~:wit-deps"
     options:
       runInCI: true
-
-  build-codex-wasm:
-    script: |
-      git submodule update --init codex-upstream &&
-      cargo component build --manifest-path codex-wasm/codex-wasm-agent/Cargo.toml --release --target wasm32-wasip2 &&
-      cp codex-wasm/codex-wasm-agent/target/wasm32-wasip2/release/codex_wasm_agent.wasm ../target/wasm32-wasip2/release/codex_wasm_agent.wasm
-    inputs:
-      - "codex-wasm/codex-wasm-agent/src/**"
-      - "codex-wasm/codex-wasm-agent/wit/**"
-      - "codex-wasm/codex-wasm-agent/Cargo.toml"
-      - "codex-wasm/wasi-tokio/src/**"
-      - "codex-wasm/wasi-reqwest/src/**"
-      - "codex-wasm/wasi-codex-login/src/**"
-      - "codex-wasm/platform-traits/src/**"
-    outputs:
-      - "/target/wasm32-wasip2/release/codex_wasm_agent.wasm"
-    deps:
-      - "~:wit-deps"
 
   # The codex-upstream submodule carries our patches pre-applied.
   # After rebasing against upstream, run: cargo run -p codex-codemod -- codex-upstream
@@ -163,12 +143,3 @@ tasks:
     options:
       runInCI: true
 
-  transpile-ios:
-    command: "node ../scripts/transpile.mjs web-headless-agent-ios"
-    inputs:
-      - "/target/wasm32-wasip2/release/web_headless_agent.wasm"
-      - "/scripts/transpile.mjs"
-    deps:
-      - "~:build-wasm"
-    options:
-      runInCI: false

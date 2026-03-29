@@ -26,8 +26,8 @@
 use std::path;
 use syn::visit::Visit;
 use syn::{
-    Attribute, Expr, File, GenericArgument, ItemUse, Path, PathArguments, PathSegment,
-    Type, UseTree,
+    Attribute, Expr, File, GenericArgument, ItemUse, Path, PathArguments, PathSegment, Type,
+    UseTree,
 };
 
 /// Maps proc_macro2 line/column spans to byte offsets in the original source.
@@ -97,9 +97,10 @@ const PREPEND_TEXT: &[(&str, &str)] = &[
 
 /// Comment-out-lines entries — lines starting with these prefixes get commented out.
 /// (file_path_suffix, &[line_prefix])
-const COMMENT_OUT_LINES: &[(&str, &[&str])] = &[
-    ("core/src/config_loader/macos.rs", &["use core_foundation::"]),
-];
+const COMMENT_OUT_LINES: &[(&str, &[&str])] = &[(
+    "core/src/config_loader/macos.rs",
+    &["use core_foundation::"],
+)];
 
 /// Apply all span-based transforms to Rust source code, with optional file-path context
 /// for file-specific transforms.
@@ -337,10 +338,7 @@ impl<'a> EditCollector<'a> {
                 self.edits.push(Edit {
                     start: line_start,
                     end: line_end,
-                    replacement: format!(
-                        "{}#[test]\n",
-                        " ".repeat(start - line_start)
-                    ),
+                    replacement: format!("{}#[test]\n", " ".repeat(start - line_start)),
                 });
                 continue;
             }
@@ -378,8 +376,7 @@ impl<'a> EditCollector<'a> {
                                         .join("::")
                                 })
                                 .collect();
-                            let new_derive =
-                                format!("#[derive({})]", names.join(", "));
+                            let new_derive = format!("#[derive({})]", names.join(", "));
                             self.edits.push(Edit {
                                 start,
                                 end,
@@ -515,8 +512,7 @@ impl<'a> Visit<'a> for EditCollector<'a> {
                 if args.args.len() >= 2 {
                     if let Some(GenericArgument::Type(Type::Infer(_))) = args.args.first() {
                         // Get the span of the angle-bracketed args
-                        let (args_start, _) =
-                            self.span_range(args.lt_token.span);
+                        let (args_start, _) = self.span_range(args.lt_token.span);
                         let (_, args_close) = self.span_range(args.gt_token.span);
 
                         // Build the replacement: <remaining_args>
@@ -578,10 +574,7 @@ impl<'a> Visit<'a> for EditCollector<'a> {
     // --- TS stripping from macro_rules bodies ---
     fn visit_item_macro(&mut self, node: &'a syn::ItemMacro) {
         let tokens_str = node.mac.tokens.to_string();
-        if tokens_str.contains("TS")
-            || tokens_str.contains("ts (")
-            || tokens_str.contains("ts(")
-        {
+        if tokens_str.contains("TS") || tokens_str.contains("ts (") || tokens_str.contains("ts(") {
             let filtered = strip_ts_from_macro_tokens(node.mac.tokens.clone());
             let filtered_str = filtered.to_string();
             if filtered_str != tokens_str {
@@ -601,10 +594,7 @@ impl<'a> Visit<'a> for EditCollector<'a> {
                     self.edits.push(Edit {
                         start: delim_start,
                         end: delim_end,
-                        replacement: format!(
-                            "{} {} {}",
-                            open_delim, filtered_str, close_delim
-                        ),
+                        replacement: format!("{} {} {}", open_delim, filtered_str, close_delim),
                     });
                 }
             }
@@ -653,7 +643,8 @@ impl<'a> EditCollector<'a> {
             // Check it's followed by `;` (possibly with whitespace)
             let after = body_text[pos + "biased".len()..].trim_start();
             if after.starts_with(';') {
-                let semi_pos = pos + "biased".len() + body_text[pos + "biased".len()..].find(';').unwrap();
+                let semi_pos =
+                    pos + "biased".len() + body_text[pos + "biased".len()..].find(';').unwrap();
                 // Extend to full line
                 let line_start = body_text[..pos].rfind('\n').map(|p| p + 1).unwrap_or(0);
                 let line_end = body_text[semi_pos + 1..]
@@ -783,8 +774,11 @@ impl<'a> EditCollector<'a> {
         let mut depth = 1;
         i += 1;
         while i < bytes.len() && depth > 0 {
-            if bytes[i] == open { depth += 1; }
-            else if bytes[i] == close { depth -= 1; }
+            if bytes[i] == open {
+                depth += 1;
+            } else if bytes[i] == close {
+                depth -= 1;
+            }
             i += 1;
         }
         (delim_start, i)
@@ -869,8 +863,7 @@ impl<'a> EditCollector<'a> {
                     }
 
                     // Replace `thread` with `tokio::thread_spawn`
-                    let (thread_start, thread_end) =
-                        self.span_range(segments[i].ident.span());
+                    let (thread_start, thread_end) = self.span_range(segments[i].ident.span());
                     self.edits.push(Edit {
                         start: thread_start,
                         end: thread_end,
@@ -1024,7 +1017,6 @@ impl<'a> EditCollector<'a> {
                 }
             }
         }
-
     }
 
     // -----------------------------------------------------------------------
@@ -1062,7 +1054,8 @@ impl<'a> EditCollector<'a> {
                         self.edits.push(Edit {
                             start: path_start,
                             end: call_end,
-                            replacement: "(|| -> Result<std::path::PathBuf, ()> { Err(()) })()".to_string(),
+                            replacement: "(|| -> Result<std::path::PathBuf, ()> { Err(()) })()"
+                                .to_string(),
                         });
                         return;
                     }
@@ -1111,7 +1104,8 @@ impl<'a> EditCollector<'a> {
                                     self.edits.push(Edit {
                                         start: line_start,
                                         end: line_end,
-                                        replacement: "use tokio::process::ExitStatus;\n".to_string(),
+                                        replacement: "use tokio::process::ExitStatus;\n"
+                                            .to_string(),
                                     });
                                 }
                             }
@@ -1217,7 +1211,8 @@ impl Absolutize for Path {
             Ok(std::borrow::Cow::Owned(base.join(self)))
         }
     }
-}\n".to_string(),
+}\n"
+                        .to_string(),
                     });
                 }
             }
@@ -1273,7 +1268,8 @@ impl std::fmt::Display for Error {
 impl std::error::Error for Error {}
 /// Stub for tungstenite Message (websocket deps stripped for WASM)
 #[derive(Debug)]
-pub enum Message { Text(String), Binary(Vec<u8>) }\n".to_string(),
+pub enum Message { Text(String), Binary(Vec<u8>) }\n"
+                            .to_string(),
                     });
                 }
             }
@@ -1313,7 +1309,8 @@ struct FileRwLock<T>(T);
 impl<T> FileRwLock<T> {
     fn new(inner: T) -> Self { Self(inner) }
     fn try_write(&mut self) -> std::io::Result<&mut T> { Ok(&mut self.0) }
-}\n".to_string(),
+}\n"
+                        .to_string(),
                     });
                 }
             }
@@ -1420,8 +1417,12 @@ impl<T> FileRwLock<T> {
                     let mut end = bs + 1;
                     let bytes = self.source.as_bytes();
                     while end < bytes.len() && depth > 0 {
-                        if bytes[end] == b'{' { depth += 1; }
-                        if bytes[end] == b'}' { depth -= 1; }
+                        if bytes[end] == b'{' {
+                            depth += 1;
+                        }
+                        if bytes[end] == b'}' {
+                            depth -= 1;
+                        }
                         end += 1;
                     }
                     // end is now past the closing brace
@@ -1437,11 +1438,12 @@ impl<T> FileRwLock<T> {
                     } else {
                         // Remove the windows version (blank line between the two)
                         // Walk backwards to eat the blank line before #[cfg(windows)]
-                        let adjusted_start = if start > 0 && self.source.as_bytes()[start - 1] == b'\n' {
-                            start - 1
-                        } else {
-                            start
-                        };
+                        let adjusted_start =
+                            if start > 0 && self.source.as_bytes()[start - 1] == b'\n' {
+                                start - 1
+                            } else {
+                                start
+                            };
                         self.edits.push(Edit {
                             start: adjusted_start,
                             end: line_end,
@@ -1508,7 +1510,10 @@ impl<T> FileRwLock<T> {
                 // Check if the wasm32 version already exists (idempotency)
                 let fn_end = self.fn_byte_end(node);
                 let after = &self.source[fn_end..];
-                if !after.trim_start().starts_with("#[cfg(not(any(unix, windows)))]") {
+                if !after
+                    .trim_start()
+                    .starts_with("#[cfg(not(any(unix, windows)))]")
+                {
                     self.edits.push(Edit {
                         start: fn_end,
                         end: fn_end,
@@ -1519,7 +1524,10 @@ impl<T> FileRwLock<T> {
             if fn_name == "system_config_toml_file" {
                 let fn_end = self.fn_byte_end(node);
                 let after = &self.source[fn_end..];
-                if !after.trim_start().starts_with("#[cfg(not(any(unix, windows)))]") {
+                if !after
+                    .trim_start()
+                    .starts_with("#[cfg(not(any(unix, windows)))]")
+                {
                     self.edits.push(Edit {
                         start: fn_end,
                         end: fn_end,
@@ -1534,7 +1542,10 @@ impl<T> FileRwLock<T> {
             if fn_name == "ensure_owner_only_permissions" {
                 let fn_end = self.fn_byte_end(node);
                 let after = &self.source[fn_end..];
-                if !after.trim_start().starts_with("#[cfg(not(any(unix, windows)))]") {
+                if !after
+                    .trim_start()
+                    .starts_with("#[cfg(not(any(unix, windows)))]")
+                {
                     self.edits.push(Edit {
                         start: fn_end,
                         end: fn_end,
@@ -1612,7 +1623,11 @@ impl<T> FileRwLock<T> {
         } else {
             // Check if already replaced
             if !self.source.contains(replacement) {
-                let preview = if needle.len() > 60 { &needle[..60] } else { needle };
+                let preview = if needle.len() > 60 {
+                    &needle[..60]
+                } else {
+                    needle
+                };
                 eprintln!("  [syn-WARN] no match in {file_suffix}: \"{preview}\"");
             }
             false
@@ -1926,7 +1941,8 @@ impl<T> FileRwLock<T> {
         // --- tui/src/lib.rs: fix set_default_client_residency_requirement (appears twice) ---
         // Use find_all approach since replacen only does first and string_replace uses find
         {
-            let needle = "set_default_client_residency_requirement(config.enforce_residency.value());";
+            let needle =
+                "set_default_client_residency_requirement(config.enforce_residency.value());";
             let replacement = "set_default_client_residency_requirement(config.enforce_residency.value().map(|_| ()));";
             if self.file_matches("tui/src/lib.rs") {
                 let mut search_start = 0;
@@ -2229,7 +2245,8 @@ impl<T> FileRwLock<T> {
             return;
         }
         let needle = "        let client = reqwest::blocking::Client::builder()\n            .no_proxy()\n            .build()\n            .ok()?;\n        let response = client\n            .get(ANNOUNCEMENT_TIP_URL)\n            .timeout(Duration::from_millis(2000))\n            .send()\n            .ok()?;\n        response.error_for_status().ok()?.text().ok()";
-        let replacement = "        // reqwest::blocking not available in WASM\n        None::<String>";
+        let replacement =
+            "        // reqwest::blocking not available in WASM\n        None::<String>";
         if let Some((start, end)) = self.find_source_range(needle) {
             self.edits.push(Edit {
                 start,
@@ -2389,7 +2406,8 @@ impl<T> FileRwLock<T> {
         // 9. set_default_client_residency_requirement type fix (tui/src/lib.rs)
         // Appears twice — use find_all approach
         if self.file_matches("tui/src/lib.rs") {
-            let needle = "set_default_client_residency_requirement(config.enforce_residency.value());";
+            let needle =
+                "set_default_client_residency_requirement(config.enforce_residency.value());";
             let replacement = "set_default_client_residency_requirement(config.enforce_residency.value().map(|_| ()));";
             let mut search_start = 0;
             while let Some(pos) = self.source[search_start..].find(needle) {
@@ -2605,7 +2623,9 @@ fn strip_ts_from_macro_tokens(tokens: proc_macro2::TokenStream) -> proc_macro2::
                         if let TokenTree::Group(g) = &result[s - 1] {
                             if g.delimiter() == proc_macro2::Delimiter::Parenthesis {
                                 if let TokenTree::Ident(prev) = &result[s - 2] {
-                                    if prev == "pub" { s -= 2; }
+                                    if prev == "pub" {
+                                        s -= 2;
+                                    }
                                 }
                             }
                         }
@@ -2613,7 +2633,9 @@ fn strip_ts_from_macro_tokens(tokens: proc_macro2::TokenStream) -> proc_macro2::
                     // Check for bare pub
                     if s == result.len() && s >= 1 {
                         if let TokenTree::Ident(prev) = &result[s - 1] {
-                            if prev == "pub" { s -= 1; }
+                            if prev == "pub" {
+                                s -= 1;
+                            }
                         }
                     }
                     s
@@ -2649,8 +2671,10 @@ fn strip_ts_from_macro_tokens(tokens: proc_macro2::TokenStream) -> proc_macro2::
         // Pattern: `, TS` or `TS ,` inside groups (derive lists)
         match &tokens_vec[i] {
             TokenTree::Ident(id) if id == "TS" => {
-                let has_preceding_comma = matches!(result.last(), Some(TokenTree::Punct(p)) if p.as_char() == ',');
-                let has_following_comma = i + 1 < len && matches!(&tokens_vec[i + 1], TokenTree::Punct(p) if p.as_char() == ',');
+                let has_preceding_comma =
+                    matches!(result.last(), Some(TokenTree::Punct(p)) if p.as_char() == ',');
+                let has_following_comma = i + 1 < len
+                    && matches!(&tokens_vec[i + 1], TokenTree::Punct(p) if p.as_char() == ',');
 
                 if has_preceding_comma {
                     result.pop();
@@ -2676,7 +2700,6 @@ fn strip_ts_from_macro_tokens(tokens: proc_macro2::TokenStream) -> proc_macro2::
 
     result.into_iter().collect()
 }
-
 
 // ---------------------------------------------------------------------------
 // Helper predicates
@@ -2742,9 +2765,7 @@ fn is_cfg_attr_with(attr: &Attribute, target: &str) -> bool {
         return false;
     }
     let tokens_str = quote::quote!(#attr).to_string();
-    tokens_str.contains(target)
-        && !tokens_str.contains("any")
-        && !tokens_str.contains("not")
+    tokens_str.contains(target) && !tokens_str.contains("any") && !tokens_str.contains("not")
 }
 
 // is_sqlx_migrate_macro_path removed — migrate! handled by proc macro
@@ -2911,7 +2932,10 @@ async fn test_something() {
 }
 "#;
         let result = apply(input).expect("should transform");
-        assert!(!result.contains("tokio::test"), "tokio::test should be gone");
+        assert!(
+            !result.contains("tokio::test"),
+            "tokio::test should be gone"
+        );
         assert!(result.contains("#[test]"), "should have #[test]");
     }
 
@@ -3024,7 +3048,10 @@ fn foo() {
     #[test]
     fn test_parse_failure_returns_none() {
         let input = "this is not valid rust {{{{";
-        assert!(apply(input).is_none(), "should return None on parse failure");
+        assert!(
+            apply(input).is_none(),
+            "should return None on parse failure"
+        );
     }
 
     #[test]
@@ -3130,7 +3157,10 @@ async fn test_it() {
 "#;
         let result = apply(input).expect("should transform");
         // ts_rs import removed
-        assert!(!result.contains("use ts_rs::TS;"), "ts_rs import gone: {result}");
+        assert!(
+            !result.contains("use ts_rs::TS;"),
+            "ts_rs import gone: {result}"
+        );
         // std::collections::HashMap preserved
         assert!(
             result.contains("use std::collections::HashMap;"),
@@ -3143,8 +3173,14 @@ async fn test_it() {
         // #[ts(export)] removed
         assert!(!result.contains("#[ts(export)]"), "ts attr gone: {result}");
         // tokio::main removed
-        assert!(!result.contains("tokio::main"), "tokio::main gone: {result}");
-        assert!(result.contains("async fn main"), "fn main remains: {result}");
+        assert!(
+            !result.contains("tokio::main"),
+            "tokio::main gone: {result}"
+        );
+        assert!(
+            result.contains("async fn main"),
+            "fn main remains: {result}"
+        );
         // codex_chatgpt → codex_core
         assert!(
             result.contains("codex_core::connectors"),
@@ -3166,7 +3202,10 @@ async fn test_it() {
             "turbofish fixed: {result}"
         );
         // tokio::test → #[test]
-        assert!(result.contains("#[test]"), "tokio::test → #[test]: {result}");
+        assert!(
+            result.contains("#[test]"),
+            "tokio::test → #[test]: {result}"
+        );
         assert!(
             !result.contains("tokio::test"),
             "tokio::test gone: {result}"
@@ -3204,10 +3243,7 @@ fn create_service(handle: v8::IsolateHandle) {
         let input = r#"
 fn foo(handle: v8::IsolateHandle) {}
 "#;
-        let result = apply_with_path(
-            input,
-            Some(std::path::Path::new("some/other/file.rs")),
-        );
+        let result = apply_with_path(input, Some(std::path::Path::new("some/other/file.rs")));
         assert!(result.is_none(), "should not transform v8 in other files");
     }
 
@@ -3220,11 +3256,8 @@ fn foo() -> std::process::ExitStatus {
     todo!()
 }
 "#;
-        let result = apply_with_path(
-            input,
-            Some(std::path::Path::new("core/src/exec.rs")),
-        )
-        .expect("should transform");
+        let result = apply_with_path(input, Some(std::path::Path::new("core/src/exec.rs")))
+            .expect("should transform");
         assert!(
             result.contains("use tokio::process::ExitStatus;"),
             "use should be rewritten: {result}"
@@ -3246,11 +3279,8 @@ fn get_output() -> Option<std::process::Output> {
     None
 }
 "#;
-        let result = apply_with_path(
-            input,
-            Some(std::path::Path::new("core/src/git_info.rs")),
-        )
-        .expect("should transform");
+        let result = apply_with_path(input, Some(std::path::Path::new("core/src/git_info.rs")))
+            .expect("should transform");
         assert!(
             result.contains("tokio::process::Output"),
             "should be rewritten to tokio::process::Output: {result}"
@@ -3266,11 +3296,8 @@ fn find_binary(name: &str) {
     }
 }
 "#;
-        let result = apply_with_path(
-            input,
-            Some(std::path::Path::new("core/src/shell.rs")),
-        )
-        .expect("should transform");
+        let result = apply_with_path(input, Some(std::path::Path::new("core/src/shell.rs")))
+            .expect("should transform");
         assert!(
             result.contains("Err(())"),
             "which::which should become stub closure: {result}"
@@ -3314,11 +3341,8 @@ const PATH_SEPARATOR: &str = ":";
 #[cfg(windows)]
 const PATH_SEPARATOR: &str = ";";
 "#;
-        let result = apply_with_path(
-            input,
-            Some(std::path::Path::new("arg0/src/lib.rs")),
-        )
-        .expect("should transform");
+        let result = apply_with_path(input, Some(std::path::Path::new("arg0/src/lib.rs")))
+            .expect("should transform");
         assert!(
             result.contains(r#"#[cfg(any(unix, target_arch = "wasm32"))]"#),
             "cfg should be widened: {result}"
@@ -3335,10 +3359,7 @@ const PATH_SEPARATOR: &str = ";";
 #[cfg(unix)]
 const PATH_SEPARATOR: &str = ":";
 "#;
-        let result = apply_with_path(
-            input,
-            Some(std::path::Path::new("some/other/file.rs")),
-        );
+        let result = apply_with_path(input, Some(std::path::Path::new("some/other/file.rs")));
         assert!(result.is_none(), "should not widen cfg in other files");
     }
 
@@ -3421,11 +3442,8 @@ use std::os::unix::process::ExitStatusExt;
 
 fn foo() {}
 "#;
-        let result = apply_with_path(
-            input,
-            Some(std::path::Path::new("core/src/exec.rs")),
-        )
-        .expect("should transform");
+        let result = apply_with_path(input, Some(std::path::Path::new("core/src/exec.rs")))
+            .expect("should transform");
         assert!(
             !result.contains("ExitStatusExt"),
             "ExitStatusExt use should be removed: {result}"

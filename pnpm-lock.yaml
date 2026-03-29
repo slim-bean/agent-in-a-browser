@@ -20,9 +20,6 @@ importers:
 
   frontend:
     dependencies:
-      '@tjfontaine/codex-agent-core':
-        specifier: workspace:*
-        version: link:../packages/codex-agent-core
       '@tjfontaine/edge-agent-session':
         specifier: workspace:*
         version: link:../packages/edge-agent-session
@@ -41,9 +38,6 @@ importers:
       '@tjfontaine/wasm-python':
         specifier: workspace:*
         version: link:../packages/wasm-python
-      '@tjfontaine/wasm-ratatui':
-        specifier: workspace:*
-        version: link:../packages/wasm-ratatui
       '@tjfontaine/wasm-sqlite':
         specifier: workspace:*
         version: link:../packages/wasm-sqlite
@@ -112,19 +106,6 @@ importers:
       vitest:
         specifier: ^4.0.0
         version: 4.0.17(@types/node@25.0.9)(jsdom@27.4.0)(terser@5.46.0)
-
-  packages/codex-agent-core:
-    dependencies:
-      '@tjfontaine/wasi-shims':
-        specifier: workspace:*
-        version: link:../wasi-shims
-    devDependencies:
-      '@bytecodealliance/jco':
-        specifier: ^1.8.0
-        version: 1.15.4
-      typescript:
-        specifier: ^5.7.0
-        version: 5.9.3
 
   packages/edge-agent-mcp:
     dependencies:
@@ -223,16 +204,6 @@ importers:
       pyodide:
         specifier: ^0.27.7
         version: 0.27.7
-    devDependencies:
-      typescript:
-        specifier: ^5.7.0
-        version: 5.9.3
-
-  packages/wasm-ratatui:
-    dependencies:
-      '@tjfontaine/wasm-loader':
-        specifier: workspace:*
-        version: link:../wasm-loader
     devDependencies:
       typescript:
         specifier: ^5.7.0
