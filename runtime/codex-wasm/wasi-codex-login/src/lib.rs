@@ -653,6 +653,8 @@ pub struct AuthConfig {
 pub struct DeviceCode {
     pub verification_url: String,
     pub user_code: String,
+    device_auth_id: String,
+    interval: u64,
 }
 
 // ---------------------------------------------------------------------------
@@ -752,8 +754,11 @@ impl ShutdownHandle {
 // ---------------------------------------------------------------------------
 
 pub async fn request_device_code(_opts: &ServerOptions) -> std::io::Result<DeviceCode> {
-    Err(std::io::Error::other(
-        "device code auth not supported in WASM",
+    // Return NotFound to trigger fallback to run_login_server() which uses
+    // the browser-based OAuth flow via the incoming HTTP handler.
+    Err(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        "device code not available — falling back to browser login",
     ))
 }
 
