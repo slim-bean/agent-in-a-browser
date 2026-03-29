@@ -35,18 +35,40 @@ pub use sqlite::SqliteConnection;
 /// Trait for types that can execute queries against a SqlitePool.
 pub trait QueryExecutor {}
 impl QueryExecutor for &SqlitePool {}
-impl QueryExecutor for &mut SqlitePool {}
-impl QueryExecutor for &sqlite::Transaction {}
-impl QueryExecutor for &mut sqlite::Transaction {}
 
 /// Marker trait matching sqlx::Executor. Any Executor can be used where
 /// QueryExecutor is needed (for .execute()/.fetch_*() calls).
 pub trait Executor<'c>: QueryExecutor {
     type Database;
+    fn as_pool(&self) -> &SqlitePool;
 }
 impl<'c> Executor<'c> for &'c SqlitePool {
     type Database = Sqlite;
+    fn as_pool(&self) -> &SqlitePool {
+        self
+    }
 }
+impl<'c> Executor<'c> for &'c mut SqlitePool {
+    type Database = Sqlite;
+    fn as_pool(&self) -> &SqlitePool {
+        self
+    }
+}
+impl<'c, 't> Executor<'c> for &'c sqlite::Transaction<'t, Sqlite> {
+    type Database = Sqlite;
+    fn as_pool(&self) -> &SqlitePool {
+        self // Deref to SqlitePool
+    }
+}
+impl<'c, 't> Executor<'c> for &'c mut sqlite::Transaction<'t, Sqlite> {
+    type Database = Sqlite;
+    fn as_pool(&self) -> &SqlitePool {
+        self // Deref to SqlitePool
+    }
+}
+impl QueryExecutor for &mut SqlitePool {}
+impl<'t> QueryExecutor for &sqlite::Transaction<'t, Sqlite> {}
+impl<'t> QueryExecutor for &mut sqlite::Transaction<'t, Sqlite> {}
 
 // ---------------------------------------------------------------------------
 // Error
@@ -134,19 +156,43 @@ impl SqliteRow {
 }
 
 /// Trait for extracting typed values from rows.
+/// Matches sqlx::Row which uses `try_get::<T, I>(index)` with two type params.
+/// The second type param (index type) is ignored in our shim.
 pub trait Row {
-    fn try_get<'r, T: FromSqliteValue>(&'r self, col: &str) -> Result<T, Error>;
-    fn get<'r, T: FromSqliteValue>(&'r self, col: &str) -> T {
+    fn try_get<'r, T: FromSqliteValue, I: ColumnIndex>(&'r self, col: I) -> Result<T, Error>;
+    fn get<'r, T: FromSqliteValue, I: ColumnIndex>(&'r self, col: I) -> T {
         self.try_get(col).expect("column should exist")
     }
 }
 
+/// Trait for column index types (by name or position).
+pub trait ColumnIndex {
+    fn resolve(&self, row: &SqliteRow) -> Option<usize>;
+}
+
+impl ColumnIndex for &str {
+    fn resolve(&self, row: &SqliteRow) -> Option<usize> {
+        row.columns.iter().position(|(n, _)| n == *self)
+    }
+}
+
+impl ColumnIndex for usize {
+    fn resolve(&self, row: &SqliteRow) -> Option<usize> {
+        if *self < row.columns.len() {
+            Some(*self)
+        } else {
+            None
+        }
+    }
+}
+
 impl Row for SqliteRow {
-    fn try_get<'r, T: FromSqliteValue>(&'r self, col: &str) -> Result<T, Error> {
-        let val = self
-            .find_column(col)
-            .ok_or_else(|| Error::ColumnNotFound(col.to_string()))?;
-        T::from_sqlite_value(val).ok_or_else(|| Error::ColumnNotFound(col.to_string()))
+    fn try_get<'r, T: FromSqliteValue, I: ColumnIndex>(&'r self, col: I) -> Result<T, Error> {
+        let idx = col
+            .resolve(self)
+            .ok_or_else(|| Error::ColumnNotFound("column".to_string()))?;
+        let val = &self.columns[idx].1;
+        T::from_sqlite_value(val).ok_or_else(|| Error::ColumnNotFound("column".to_string()))
     }
 }
 
@@ -242,20 +288,32 @@ impl Query {
         self
     }
 
-    pub async fn fetch_optional(self, pool: &SqlitePool) -> Result<Option<SqliteRow>, Error> {
-        pool.fetch_optional(self)
+    pub async fn fetch_optional<'e, E>(self, executor: E) -> Result<Option<SqliteRow>, Error>
+    where
+        E: Executor<'e>,
+    {
+        executor.as_pool().fetch_optional(self)
     }
 
-    pub async fn fetch_one(self, pool: &SqlitePool) -> Result<SqliteRow, Error> {
-        pool.fetch_one(self)
+    pub async fn fetch_one<'e, E>(self, executor: E) -> Result<SqliteRow, Error>
+    where
+        E: Executor<'e>,
+    {
+        executor.as_pool().fetch_one(self)
     }
 
-    pub async fn fetch_all(self, pool: &SqlitePool) -> Result<Vec<SqliteRow>, Error> {
-        pool.fetch_all(self)
+    pub async fn fetch_all<'e, E>(self, executor: E) -> Result<Vec<SqliteRow>, Error>
+    where
+        E: Executor<'e>,
+    {
+        executor.as_pool().fetch_all(self)
     }
 
-    pub async fn execute(self, pool: &SqlitePool) -> Result<SqliteQueryResult, Error> {
-        pool.execute_query(self)
+    pub async fn execute<'e, E>(self, executor: E) -> Result<SqliteQueryResult, Error>
+    where
+        E: Executor<'e>,
+    {
+        executor.as_pool().execute_query(self)
     }
 }
 
@@ -379,9 +437,8 @@ pub fn query_scalar<T>(sql: &str) -> QueryScalar<T> {
 }
 
 /// Create a query that maps rows via FromRow.
-/// Accepts two type params to match sqlx: query_as::<DB, T>(sql)
-/// The DB param is ignored (always Sqlite in our adapter).
-pub fn query_as<DB, T>(sql: &str) -> QueryAs<T> {
+/// Accepts one type param (the row type) to match sqlx's turbofish: query_as::<T>(sql)
+pub fn query_as<T>(sql: &str) -> QueryAs<T> {
     QueryAs {
         inner: Query {
             sql: sql.to_string(),
@@ -406,16 +463,16 @@ impl<T: FromSqliteValue> QueryScalar<T> {
         self
     }
 
-    pub async fn fetch_one(self, pool: &SqlitePool) -> Result<T, Error> {
-        let row = pool.fetch_one(self.inner)?;
+    pub async fn fetch_one<'e, E: Executor<'e>>(self, executor: E) -> Result<T, Error> {
+        let row = executor.as_pool().fetch_one(self.inner)?;
         let val = row
             .find_column_by_index(0)
             .ok_or(Error::ColumnNotFound("0".into()))?;
         T::from_sqlite_value(val).ok_or(Error::ColumnNotFound("scalar".into()))
     }
 
-    pub async fn fetch_optional(self, pool: &SqlitePool) -> Result<Option<T>, Error> {
-        let row = pool.fetch_optional(self.inner)?;
+    pub async fn fetch_optional<'e, E: Executor<'e>>(self, executor: E) -> Result<Option<T>, Error> {
+        let row = executor.as_pool().fetch_optional(self.inner)?;
         match row {
             Some(row) => {
                 let val = row
@@ -443,18 +500,18 @@ impl<T: FromRow> QueryAs<T> {
         self
     }
 
-    pub async fn fetch_all(self, pool: &SqlitePool) -> Result<Vec<T>, Error> {
-        let rows = pool.fetch_all(self.inner)?;
+    pub async fn fetch_all<'e, E: Executor<'e>>(self, executor: E) -> Result<Vec<T>, Error> {
+        let rows = executor.as_pool().fetch_all(self.inner)?;
         rows.into_iter().map(|r| T::from_row(&r)).collect()
     }
 
-    pub async fn fetch_optional(self, pool: &SqlitePool) -> Result<Option<T>, Error> {
-        let row = pool.fetch_optional(self.inner)?;
+    pub async fn fetch_optional<'e, E: Executor<'e>>(self, executor: E) -> Result<Option<T>, Error> {
+        let row = executor.as_pool().fetch_optional(self.inner)?;
         row.map(|r| T::from_row(&r)).transpose()
     }
 
-    pub async fn fetch_one(self, pool: &SqlitePool) -> Result<T, Error> {
-        let row = pool.fetch_one(self.inner)?;
+    pub async fn fetch_one<'e, E: Executor<'e>>(self, executor: E) -> Result<T, Error> {
+        let row = executor.as_pool().fetch_one(self.inner)?;
         T::from_row(&row)
     }
 }
@@ -468,13 +525,13 @@ pub trait FromRow: Sized {
 // QueryBuilder
 // ---------------------------------------------------------------------------
 
-pub struct QueryBuilder<DB> {
+pub struct QueryBuilder<'q, DB = Sqlite> {
     sql: String,
     params: Vec<QueryParam>,
-    _phantom: std::marker::PhantomData<DB>,
+    _phantom: std::marker::PhantomData<(&'q (), DB)>,
 }
 
-impl<DB> QueryBuilder<DB> {
+impl<'q, DB> QueryBuilder<'q, DB> {
     pub fn new(sql: impl Into<String>) -> Self {
         Self {
             sql: sql.into(),
@@ -495,7 +552,7 @@ impl<DB> QueryBuilder<DB> {
     }
 
     /// Separator helper for building IN clauses.
-    pub fn separated(&mut self, sep: &str) -> Separated<'_, DB> {
+    pub fn separated(&mut self, sep: &str) -> Separated<'_, 'q, DB> {
         Separated {
             builder: self,
             sep: sep.to_string(),
@@ -521,7 +578,7 @@ impl<DB> QueryBuilder<DB> {
     pub fn push_values<I, F>(&mut self, rows: I, mut push_row: F) -> &mut Self
     where
         I: IntoIterator,
-        F: FnMut(Separated<'_, DB>, I::Item),
+        F: FnMut(Separated<'_, 'q, DB>, I::Item),
     {
         let mut first_row = true;
         for row in rows {
@@ -550,13 +607,13 @@ impl<DB> QueryBuilder<DB> {
     }
 }
 
-pub struct Separated<'a, DB> {
-    builder: &'a mut QueryBuilder<DB>,
+pub struct Separated<'a, 'q, DB = Sqlite> {
+    builder: &'a mut QueryBuilder<'q, DB>,
     sep: String,
     first: bool,
 }
 
-impl<'a, DB> Separated<'a, DB> {
+impl<'a, 'q, DB> Separated<'a, 'q, DB> {
     pub fn push(&mut self, sql: impl AsRef<str>) -> &mut Self {
         if !self.first {
             self.builder.sql.push_str(&self.sep);

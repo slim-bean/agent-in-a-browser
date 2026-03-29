@@ -44,6 +44,10 @@ fn ensure_initialized() {
         tokio::process_backend::set_backend(shell_exec_backend::WasiShellBackend);
         tokio::websocket_backend::set_backend(websocket_backend::WasiWebSocketBackend);
         tokio::set_yield_fn(wasm_yield);
+        // Register webbrowser shim → WIT browser binding
+        webbrowser::set_open_handler(|url| {
+            bindings::host::browser::actions::open_url(url).map_err(|e| e.to_string())
+        });
     });
 }
 

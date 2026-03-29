@@ -116,8 +116,8 @@ impl SqliteConnectOptions {
         }
     }
 
-    pub fn filename(mut self, path: impl AsRef<str>) -> Self {
-        self.path = path.as_ref().to_string();
+    pub fn filename(mut self, path: impl AsRef<std::path::Path>) -> Self {
+        self.path = path.as_ref().to_string_lossy().to_string();
         self
     }
 
@@ -206,12 +206,15 @@ pub type SqliteConnection = SqlitePool;
 
 /// Transaction wrapper — in single-threaded WASM, this is just
 /// a reference to the pool with BEGIN/COMMIT semantics.
-pub struct Transaction {
+/// The lifetime parameter matches sqlx's `Transaction<'c, DB>` signature
+/// but is unused (WASM is single-threaded, the pool is Arc-wrapped).
+pub struct Transaction<'c, DB = Sqlite> {
     pool: SqlitePool,
     committed: bool,
+    _phantom: std::marker::PhantomData<(&'c (), DB)>,
 }
 
-impl Transaction {
+impl<'c, DB> Transaction<'c, DB> {
     pub async fn commit(mut self) -> Result<(), Error> {
         self.pool.with_conn(|conn| {
             conn.execute_batch("COMMIT;")?;
@@ -226,12 +229,12 @@ impl Transaction {
             conn.execute_batch("ROLLBACK;")?;
             Ok(())
         })?;
-        self.committed = true; // prevent double rollback in drop
+        self.committed = true;
         Ok(())
     }
 }
 
-impl Drop for Transaction {
+impl<'c, DB> Drop for Transaction<'c, DB> {
     fn drop(&mut self) {
         if !self.committed {
             let _ = self.pool.with_conn(|conn| {
@@ -242,15 +245,21 @@ impl Drop for Transaction {
     }
 }
 
-impl std::ops::Deref for Transaction {
+impl<'c, DB> std::ops::Deref for Transaction<'c, DB> {
     type Target = SqlitePool;
     fn deref(&self) -> &SqlitePool {
         &self.pool
     }
 }
 
+impl<'c, DB> std::ops::DerefMut for Transaction<'c, DB> {
+    fn deref_mut(&mut self) -> &mut SqlitePool {
+        &mut self.pool
+    }
+}
+
 impl SqlitePool {
-    pub async fn begin(&self) -> Result<Transaction, Error> {
+    pub async fn begin(&self) -> Result<Transaction<'_, Sqlite>, Error> {
         self.with_conn(|conn| {
             conn.execute_batch("BEGIN;")?;
             Ok(())
@@ -258,6 +267,19 @@ impl SqlitePool {
         Ok(Transaction {
             pool: self.clone(),
             committed: false,
+            _phantom: std::marker::PhantomData,
+        })
+    }
+
+    pub async fn begin_with(&self, sql: &str) -> Result<Transaction<'_, Sqlite>, Error> {
+        self.with_conn(|conn| {
+            conn.execute_batch(sql)?;
+            Ok(())
+        })?;
+        Ok(Transaction {
+            pool: self.clone(),
+            committed: false,
+            _phantom: std::marker::PhantomData,
         })
     }
 }

@@ -103,7 +103,7 @@ const STRIP_DEPS: &[&str] = &[
     "openssl-sys",
     "portable-pty",
     // arboard: redirected to wasi-arboard shim (not stripped)
-    "webbrowser",
+    // webbrowser: redirected to wasi-webbrowser shim (not stripped)
     "cpal",
     "hound",
     "windows-sys",
@@ -166,7 +166,7 @@ const STRIP_DEPS: &[&str] = &[
     "rustls-pki-types",
     "rustls-pemfile",
     "webpki-roots",
-    // SQLx — requires ring (native C code). State persistence will use WASI filesystem.
+    // sqlx: stripped from non-TUI crates; TUI gets it via wasi-sqlx [patch.crates-io]
     "sqlx",
     // Rustls provider — not needed (HTTP via wasi:http)
     "codex-utils-rustls-provider",

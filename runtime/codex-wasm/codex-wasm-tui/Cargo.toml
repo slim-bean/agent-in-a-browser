@@ -18,6 +18,7 @@ reqwest = { path = "../wasi-reqwest" }
 tokio = { path = "../wasi-tokio" }
 clap = { version = "4", features = ["derive"] }
 
+webbrowser = { path = "../wasi-webbrowser" }
 wit-bindgen = "0.36"
 wit-bindgen-rt = "0.36"
 
@@ -37,6 +38,7 @@ reqwest = { path = "../wasi-reqwest" }
 libc = { path = "../wasi-libc" }
 tokio-util = { path = "../wasi-tokio-util" }
 arboard = { path = "../wasi-arboard" }
+webbrowser = { path = "../wasi-webbrowser" }
 sqlx = { path = "../wasi-sqlx" }
 
 [package.metadata.component]

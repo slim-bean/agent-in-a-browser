@@ -23,6 +23,10 @@ exclude = [
     # the codemod to be applied first. It is built separately after
     # the codemod runs: cargo component build -p codex-wasm-tui
     "runtime/codex-wasm/codex-wasm-tui",
+    # wasi-webbrowser is consumed by codex-wasm-tui via [patch.crates-io],
+    # not as a workspace member (its package name is "webbrowser" to match
+    # the crate it replaces).
+    "runtime/codex-wasm/wasi-webbrowser",
 ]
 resolver = "2"
 

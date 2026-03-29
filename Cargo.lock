@@ -616,10 +616,12 @@ name = "codex-login"
 version = "0.0.0"
 dependencies = [
  "async-trait",
+ "base64",
  "reqwest",
  "schemars",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror 2.0.18",
 ]
 

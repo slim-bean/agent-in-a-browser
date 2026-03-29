@@ -1,0 +1,9 @@
+[package]
+name = "webbrowser"
+version = "1.0.3"
+edition = "2021"
+description = "WASM shim for webbrowser — opens URLs via a registered handler"
+
+[lib]
+name = "webbrowser"
+path = "src/lib.rs"
