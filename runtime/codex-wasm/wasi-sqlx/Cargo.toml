@@ -1,0 +1,24 @@
+[package]
+name = "sqlx"
+version = "0.8.6"
+edition = "2021"
+description = "sqlx compatibility shim backed by rusqlite for WASM"
+
+# Standalone workspace — not part of the root workspace
+[workspace]
+
+[features]
+default = []
+chrono = []
+json = []
+macros = []
+migrate = []
+runtime-tokio-rustls = []
+sqlite = []
+time = []
+uuid = []
+
+[dependencies]
+rusqlite = { version = "0.32", default-features = false, features = ["bundled"] }
+sqlx-macros = { path = "../wasi-sqlx-macros" }
+log = "0.4"

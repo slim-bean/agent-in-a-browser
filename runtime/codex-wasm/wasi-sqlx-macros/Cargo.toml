@@ -1,0 +1,16 @@
+[package]
+name = "sqlx-macros"
+version = "0.8.6"
+edition = "2021"
+description = "FromRow derive macro for wasi-sqlx"
+
+# Standalone workspace — not part of the root workspace
+[workspace]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "2", features = ["full", "derive"] }
+quote = "1"
+proc-macro2 = "1"
