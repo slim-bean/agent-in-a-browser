@@ -79,11 +79,18 @@ class DurationPollable extends Pollable {
         return nowNanos >= this.#targetTime;
     }
 
-    override block(): void {
-        // Busy-wait until the target time is reached
-        while (!this.ready()) {
-            // Busy wait
+    override block(): Promise<void> {
+        // Always return a Promise to trigger JSPI suspension — even if the
+        // timer already expired. This yields to the JS event loop, allowing
+        // console messages, DOM rendering, and input to be processed.
+        // Without this, WASM runs continuously and blocks the main thread.
+        const remainingMs = this.ready() ? 0 : Number(this.#targetTime - BigInt(Math.floor(performance.now() * 1e6))) / 1e6;
+        // Signal the JS watchdog that the cooperative scheduler is yielding.
+        // This proves the WASM event loop is alive even when stdin/stderr are idle.
+        if (typeof (globalThis as any).__wasmYieldActivity === 'function') {
+            (globalThis as any).__wasmYieldActivity();
         }
+        return new Promise(resolve => setTimeout(resolve, Math.max(0, Math.ceil(remainingMs))));
     }
 }
 

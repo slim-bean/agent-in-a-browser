@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => ({
             '@tjfontaine/wasm-stripe': path.resolve(__dirname, '../packages/wasm-stripe'),
             '@tjfontaine/wasm-python': path.resolve(__dirname, '../packages/wasm-python'),
             // Use source directly for development (avoid needing `npm run build` for each change)
-            '@tjfontaine/web-agent-core': path.resolve(__dirname, '../packages/web-agent-core/src'),
+            '@tjfontaine/codex-agent-core': path.resolve(__dirname, '../packages/codex-agent-core/src'),
             // Enable packages outside frontend to resolve node polyfills
             'vite-plugin-node-polyfills/shims/buffer': path.resolve(__dirname, 'node_modules/vite-plugin-node-polyfills/shims/buffer'),
             'vite-plugin-node-polyfills/shims/global': path.resolve(__dirname, 'node_modules/vite-plugin-node-polyfills/shims/global'),
@@ -51,6 +51,10 @@ export default defineConfig(({ mode }) => ({
             '@tjfontaine/wasi-shims/ghostty-cli-shim.js',
             // Stripe bridge shims
             '@tjfontaine/wasi-shims/http-bridge-impl.js',
+            // Codex agent shell-exec shim
+            '@tjfontaine/wasi-shims/shell-exec-impl.js',
+            // Codex TUI websocket shim
+            '@tjfontaine/wasi-shims/websocket-impl.js',
         ],
     },
     server: {
@@ -230,6 +234,9 @@ export default defineConfig(({ mode }) => ({
                     '@tjfontaine/wasi-shims/ios-bridge-stub.js': '/wasi-shims/ios-bridge-stub.js',
                     // Stripe bridge shims
                     '@tjfontaine/wasi-shims/http-bridge-impl.js': '/wasi-shims/http-bridge-impl.js',
+                    // Codex agent shell-exec shim
+                    '@tjfontaine/wasi-shims/shell-exec-impl.js': '/wasi-shims/shell-exec-impl.js',
+                    '@tjfontaine/wasi-shims/websocket-impl.js': '/wasi-shims/websocket-impl.js',
                     '@tjfontaine/wasm-loader': '/wasm-loader/index.js',
                 },
             },
@@ -312,6 +319,9 @@ export default defineConfig(({ mode }) => ({
                     '@tjfontaine/wasi-shims/ios-bridge-stub.js': '/wasi-shims/ios-bridge-stub.js',
                     // Stripe bridge shims
                     '@tjfontaine/wasi-shims/http-bridge-impl.js': '/wasi-shims/http-bridge-impl.js',
+                    // Codex agent shell-exec shim
+                    '@tjfontaine/wasi-shims/shell-exec-impl.js': '/wasi-shims/shell-exec-impl.js',
+                    '@tjfontaine/wasi-shims/websocket-impl.js': '/wasi-shims/websocket-impl.js',
                 },
             },
         },

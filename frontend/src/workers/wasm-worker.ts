@@ -1,14 +1,15 @@
 /**
- * WASM Worker for Non-JSPI Browsers (Safari)
- * 
- * Hosts the WASM runtime in a dedicated Web Worker, using Atomics.wait()
- * for synchronous blocking on async operations (stdin, HTTP, etc.).
- * 
- * This enables full TUI functionality on Safari without JSPI by:
- * 1. Running WASM in this worker thread
- * 2. Blocking on Atomics.wait() when WASM calls blocking operations
- * 3. Main thread performs async ops and wakes via Atomics.notify()
- * 
+ * WASM Worker for TUI Execution
+ *
+ * Hosts the WASM runtime in a dedicated Web Worker. Supports two modes:
+ *
+ * 1. Sync mode (Safari/non-JSPI): Uses Atomics.wait() for synchronous blocking
+ *    on async operations (stdin, HTTP, etc.)
+ *
+ * 2. JSPI mode (Chrome/Firefox): Uses JSPI async suspension. WASM suspends
+ *    and yields to the event loop when awaiting stdin, HTTP, etc.
+ *    This mode also fixes OPFS (createSyncAccessHandle requires Worker context).
+ *
  * NOTE: This file lives in frontend because it imports from frontend modules.
  * The WorkerBridge in wasi-shims accepts a worker URL parameter.
  */
@@ -19,6 +20,7 @@ import {
     HTTP_CONTROL,
     BUFFER_LAYOUT,
     type WorkerMessage,
+    type WorkerRunMessage,
 } from '@tjfontaine/wasi-shims/worker-constants.js';
 
 // Re-export for type compatibility
@@ -41,6 +43,20 @@ const HTTP_BUFFER_OFFSET = BUFFER_LAYOUT.HTTP_BUFFER_OFFSET;
 const HTTP_BUFFER_SIZE = BUFFER_LAYOUT.HTTP_BUFFER_SIZE;
 
 // ============================================================
+// DEBUG INSTRUMENTATION
+// ============================================================
+
+import {
+    createWorkerDebugState,
+    initWorkerDebug,
+    buildProbeResponse,
+    type WorkerDebugState,
+} from '../debug/wasm-debug.js';
+
+/** Worker-side debug state for import tracing and probe responses */
+const workerDebugState: WorkerDebugState = createWorkerDebugState();
+
+// ============================================================
 // STATE
 // ============================================================
 
@@ -49,6 +65,26 @@ let stdinDataArray: Uint8Array | null = null;
 let httpDataArray: Uint8Array | null = null;
 let opfsSharedBuffer: SharedArrayBuffer | null = null;
 let initialized = false;
+
+// Tracks which execution mode the worker is using (set on 'run' message)
+let jspiMode = false;
+
+// JSPI mode: reference to pushStdinData/setTerminalSize from ghostty-cli-shim
+// These are set lazily when the JSPI TUI is started
+let jspiPushStdinData: ((data: Uint8Array) => void) | null = null;
+let jspiSetTerminalSize: ((cols: number, rows: number) => void) | null = null;
+
+// JSPI mode: pending HTTP response resolvers for async transport
+// Maps request ID to resolve/reject callbacks
+let nextHttpRequestId = 1;
+const pendingHttpRequests = new Map<number, {
+    resolve: (value: { status: number; headers: [string, string][]; body: Uint8Array }) => void;
+    reject: (reason: Error) => void;
+    // For collecting streamed chunks
+    chunks: Uint8Array[];
+    status: number;
+    headers: [string, string][];
+}>();
 
 // Pending HTTP response headers (sent via postMessage, stored here for streaming)
 let pendingHttpHeaders: { status: number; headers: [string, string][] } | null = null;
@@ -96,7 +132,7 @@ function initWorker(buffer: SharedArrayBuffer, opfsBuffer: SharedArrayBuffer): v
 }
 
 // ============================================================
-// BLOCKING OPERATIONS (called from shims)
+// SYNC MODE: BLOCKING OPERATIONS (called from shims)
 // ============================================================
 
 /**
@@ -206,7 +242,7 @@ export interface HttpStreamChunk {
  * Streaming HTTP request using a generator pattern.
  * Yields chunks as they arrive from the main thread.
  * Blocks via Atomics.wait() on each chunk.
- * 
+ *
  * @param method HTTP method
  * @param url Request URL
  * @param headers Request headers
@@ -296,11 +332,611 @@ export function* blockingHttpRequestStreaming(
 }
 
 // ============================================================
+// JSPI MODE: ASYNC HTTP REQUEST (via postMessage round-trip)
+// ============================================================
+
+/**
+ * Perform an async HTTP request by sending to main thread and awaiting response.
+ * Used in JSPI mode where WASM suspends on the Promise (no Atomics.wait needed).
+ */
+function asyncHttpRequest(
+    method: string,
+    url: string,
+    headers: Record<string, string>,
+    body: Uint8Array | null
+): Promise<{ status: number; headers: [string, Uint8Array][]; body: Uint8Array }> {
+    const requestId = nextHttpRequestId++;
+
+    return new Promise((resolve, reject) => {
+        pendingHttpRequests.set(requestId, {
+            resolve: (result) => resolve({
+                status: result.status,
+                headers: result.headers.map(([k, v]) => [k, new TextEncoder().encode(v)] as [string, Uint8Array]),
+                body: result.body,
+            }),
+            reject,
+            chunks: [],
+            status: 0,
+            headers: [],
+        });
+
+        // Send request to main thread with our request ID
+        self.postMessage({
+            type: 'http-request',
+            method,
+            url,
+            headers,
+            body: body ? Array.from(body) : null,
+            requestId,
+        });
+    });
+}
+
+/**
+ * Handle an HTTP response chunk in JSPI mode.
+ * Collects chunks and resolves the pending Promise when done.
+ */
+function handleJspiHttpResponse(
+    status: number,
+    bodyChunk: Uint8Array,
+    done: boolean,
+    requestId?: number,
+): void {
+    // Find the pending request - use requestId if provided, otherwise take the oldest
+    let pending: typeof pendingHttpRequests extends Map<number, infer V> ? V : never;
+    let key: number;
+
+    if (requestId !== undefined && pendingHttpRequests.has(requestId)) {
+        key = requestId;
+        pending = pendingHttpRequests.get(requestId)!;
+    } else {
+        // Fallback: use the first (oldest) pending request
+        const first = pendingHttpRequests.entries().next();
+        if (first.done) {
+            console.warn('[WasmWorker JSPI] Received HTTP response but no pending request');
+            return;
+        }
+        [key, pending] = first.value;
+    }
+
+    if (status !== 0) {
+        pending.status = status;
+    }
+    if (bodyChunk.length > 0) {
+        pending.chunks.push(bodyChunk);
+    }
+
+    if (done) {
+        // Combine all chunks
+        const totalLen = pending.chunks.reduce((sum, c) => sum + c.length, 0);
+        const combined = new Uint8Array(totalLen);
+        let offset = 0;
+        for (const chunk of pending.chunks) {
+            combined.set(chunk, offset);
+            offset += chunk.length;
+        }
+
+        pendingHttpRequests.delete(key);
+        pending.resolve({
+            status: pending.status,
+            headers: pending.headers,
+            body: combined,
+        });
+    }
+}
+
+/**
+ * Handle HTTP headers in JSPI mode.
+ */
+function handleJspiHttpHeaders(
+    status: number,
+    headers: [string, string][],
+): void {
+    // Store headers on the oldest pending request
+    const first = pendingHttpRequests.entries().next();
+    if (!first.done) {
+        const [, pending] = first.value;
+        pending.status = status;
+        pending.headers = headers;
+    }
+}
+
+// ============================================================
+// TUI RUNNERS
+// ============================================================
+
+/**
+ * Run TUI in sync mode (Safari/non-JSPI).
+ * Uses Atomics.wait() for blocking I/O.
+ */
+async function runTuiSync(msg: WorkerRunMessage): Promise<void> {
+    console.log('[WasmWorker] Initializing OPFS filesystem for TUI (sync mode)...');
+
+    // Load sync Codex TUI module (imports shims via package paths)
+    console.log('[WasmWorker] Loading sync codex-tui module (with shims)...');
+    const tuiModule = await import('../wasm/codex-tui-sync/codex-wasm-tui.js');
+
+    // Import filesystem shim and initialize
+    const opfsShim = await import('@tjfontaine/wasi-shims/opfs-filesystem-sync-impl.js');
+
+    // DEBUG: Check if the Descriptor classes are the same
+    const shimDescriptor = opfsShim.types?.Descriptor;
+    const rootDirs = opfsShim.preopens?.getDirectories?.();
+    const rootDesc = rootDirs?.[0]?.[0];
+    console.log('[WasmWorker] DEBUG - Descriptor class name:', shimDescriptor?.name);
+    console.log('[WasmWorker] DEBUG - rootDesc constructor:', rootDesc?.constructor?.name);
+    console.log('[WasmWorker] DEBUG - rootDesc instanceof Descriptor:', rootDesc instanceof shimDescriptor);
+    console.log('[WasmWorker] DEBUG - Same class?:', rootDesc?.constructor === shimDescriptor ? 'YES' : 'NO');
+
+    // Initialize OPFS with buffer from main thread (required for WebKit)
+    await opfsShim.initFilesystem(opfsSharedBuffer!);
+    console.log('[WasmWorker] OPFS filesystem ready');
+
+    // Pre-load all lazy modules in the worker context
+    console.log('[WasmWorker] Pre-loading all lazy modules...');
+    const { initializeForSyncMode } = await import('../wasm/lazy-loading/lazy-modules.js');
+    await initializeForSyncMode();
+    console.log('[WasmWorker] Lazy modules pre-loaded');
+
+    // Set up sync transport handler for MCP requests
+    const { setTransportHandler, setStreamingTransportHandler } = await import('@tjfontaine/wasi-shims/wasi-http-impl.js');
+
+    // Legacy sync transport handler (for backwards compatibility)
+    setTransportHandler((method, url, headers, body) => {
+        const response = blockingHttpRequest(method, url, headers, body);
+        return {
+            syncValue: {
+                status: response.status,
+                headers: response.headers.map(([k, v]) => [k, new TextEncoder().encode(v)] as [string, Uint8Array]),
+                body: response.body
+            }
+        };
+    }, true); // isSyncMode = true
+
+    // Streaming transport handler
+    setStreamingTransportHandler(function* (method, url, headers, body) {
+        const generator = blockingHttpRequestStreaming(method, url, headers, body);
+        for (const chunk of generator) {
+            yield {
+                status: chunk.status,
+                headers: chunk.headers.map(([k, v]) => [k, new TextEncoder().encode(v)] as [string, Uint8Array]),
+                chunk: chunk.chunk,
+                done: chunk.done
+            };
+        }
+    });
+    console.log('[WasmWorker] Sync MCP transport handler registered (with streaming support)');
+
+    // Await $init for sync module initialization
+    if (tuiModule.$init) {
+        console.log('[WasmWorker] Awaiting TUI module $init...');
+        await tuiModule.$init;
+    }
+
+    console.log('[WasmWorker] TUI module loaded, starting run()...');
+    self.postMessage({ type: 'started', module: msg.module });
+
+    // Run the TUI
+    try {
+        const exitCode = tuiModule.run();
+        console.log('[WasmWorker] TUI exited with code:', exitCode);
+        self.postMessage({ type: 'exit', code: exitCode });
+    } catch (err) {
+        console.error('[WasmWorker] TUI execution error:', err);
+        self.postMessage({ type: 'error', message: String(err) });
+    }
+}
+
+/**
+ * Run TUI in JSPI mode (Chrome/Firefox).
+ * Uses JSPI async suspension for blocking I/O.
+ * WASM suspends and yields to the worker event loop when awaiting async ops.
+ */
+async function runTuiJspi(msg: WorkerRunMessage): Promise<void> {
+    console.log('[WasmWorker] Initializing TUI in JSPI mode...');
+    jspiMode = true;
+
+    // Import ghostty-cli-shim functions for feeding stdin from postMessage
+    const cliShim = await import('@tjfontaine/wasi-shims/ghostty-cli-shim.js');
+    jspiPushStdinData = cliShim.pushStdinData;
+    jspiSetTerminalSize = cliShim.setTerminalSize;
+
+    // Set environment variables (same as tui-loader.ts)
+    cliShim.setEnvironment([
+        ['HOME', '/tmp/codex-home'],
+        ['CODEX_HOME', '/tmp/codex-home/.codex'],
+        ['TERM', 'xterm-256color'],
+        ['SHELL', '/bin/sh'],
+        ['RUST_BACKTRACE', '1'],
+    ]);
+
+    // Initialize OPFS filesystem (async version, works in Workers)
+    console.log('[WasmWorker JSPI] Initializing OPFS filesystem...');
+    const { initFilesystem } = await import('@tjfontaine/wasi-shims/opfs-filesystem-impl.js');
+    await initFilesystem();
+    console.log('[WasmWorker JSPI] OPFS filesystem ready');
+
+    // Pre-create the codex home directory in OPFS
+    try {
+        const root = await navigator.storage.getDirectory();
+        const tmp = await root.getDirectoryHandle('tmp', { create: true });
+        const codexHome = await tmp.getDirectoryHandle('codex-home', { create: true });
+        await codexHome.getDirectoryHandle('.codex', { create: true });
+        console.log('[WasmWorker JSPI] Pre-created /tmp/codex-home/.codex in OPFS');
+    } catch (e) {
+        console.warn('[WasmWorker JSPI] Failed to pre-create codex home in OPFS:', e);
+    }
+
+    // Set up async transport handler — direct fetch() in Worker for API calls,
+    // route MCP requests through main thread
+    const { setTransportHandler } = await import('@tjfontaine/wasi-shims/wasi-http-impl.js');
+    setTransportHandler(async (method: string, url: string, headers: Record<string, string>, body: Uint8Array | null) => {
+        console.log('[WasmWorker JSPI] HTTP request:', method, url);
+        const urlObj = new URL(url);
+        const isMcp = urlObj.pathname.startsWith('/mcp/');
+
+        if (isMcp) {
+            // MCP requests route through main thread → SharedWorker
+            return asyncHttpRequest(method, url, headers, body);
+        }
+
+        // Direct fetch() for all other requests (OpenAI API, etc.)
+        const fetchHeaders = new Headers();
+        for (const [k, v] of Object.entries(headers)) {
+            fetchHeaders.set(k, v);
+        }
+        const fetchOpts: RequestInit = { method, headers: fetchHeaders };
+        if (body && body.length > 0) {
+            fetchOpts.body = body;
+        }
+        const response = await fetch(url, fetchOpts);
+        const responseBody = new Uint8Array(await response.arrayBuffer());
+        const responseHeaders: [string, Uint8Array][] = [];
+        response.headers.forEach((value, name) => {
+            responseHeaders.push([name.toLowerCase(), new TextEncoder().encode(value)]);
+        });
+        return {
+            status: response.status,
+            headers: responseHeaders,
+            body: responseBody,
+        };
+    });
+    console.log('[WasmWorker JSPI] HTTP transport handler registered (direct fetch + MCP relay)');
+
+    // Register shell exec handler (same as tui-loader.ts, routes through MCP)
+    const { setExecHandler } = await import('@tjfontaine/wasi-shims/shell-exec-impl.js');
+    setExecHandler(async (
+        program: string,
+        args: string[],
+        env: { cwd?: string },
+        stdin: Uint8Array | undefined,
+        timeoutMs: number | undefined,
+    ) => {
+        const command = [program, ...args].join(' ');
+        console.log('[WasmWorker JSPI] Shell exec:', command.slice(0, 100), 'cwd:', env.cwd);
+        const encoder = new TextEncoder();
+
+        try {
+            const body = JSON.stringify({
+                jsonrpc: '2.0',
+                id: Date.now(),
+                method: 'tools/call',
+                params: {
+                    name: 'shell_eval',
+                    arguments: {
+                        command,
+                    },
+                },
+            });
+
+            // Route through MCP via the async HTTP transport (goes to main thread sandbox)
+            const response = await asyncHttpRequest(
+                'POST',
+                'http://localhost:3000/mcp/message',
+                { 'Content-Type': 'application/json' },
+                encoder.encode(body),
+            );
+
+            const resultText = new TextDecoder().decode(response.body);
+            console.log('[WasmWorker JSPI] Shell exec MCP response:', resultText.slice(0, 500));
+            const result = JSON.parse(resultText);
+
+            if (result.error) {
+                return {
+                    exitCode: 1,
+                    stdout: new Uint8Array(0),
+                    stderr: encoder.encode(result.error.message || 'MCP error'),
+                };
+            }
+
+            const content = result.result?.content ?? [];
+            const text = content
+                .filter((c: { type: string }) => c.type === 'text')
+                .map((c: { text: string }) => c.text)
+                .join('\n');
+
+            return {
+                exitCode: 0,
+                stdout: encoder.encode(text),
+                stderr: new Uint8Array(0),
+            };
+        } catch (err) {
+            console.error('[WasmWorker JSPI] Shell exec error:', err);
+            return {
+                exitCode: 127,
+                stdout: new Uint8Array(0),
+                stderr: encoder.encode(`exec failed: ${err instanceof Error ? err.message : String(err)}`),
+            };
+        }
+    });
+    console.log('[WasmWorker JSPI] Shell exec handler registered');
+
+    // Load the JSPI Codex TUI module
+    console.log('[WasmWorker JSPI] Loading JSPI codex-tui module...');
+    const tuiModule = await import('../wasm/codex-tui/codex-wasm-tui.js');
+    console.log('[WasmWorker JSPI] TUI module loaded');
+
+    // Auto-wrap shims with debug tracing (patches prototypes in-place)
+    try {
+        const wrappedCount = await initWorkerDebug(workerDebugState);
+        console.log(`[WasmWorker JSPI] Debug instrumentation: ${wrappedCount} imports wrapped`);
+    } catch (err) {
+        console.warn('[WasmWorker JSPI] Debug instrumentation failed (non-fatal):', err);
+    }
+
+    self.postMessage({ type: 'started', module: msg.module });
+
+    // Show loading indicator via stdout (routed to terminal via postMessage)
+    self.postMessage({
+        type: 'terminal-output',
+        data: '\r\n  Loading Codex...\r\n'
+    });
+
+    // Register 'codex' as a lazy-loaded interactive command
+    const { registerCodexTui } = await import('../wasm/lazy-loading/lazy-modules.js');
+    registerCodexTui();
+
+    // --- Watchdog timer: detect hangs in session initialization ---
+    const watchdogState = {
+        lastStderrTime: Date.now(),
+        lastStdinTime: Date.now(),
+        lastYieldTime: Date.now(),
+        startTime: Date.now(),
+    };
+    // Hook into globalThis to track activity from WASM stderr/stdin/yield
+    const _origPostMessage = self.postMessage.bind(self);
+    const origPostMessage = self.postMessage.bind(self);
+    self.postMessage = function(msg: any, ...args: any[]) {
+        if (msg?.type === 'terminal-output') {
+            watchdogState.lastStderrTime = Date.now();
+        }
+        return (origPostMessage as any)(msg, ...args);
+    };
+    // Track global activity markers that wasi-tokio yield sets
+    (globalThis as any).__wasmWatchdogState = watchdogState;
+
+    const watchdogInterval = setInterval(() => {
+        const now = Date.now();
+        const uptimeSec = ((now - watchdogState.startTime) / 1000).toFixed(1);
+        const sinceStderrSec = ((now - watchdogState.lastStderrTime) / 1000).toFixed(1);
+        const sinceStdinSec = ((now - watchdogState.lastStdinTime) / 1000).toFixed(1);
+
+        // Only warn if no stderr activity for 30s (likely hung)
+        if (now - watchdogState.lastStderrTime > 30000) {
+            console.warn(
+                `[WasmWorker WATCHDOG] No stderr activity for ${sinceStderrSec}s ` +
+                `(uptime=${uptimeSec}s, sinceStdin=${sinceStdinSec}s). ` +
+                `Possible hang in session initialization.`
+            );
+        } else {
+            console.log(
+                `[WasmWorker WATCHDOG] alive: uptime=${uptimeSec}s, ` +
+                `sinceStderr=${sinceStderrSec}s, sinceStdin=${sinceStdinSec}s`
+            );
+        }
+    }, 15000); // Check every 15s
+
+    // Run the TUI (async via JSPI - returns a Promise)
+    try {
+        console.log('[WasmWorker JSPI] Calling run()...');
+        const exitCode = await tuiModule.run();
+        console.log('[WasmWorker JSPI] TUI exited with code:', exitCode);
+        clearInterval(watchdogInterval);
+        self.postMessage({ type: 'exit', code: exitCode });
+    } catch (err) {
+        console.error('[WasmWorker JSPI] TUI execution error:', err);
+        clearInterval(watchdogInterval);
+        self.postMessage({ type: 'error', message: String(err) });
+    }
+}
+
+/**
+ * Run the brush shell as the primary entry point in JSPI mode.
+ * Loads ts-runtime-mcp.wasm and calls shell:unix/command::run("sh").
+ * The shell supports lazy-loading interactive commands like `codex`, `vim`, etc.
+ */
+async function runShellJspi(msg: WorkerRunMessage): Promise<void> {
+    console.log('[WasmWorker] Initializing Shell in JSPI mode...');
+    jspiMode = true;
+
+    // Same setup as TUI: cli-shim, environment, OPFS, HTTP transport, shell-exec
+    const cliShim = await import('@tjfontaine/wasi-shims/ghostty-cli-shim.js');
+    jspiPushStdinData = cliShim.pushStdinData;
+    jspiSetTerminalSize = cliShim.setTerminalSize;
+
+    cliShim.setEnvironment([
+        ['HOME', '/tmp/codex-home'],
+        ['CODEX_HOME', '/tmp/codex-home/.codex'],
+        ['TERM', 'xterm-256color'],
+        ['SHELL', '/bin/sh'],
+        ['PATH', '/usr/local/bin:/usr/bin:/bin'],
+    ]);
+
+    // Initialize OPFS filesystem
+    console.log('[WasmWorker Shell] Initializing OPFS filesystem...');
+    const { initFilesystem } = await import('@tjfontaine/wasi-shims/opfs-filesystem-impl.js');
+    await initFilesystem();
+    console.log('[WasmWorker Shell] OPFS filesystem ready');
+
+    // Pre-create home directory
+    try {
+        const root = await navigator.storage.getDirectory();
+        const tmp = await root.getDirectoryHandle('tmp', { create: true });
+        const codexHome = await tmp.getDirectoryHandle('codex-home', { create: true });
+        await codexHome.getDirectoryHandle('.codex', { create: true });
+        await codexHome.getDirectoryHandle('.config', { create: true });
+    } catch (e) {
+        console.warn('[WasmWorker Shell] Failed to pre-create directories:', e);
+    }
+
+    // Set up HTTP transport (for MCP relay and direct fetch)
+    const { setTransportHandler } = await import('@tjfontaine/wasi-shims/wasi-http-impl.js');
+    setTransportHandler(async (method: string, url: string, headers: Record<string, string>, body: Uint8Array | null) => {
+        const urlObj = new URL(url);
+        const isMcp = urlObj.pathname.startsWith('/mcp/');
+
+        if (isMcp) {
+            return asyncHttpRequest(method, url, headers, body);
+        }
+
+        const fetchHeaders = new Headers();
+        for (const [k, v] of Object.entries(headers)) {
+            fetchHeaders.set(k, v);
+        }
+        const fetchOpts: RequestInit = { method, headers: fetchHeaders };
+        if (body && body.length > 0) {
+            fetchOpts.body = body;
+        }
+        const response = await fetch(url, fetchOpts);
+        const responseBody = new Uint8Array(await response.arrayBuffer());
+        const responseHeaders: [string, Uint8Array][] = [];
+        response.headers.forEach((value, name) => {
+            responseHeaders.push([name.toLowerCase(), new TextEncoder().encode(value)]);
+        });
+        return { status: response.status, headers: responseHeaders, body: responseBody };
+    });
+    console.log('[WasmWorker Shell] HTTP transport registered');
+
+    // Register shell exec handler (needed by Codex TUI when launched as lazy command)
+    const { setExecHandler } = await import('@tjfontaine/wasi-shims/shell-exec-impl.js');
+    setExecHandler(async (
+        program: string,
+        args: string[],
+        env: { cwd?: string },
+        stdin: Uint8Array | undefined,
+        _timeoutMs: number | undefined,
+    ) => {
+        const command = [program, ...args].join(' ');
+        console.log('[WasmWorker Shell] Shell exec:', command.slice(0, 100), 'cwd:', env.cwd);
+        const encoder = new TextEncoder();
+
+        try {
+            const body = JSON.stringify({
+                jsonrpc: '2.0',
+                id: Date.now(),
+                method: 'tools/call',
+                params: { name: 'shell_eval', arguments: { command } },
+            });
+
+            const response = await asyncHttpRequest(
+                'POST',
+                'http://localhost:3000/mcp/message',
+                { 'Content-Type': 'application/json' },
+                encoder.encode(body),
+            );
+
+            const resultText = new TextDecoder().decode(response.body);
+            const result = JSON.parse(resultText);
+
+            if (result.error) {
+                return {
+                    exitCode: 1,
+                    stdout: new Uint8Array(0),
+                    stderr: encoder.encode(result.error.message || 'MCP error'),
+                };
+            }
+
+            const content = result.result?.content ?? [];
+            const text = content
+                .filter((c: { type: string }) => c.type === 'text')
+                .map((c: { text: string }) => c.text)
+                .join('\n');
+
+            return {
+                exitCode: 0,
+                stdout: encoder.encode(text),
+                stderr: new Uint8Array(0),
+            };
+        } catch (err) {
+            console.error('[WasmWorker Shell] Shell exec error:', err);
+            return {
+                exitCode: 127,
+                stdout: new Uint8Array(0),
+                stderr: encoder.encode(`exec failed: ${err instanceof Error ? err.message : String(err)}`),
+            };
+        }
+    });
+    console.log('[WasmWorker Shell] Shell exec handler registered');
+
+    // Register lazy modules (codex, vim, tsx, sqlite3, etc.)
+    const { registerAllModules, registerCodexTui } = await import('../wasm/lazy-loading/lazy-modules.js');
+    registerAllModules();
+    registerCodexTui();
+
+    // Load the MCP module (which exports shell:unix/command)
+    console.log('[WasmWorker Shell] Loading ts-runtime-mcp module...');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mcpModule: any = await import('@tjfontaine/mcp-wasm-server/mcp-server-jspi/ts-runtime-mcp.js');
+    if (mcpModule.$init) {
+        await mcpModule.$init;
+    }
+    console.log('[WasmWorker Shell] Module loaded');
+
+    self.postMessage({ type: 'started', module: msg.module });
+
+    // Run the shell REPL
+    try {
+        console.log('[WasmWorker Shell] Starting brush shell REPL...');
+        const exitCode = await mcpModule.command.run(
+            'sh',
+            [],
+            { cwd: '/', vars: [] },
+            cliShim.stdin.getStdin(),
+            cliShim.stdout.getStdout(),
+            cliShim.stderr.getStderr(),
+        );
+        console.log('[WasmWorker Shell] Shell exited with code:', exitCode);
+        self.postMessage({ type: 'exit', code: exitCode });
+    } catch (err) {
+        console.error('[WasmWorker Shell] Shell execution error:', err);
+        self.postMessage({ type: 'error', message: String(err) });
+    }
+}
+
+// ============================================================
 // MESSAGE HANDLER
 // ============================================================
 
 self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
     const msg = event.data;
+
+    // Handle debug messages (not part of the WorkerMessage union type)
+    const msgAny = msg as any;
+    if (msgAny.type === 'debug-probe') {
+        self.postMessage(buildProbeResponse(workerDebugState));
+        return;
+    }
+    if (msgAny.type === 'debug-trace') {
+        workerDebugState.traceEnabled = !!msgAny.enable;
+        console.log(`[WasmWorker] Import tracing ${workerDebugState.traceEnabled ? 'ENABLED' : 'DISABLED'}`);
+        return;
+    }
+    if (msgAny.type === 'debug-wrap-shims') {
+        initWorkerDebug(workerDebugState).then(count => {
+            self.postMessage({ type: 'debug-wrap-response', wrappedCount: count });
+        });
+        return;
+    }
 
     switch (msg.type) {
         case 'init':
@@ -308,10 +944,19 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             break;
 
         case 'stdin':
+            // Track stdin activity for watchdog
+            if ((globalThis as any).__wasmWatchdogState) {
+                (globalThis as any).__wasmWatchdogState.lastStdinTime = Date.now();
+            }
             // Main thread is providing stdin data
-            if (controlArray && stdinDataArray && msg.data) {
-                stdinDataArray.set(msg.data);
-                Atomics.store(controlArray, STDIN_CONTROL.DATA_LENGTH, msg.data.length);
+            if (jspiMode && jspiPushStdinData && msg.data) {
+                // JSPI mode: push into ghostty-cli-shim's async stdin buffer
+                jspiPushStdinData(msg.data instanceof Uint8Array ? msg.data : new Uint8Array(msg.data));
+            } else if (controlArray && stdinDataArray && msg.data) {
+                // Sync mode: write to SharedArrayBuffer and wake via Atomics
+                const data = msg.data instanceof Uint8Array ? msg.data : new Uint8Array(msg.data);
+                stdinDataArray.set(data);
+                Atomics.store(controlArray, STDIN_CONTROL.DATA_LENGTH, data.length);
                 Atomics.store(controlArray, STDIN_CONTROL.RESPONSE_READY, 1);
                 Atomics.notify(controlArray, STDIN_CONTROL.RESPONSE_READY);
             }
@@ -320,9 +965,14 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
         case 'resize':
             // Main thread is sending terminal resize event
             console.log('[WasmWorker] Received resize message:', msg.cols, 'x', msg.rows);
-            // Inject DECSLPP escape sequence into stdin buffer
-            // CSI 8 ; rows ; cols t
-            if (controlArray && stdinDataArray && msg.cols && msg.rows) {
+            if (jspiMode && jspiSetTerminalSize && msg.cols && msg.rows) {
+                // JSPI mode: update terminal size via ghostty-cli-shim
+                // This injects a resize escape sequence into the stdin buffer
+                jspiSetTerminalSize(msg.cols, msg.rows);
+                console.log('[WasmWorker JSPI] Resize via setTerminalSize:', msg.cols, 'x', msg.rows);
+            } else if (controlArray && stdinDataArray && msg.cols && msg.rows) {
+                // Sync mode: inject DECSLPP escape sequence into stdin buffer
+                // CSI 8 ; rows ; cols t
                 const resizeSequence = `\x1b[8;${msg.rows};${msg.cols}t`;
                 const bytes = new TextEncoder().encode(resizeSequence);
                 stdinDataArray.set(bytes);
@@ -336,8 +986,16 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             break;
 
         case 'http-response':
-            // Main thread is providing HTTP response (legacy full-buffer or streaming chunk)
-            if (controlArray && httpDataArray) {
+            if (jspiMode) {
+                // JSPI mode: resolve pending async HTTP request
+                handleJspiHttpResponse(
+                    msg.status,
+                    msg.bodyChunk,
+                    msg.done,
+                    (msg as any).requestId,
+                );
+            } else if (controlArray && httpDataArray) {
+                // Sync mode: write to SharedArrayBuffer and wake via Atomics
                 httpDataArray.set(msg.bodyChunk);
                 Atomics.store(controlArray, HTTP_CONTROL.STATUS_CODE, msg.status);
                 Atomics.store(controlArray, HTTP_CONTROL.BODY_LENGTH, msg.bodyChunk.length);
@@ -348,16 +1006,19 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             break;
 
         case 'http-headers':
-            // Main thread is sending HTTP response headers (for streaming mode)
-            // Store them for the streaming generator to pick up
-            pendingHttpHeaders = {
-                status: msg.status,
-                headers: msg.headers
-            };
-            // Signal headers are ready (in case generator is waiting)
-            if (controlArray) {
-                Atomics.store(controlArray, HTTP_CONTROL.HEADERS_READY, 1);
-                Atomics.notify(controlArray, HTTP_CONTROL.HEADERS_READY);
+            if (jspiMode) {
+                // JSPI mode: store headers on pending request
+                handleJspiHttpHeaders(msg.status, msg.headers);
+            } else {
+                // Sync mode: store for streaming generator
+                pendingHttpHeaders = {
+                    status: msg.status,
+                    headers: msg.headers
+                };
+                if (controlArray) {
+                    Atomics.store(controlArray, HTTP_CONTROL.HEADERS_READY, 1);
+                    Atomics.notify(controlArray, HTTP_CONTROL.HEADERS_READY);
+                }
             }
             break;
 
@@ -369,82 +1030,21 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             }
 
             try {
-                if (msg.module === 'tui') {
-                    console.log('[WasmWorker] Initializing OPFS filesystem for TUI...');
-
-                    // Load sync TUI module (imports shims via package paths)
-                    console.log('[WasmWorker] Loading sync web-agent-tui module (with shims)...');
-                    const tuiModule = await import('../wasm/web-agent-tui-sync/web-agent-tui.js');
-
-                    // Import filesystem shim and initialize
-                    const opfsShim = await import('@tjfontaine/wasi-shims/opfs-filesystem-sync-impl.js');
-
-                    // DEBUG: Check if the Descriptor classes are the same
-                    const shimDescriptor = opfsShim.types?.Descriptor;
-                    const rootDirs = opfsShim.preopens?.getDirectories?.();
-                    const rootDesc = rootDirs?.[0]?.[0];
-                    console.log('[WasmWorker] DEBUG - Descriptor class name:', shimDescriptor?.name);
-                    console.log('[WasmWorker] DEBUG - rootDesc constructor:', rootDesc?.constructor?.name);
-                    console.log('[WasmWorker] DEBUG - rootDesc instanceof Descriptor:', rootDesc instanceof shimDescriptor);
-                    console.log('[WasmWorker] DEBUG - Same class?:', rootDesc?.constructor === shimDescriptor ? 'YES' : 'NO');
-
-                    // Initialize OPFS with buffer from main thread (required for WebKit)
-                    await opfsShim.initFilesystem(opfsSharedBuffer!);
-                    console.log('[WasmWorker] OPFS filesystem ready');
-
-                    // Pre-load all lazy modules in the worker context
-                    console.log('[WasmWorker] Pre-loading all lazy modules...');
-                    const { initializeForSyncMode } = await import('../wasm/lazy-loading/lazy-modules.js');
-                    await initializeForSyncMode();
-                    console.log('[WasmWorker] Lazy modules pre-loaded');
-
-                    // Set up sync transport handler for MCP requests
-                    const { setTransportHandler, setStreamingTransportHandler } = await import('@tjfontaine/wasi-shims/wasi-http-impl.js');
-
-                    // Legacy sync transport handler (for backwards compatibility)
-                    setTransportHandler((method, url, headers, body) => {
-                        const response = blockingHttpRequest(method, url, headers, body);
-                        return {
-                            syncValue: {
-                                status: response.status,
-                                headers: response.headers.map(([k, v]) => [k, new TextEncoder().encode(v)] as [string, Uint8Array]),
-                                body: response.body
-                            }
-                        };
-                    }, true); // isSyncMode = true
-
-                    // Streaming transport handler
-                    setStreamingTransportHandler(function* (method, url, headers, body) {
-                        const generator = blockingHttpRequestStreaming(method, url, headers, body);
-                        for (const chunk of generator) {
-                            yield {
-                                status: chunk.status,
-                                headers: chunk.headers.map(([k, v]) => [k, new TextEncoder().encode(v)] as [string, Uint8Array]),
-                                chunk: chunk.chunk,
-                                done: chunk.done
-                            };
-                        }
-                    });
-                    console.log('[WasmWorker] Sync MCP transport handler registered (with streaming support)');
-
-                    // Await $init for sync module initialization
-                    if (tuiModule.$init) {
-                        console.log('[WasmWorker] Awaiting TUI module $init...');
-                        await tuiModule.$init;
-                    }
-
-                    console.log('[WasmWorker] TUI module loaded, starting run()...');
-                    self.postMessage({ type: 'started', module: msg.module });
-
-                    // Run the TUI
-                    try {
-                        const exitCode = tuiModule.run();
-                        console.log('[WasmWorker] TUI exited with code:', exitCode);
-                        self.postMessage({ type: 'exit', code: exitCode });
-                    } catch (err) {
-                        console.error('[WasmWorker] TUI execution error:', err);
-                        self.postMessage({ type: 'error', message: String(err) });
-                    }
+                if (msg.module === 'shell' && msg.jspi) {
+                    // ========================================================
+                    // SHELL MODE (JSPI): Brush shell as primary entry point
+                    // ========================================================
+                    await runShellJspi(msg);
+                } else if (msg.module === 'tui' && msg.jspi) {
+                    // ========================================================
+                    // JSPI MODE: Load async WASM module, use Promise-based I/O
+                    // ========================================================
+                    await runTuiJspi(msg);
+                } else if (msg.module === 'tui') {
+                    // ========================================================
+                    // SYNC MODE: Load sync WASM module, use Atomics-based I/O
+                    // ========================================================
+                    await runTuiSync(msg);
                 } else {
                     console.log(`[WasmWorker] Unknown module: ${msg.module}`);
                     self.postMessage({ type: 'error', message: `Unknown module: ${msg.module}` });

@@ -1,0 +1,833 @@
+#![allow(dead_code, unused_variables, unused_imports)]
+//! Stub for codex-login in wasip2 — auth types with no-op implementations.
+
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+use std::sync::Arc;
+
+// ---------------------------------------------------------------------------
+// Auth env-var constants
+// ---------------------------------------------------------------------------
+
+pub const OPENAI_API_KEY_ENV_VAR: &str = "OPENAI_API_KEY";
+pub const CODEX_API_KEY_ENV_VAR: &str = "CODEX_API_KEY";
+pub const REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR: &str = "CODEX_REFRESH_TOKEN_URL_OVERRIDE";
+pub const CLIENT_ID: &str = "stub-client-id";
+
+// ---------------------------------------------------------------------------
+// AuthMode (mirrors codex_app_server_protocol::AuthMode)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AuthMode {
+    ApiKey,
+    Chatgpt,
+    #[serde(rename = "chatgptAuthTokens")]
+    ChatgptAuthTokens,
+}
+
+impl std::fmt::Display for AuthMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ApiKey => write!(f, "apikey"),
+            Self::Chatgpt => write!(f, "chatgpt"),
+            Self::ChatgptAuthTokens => write!(f, "chatgptAuthTokens"),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// AuthManager
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, Debug, Default)]
+pub struct AuthManager {
+    auth: std::sync::Arc<std::sync::Mutex<Option<CodexAuth>>>,
+    codex_home: std::sync::Arc<std::sync::Mutex<Option<PathBuf>>>,
+}
+
+impl AuthManager {
+    pub fn new() -> Self {
+        Self {
+            auth: std::sync::Arc::new(std::sync::Mutex::new(None)),
+            codex_home: std::sync::Arc::new(std::sync::Mutex::new(None)),
+        }
+    }
+
+    pub fn shared(
+        codex_home: std::path::PathBuf,
+        _enable_codex_api_key_env: bool,
+        _auth_credentials_store_mode: AuthCredentialsStoreMode,
+    ) -> Arc<Self> {
+        let mgr = Self::new();
+        *mgr.codex_home.lock().unwrap_or_else(|e| e.into_inner()) = Some(codex_home.clone());
+        // Try to load from auth.json on disk (OPFS)
+        if let Ok(Some(auth_json)) = auth::load_auth_dot_json(&codex_home) {
+            if let Some(key) = auth_json.openai_api_key {
+                mgr.set_auth(CodexAuth::from_api_key(key));
+            }
+        }
+        // Also check env var
+        if mgr.auth_cached().is_none() {
+            if let Some(key) = read_openai_api_key_from_env() {
+                mgr.set_auth(CodexAuth::from_api_key(key));
+            }
+        }
+        Arc::new(mgr)
+    }
+
+    pub fn from_auth_for_testing(auth: CodexAuth) -> Arc<Self> {
+        let mgr = Self::new();
+        mgr.set_auth(auth);
+        Arc::new(mgr)
+    }
+
+    pub fn from_auth_for_testing_with_home(
+        auth: CodexAuth,
+        _codex_home: std::path::PathBuf,
+    ) -> Arc<Self> {
+        let mgr = Self::new();
+        mgr.set_auth(auth);
+        Arc::new(mgr)
+    }
+
+    pub fn reload(&self) -> bool {
+        let home = self
+            .codex_home
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        if let Some(codex_home) = home {
+            if let Ok(Some(auth_json)) = auth::load_auth_dot_json(&codex_home) {
+                if let Some(key) = auth_json.openai_api_key {
+                    self.set_auth(CodexAuth::from_api_key(key));
+                    return true;
+                }
+            }
+        }
+        self.auth_cached().is_some()
+    }
+
+    pub fn codex_api_key_env_enabled(&self) -> bool {
+        false
+    }
+
+    pub async fn auth(&self) -> Option<CodexAuth> {
+        self.auth_cached()
+    }
+
+    pub fn auth_cached(&self) -> Option<CodexAuth> {
+        self.auth.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+
+    pub fn set_auth(&self, auth: CodexAuth) {
+        *self.auth.lock().unwrap_or_else(|e| e.into_inner()) = Some(auth);
+    }
+
+    pub fn auth_mode(&self) -> Option<AuthMode> {
+        self.auth_cached().map(|a| a.auth_mode())
+    }
+
+    pub fn unauthorized_recovery(self: &Arc<Self>) -> auth::UnauthorizedRecovery {
+        auth::UnauthorizedRecovery
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CodexAuth
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CodexAuth {
+    pub api_key: Option<String>,
+    pub chatgpt_session_token: Option<String>,
+}
+
+impl CodexAuth {
+    pub fn from_api_key(api_key: impl Into<String>) -> Self {
+        Self {
+            api_key: Some(api_key.into()),
+            chatgpt_session_token: None,
+        }
+    }
+
+    pub fn create_dummy_chatgpt_auth_for_testing() -> Self {
+        Self {
+            api_key: None,
+            chatgpt_session_token: Some("dummy".to_string()),
+        }
+    }
+
+    pub fn is_chatgpt_auth(&self) -> bool {
+        self.chatgpt_session_token.is_some()
+    }
+
+    pub fn is_api_key_auth(&self) -> bool {
+        self.api_key.is_some()
+    }
+
+    pub fn api_key(&self) -> Option<&str> {
+        self.api_key.as_deref()
+    }
+
+    pub fn bearer_token(&self) -> Option<&str> {
+        self.api_key.as_deref()
+    }
+
+    pub fn auth_mode(&self) -> AuthMode {
+        if self.api_key.is_some() {
+            AuthMode::ApiKey
+        } else {
+            AuthMode::Chatgpt
+        }
+    }
+
+    pub fn get_account_id(&self) -> Option<String> {
+        None
+    }
+
+    pub fn get_account_email(&self) -> Option<String> {
+        None
+    }
+
+    pub fn is_external_chatgpt_tokens(&self) -> bool {
+        false
+    }
+
+    pub fn get_token(&self) -> Result<String, std::io::Error> {
+        self.api_key
+            .clone()
+            .ok_or_else(|| std::io::Error::other("no token available"))
+    }
+
+    pub fn get_token_data(&self) -> Result<TokenData, std::io::Error> {
+        Err(std::io::Error::other("Token data is not available."))
+    }
+
+    /// Construct from saved auth storage — reads auth.json from OPFS.
+    pub fn from_auth_storage(
+        codex_home: &std::path::Path,
+        _store_mode: AuthCredentialsStoreMode,
+    ) -> std::io::Result<Option<Self>> {
+        match auth::load_auth_dot_json(codex_home)? {
+            Some(auth_json) => {
+                if let Some(key) = auth_json.openai_api_key {
+                    Ok(Some(Self::from_api_key(key)))
+                } else {
+                    Ok(None)
+                }
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Account plan type — stub for WASM.
+    pub fn account_plan_type(&self) -> Option<token_data::PlanType> {
+        None
+    }
+
+    /// Get ChatGPT user ID — stub for WASM.
+    pub fn get_chatgpt_user_id(&self) -> Option<String> {
+        None
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Top-level helper functions (re-exported from auth:: in upstream)
+// ---------------------------------------------------------------------------
+
+pub fn read_openai_api_key_from_env() -> Option<String> {
+    std::env::var(OPENAI_API_KEY_ENV_VAR)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+pub fn read_codex_api_key_from_env() -> Option<String> {
+    std::env::var(CODEX_API_KEY_ENV_VAR)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+// ---------------------------------------------------------------------------
+// auth module
+// ---------------------------------------------------------------------------
+
+pub mod auth {
+    pub use super::AuthConfig;
+    pub use super::AuthCredentialsStoreMode;
+    pub use super::AuthMode;
+    pub use super::CodexAuth;
+    pub use super::ForcedLoginMethod;
+    pub use super::read_openai_api_key_from_env;
+
+    use thiserror::Error;
+
+    // -- RefreshTokenFailedError / RefreshTokenFailedReason --
+
+    #[derive(Debug, Clone, PartialEq, Eq, Error)]
+    #[error("{message}")]
+    pub struct RefreshTokenFailedError {
+        pub reason: RefreshTokenFailedReason,
+        pub message: String,
+    }
+
+    impl RefreshTokenFailedError {
+        pub fn new(reason: RefreshTokenFailedReason, message: impl Into<String>) -> Self {
+            Self {
+                reason,
+                message: message.into(),
+            }
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum RefreshTokenFailedReason {
+        Expired,
+        Exhausted,
+        Revoked,
+        Other,
+    }
+
+    impl std::fmt::Display for RefreshTokenFailedReason {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Self::Expired => write!(f, "expired"),
+                Self::Exhausted => write!(f, "exhausted"),
+                Self::Revoked => write!(f, "revoked"),
+                Self::Other => write!(f, "other"),
+            }
+        }
+    }
+
+    // -- RefreshTokenError --
+
+    #[derive(Debug, Error)]
+    pub enum RefreshTokenError {
+        #[error("{0}")]
+        Permanent(#[from] RefreshTokenFailedError),
+        #[error(transparent)]
+        Transient(#[from] std::io::Error),
+    }
+
+    impl RefreshTokenError {
+        pub fn failed_reason(&self) -> Option<RefreshTokenFailedReason> {
+            match self {
+                Self::Permanent(error) => Some(error.reason),
+                Self::Transient(_) => None,
+            }
+        }
+    }
+
+    impl From<RefreshTokenError> for std::io::Error {
+        fn from(err: RefreshTokenError) -> Self {
+            match err {
+                RefreshTokenError::Permanent(failed) => std::io::Error::other(failed),
+                RefreshTokenError::Transient(inner) => inner,
+            }
+        }
+    }
+
+    // -- UnauthorizedRecovery (stub) --
+
+    #[derive(Debug)]
+    pub struct UnauthorizedRecovery;
+
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub struct UnauthorizedRecoveryStepResult {
+        auth_state_changed: Option<bool>,
+    }
+
+    impl UnauthorizedRecoveryStepResult {
+        pub fn auth_state_changed(&self) -> Option<bool> {
+            self.auth_state_changed
+        }
+    }
+
+    impl UnauthorizedRecovery {
+        pub fn is_applicable(&self) -> bool {
+            false
+        }
+
+        pub fn applicability_reason(&self) -> &'static str {
+            "wasm_stub"
+        }
+
+        pub fn has_next(&self) -> bool {
+            false
+        }
+
+        pub fn unavailable_reason(&self) -> &'static str {
+            "wasm_stub"
+        }
+
+        pub fn mode_name(&self) -> &'static str {
+            "stub"
+        }
+
+        pub fn step_name(&self) -> &'static str {
+            "done"
+        }
+
+        pub async fn next(&mut self) -> Result<UnauthorizedRecoveryStepResult, RefreshTokenError> {
+            Ok(UnauthorizedRecoveryStepResult {
+                auth_state_changed: None,
+            })
+        }
+    }
+
+    // -- ExternalAuth types --
+
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct ExternalAuthTokens {
+        pub access_token: String,
+        pub chatgpt_account_id: String,
+        pub chatgpt_plan_type: Option<String>,
+    }
+
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum ExternalAuthRefreshReason {
+        Unauthorized,
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct ExternalAuthRefreshContext {
+        pub reason: ExternalAuthRefreshReason,
+        pub previous_account_id: Option<String>,
+    }
+
+    #[async_trait::async_trait]
+    pub trait ExternalAuthRefresher: Send + Sync {
+        async fn refresh(
+            &self,
+            context: ExternalAuthRefreshContext,
+        ) -> std::io::Result<ExternalAuthTokens>;
+    }
+
+    // -- Misc stubs expected by upstream re-exports --
+
+    pub fn login_with_chatgpt_auth_tokens(
+        _codex_home: &std::path::Path,
+        _access_token: &str,
+        _chatgpt_account_id: &str,
+        _chatgpt_plan_type: Option<&str>,
+    ) -> std::io::Result<()> {
+        Ok(())
+    }
+
+    pub fn load_auth_dot_json(
+        codex_home: &std::path::Path,
+    ) -> std::io::Result<Option<super::AuthDotJson>> {
+        let path = codex_home.join("auth.json");
+        match std::fs::read_to_string(&path) {
+            Ok(contents) => {
+                eprintln!(
+                    "[wasi-codex-login] loaded auth.json from {}",
+                    path.display()
+                );
+                match serde_json::from_str(&contents) {
+                    Ok(auth) => Ok(Some(auth)),
+                    Err(e) => {
+                        eprintln!("[wasi-codex-login] failed to parse auth.json: {e}");
+                        Ok(None)
+                    }
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => {
+                eprintln!("[wasi-codex-login] failed to read auth.json: {e}");
+                Ok(None)
+            }
+        }
+    }
+
+    pub fn enforce_login_restrictions(_config: &AuthConfig) -> std::io::Result<()> {
+        Ok(())
+    }
+
+    pub fn login_with_api_key(
+        codex_home: &std::path::Path,
+        api_key: &str,
+        _auth_credentials_store_mode: AuthCredentialsStoreMode,
+    ) -> std::io::Result<()> {
+        let auth_json = super::AuthDotJson {
+            auth_mode: Some(super::AuthMode::ApiKey),
+            openai_api_key: Some(api_key.to_string()),
+            tokens: None,
+            last_refresh: None,
+        };
+        save_auth(codex_home, &auth_json, _auth_credentials_store_mode)
+    }
+
+    pub fn logout(
+        _codex_home: &std::path::Path,
+        _auth_credentials_store_mode: AuthCredentialsStoreMode,
+    ) -> std::io::Result<bool> {
+        Ok(false)
+    }
+
+    pub fn save_auth(
+        codex_home: &std::path::Path,
+        auth_dot_json: &super::AuthDotJson,
+        _auth_credentials_store_mode: AuthCredentialsStoreMode,
+    ) -> std::io::Result<()> {
+        std::fs::create_dir_all(codex_home)?;
+        let path = codex_home.join("auth.json");
+        let json = serde_json::to_string_pretty(auth_dot_json)
+            .map_err(|e| std::io::Error::other(format!("serialize auth.json: {e}")))?;
+        eprintln!("[wasi-codex-login] saving auth.json to {}", path.display());
+        std::fs::write(&path, json)?;
+        Ok(())
+    }
+
+    pub mod default_client {
+        pub use super::super::default_client::*;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// AuthCredentialsStoreMode
+// ---------------------------------------------------------------------------
+
+#[derive(
+    Debug, Default, Copy, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema,
+)]
+#[serde(rename_all = "lowercase")]
+pub enum AuthCredentialsStoreMode {
+    #[default]
+    File,
+    Keyring,
+    Auto,
+    Ephemeral,
+}
+
+// ---------------------------------------------------------------------------
+// AuthDotJson (stub)
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct AuthDotJson {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth_mode: Option<AuthMode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub openai_api_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tokens: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_refresh: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// Token data module
+// ---------------------------------------------------------------------------
+
+pub mod token_data {
+    use serde::{Deserialize, Serialize};
+
+    /// Flat subset of useful claims in id_token from auth.json.
+    #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+    pub struct IdTokenInfo {
+        pub email: Option<String>,
+        pub chatgpt_plan_type: Option<PlanType>,
+        pub chatgpt_user_id: Option<String>,
+        pub chatgpt_account_id: Option<String>,
+        pub raw_jwt: String,
+    }
+
+    impl IdTokenInfo {
+        pub fn is_workspace_account(&self) -> bool {
+            false
+        }
+    }
+
+    #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+    pub struct TokenData {
+        pub id_token: IdTokenInfo,
+        pub access_token: String,
+        pub refresh_token: String,
+        pub account_id: Option<String>,
+        pub organization_id: Option<String>,
+        pub project_id: Option<String>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(untagged)]
+    pub enum PlanType {
+        Known(KnownPlan),
+        Unknown(String),
+    }
+
+    impl PlanType {
+        pub fn from_raw_value(raw: &str) -> Self {
+            match raw.to_ascii_lowercase().as_str() {
+                "free" => Self::Known(KnownPlan::Free),
+                "go" => Self::Known(KnownPlan::Go),
+                "plus" => Self::Known(KnownPlan::Plus),
+                "pro" => Self::Known(KnownPlan::Pro),
+                "team" => Self::Known(KnownPlan::Team),
+                "business" => Self::Known(KnownPlan::Business),
+                "enterprise" => Self::Known(KnownPlan::Enterprise),
+                "education" | "edu" => Self::Known(KnownPlan::Edu),
+                _ => Self::Unknown(raw.to_string()),
+            }
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(rename_all = "lowercase")]
+    pub enum KnownPlan {
+        Free,
+        Go,
+        Plus,
+        Pro,
+        Team,
+        Business,
+        Enterprise,
+        Edu,
+    }
+
+    pub fn decode_token_data(_token: &str) -> Option<TokenData> {
+        None
+    }
+}
+
+pub use token_data::IdTokenInfo;
+pub use token_data::TokenData;
+
+// Re-export auth types at the top level (upstream `codex_login` does this)
+pub use auth::ExternalAuthRefreshContext;
+pub use auth::ExternalAuthRefreshReason;
+pub use auth::ExternalAuthRefresher;
+pub use auth::ExternalAuthTokens;
+pub use auth::RefreshTokenError;
+pub use auth::RefreshTokenFailedError;
+pub use auth::RefreshTokenFailedReason;
+pub use auth::UnauthorizedRecovery;
+pub use auth::UnauthorizedRecoveryStepResult;
+pub use auth::enforce_login_restrictions;
+pub use auth::load_auth_dot_json;
+pub use auth::login_with_api_key;
+pub use auth::login_with_chatgpt_auth_tokens;
+pub use auth::logout;
+pub use auth::save_auth;
+
+// ---------------------------------------------------------------------------
+// ForcedLoginMethod (stub for codex_protocol::config_types::ForcedLoginMethod)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ForcedLoginMethod {
+    Chatgpt,
+    Api,
+}
+
+impl std::fmt::Display for ForcedLoginMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Chatgpt => write!(f, "chatgpt"),
+            Self::Api => write!(f, "api"),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// AuthConfig (stub for codex_login::auth::AuthConfig)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthConfig {
+    pub codex_home: PathBuf,
+    pub auth_credentials_store_mode: AuthCredentialsStoreMode,
+    pub forced_login_method: Option<ForcedLoginMethod>,
+    pub forced_chatgpt_workspace_id: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// DeviceCode (stub for device_code_auth::DeviceCode)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone)]
+pub struct DeviceCode {
+    pub verification_url: String,
+    pub user_code: String,
+}
+
+// ---------------------------------------------------------------------------
+// ServerOptions (stub for server::ServerOptions)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone)]
+pub struct ServerOptions {
+    pub codex_home: PathBuf,
+    pub client_id: String,
+    pub issuer: String,
+    pub port: u16,
+    pub open_browser: bool,
+    pub force_state: Option<String>,
+    pub forced_chatgpt_workspace_id: Option<String>,
+    pub cli_auth_credentials_store_mode: AuthCredentialsStoreMode,
+}
+
+impl ServerOptions {
+    pub fn new(
+        codex_home: PathBuf,
+        client_id: String,
+        forced_chatgpt_workspace_id: Option<String>,
+        cli_auth_credentials_store_mode: AuthCredentialsStoreMode,
+    ) -> Self {
+        Self {
+            codex_home,
+            client_id,
+            issuer: String::new(),
+            port: 0,
+            open_browser: true,
+            force_state: None,
+            forced_chatgpt_workspace_id,
+            cli_auth_credentials_store_mode,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// LoginServer (stub)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug)]
+pub struct LoginServer {
+    pub auth_url: String,
+    pub actual_port: u16,
+}
+
+impl LoginServer {
+    pub async fn block_until_done(self) -> std::io::Result<()> {
+        Ok(())
+    }
+
+    pub fn cancel_handle(&self) -> ShutdownHandle {
+        ShutdownHandle
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ShutdownHandle (stub for server::ShutdownHandle)
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, Debug)]
+pub struct ShutdownHandle;
+
+impl ShutdownHandle {
+    pub fn shutdown(&self) {}
+}
+
+// ---------------------------------------------------------------------------
+// Top-level stub functions matching upstream re-exports
+// ---------------------------------------------------------------------------
+
+pub async fn request_device_code(_opts: &ServerOptions) -> std::io::Result<DeviceCode> {
+    Err(std::io::Error::other(
+        "device code auth not supported in WASM",
+    ))
+}
+
+pub async fn complete_device_code_login(
+    _opts: ServerOptions,
+    _device_code: DeviceCode,
+) -> std::io::Result<()> {
+    Err(std::io::Error::other(
+        "device code auth not supported in WASM",
+    ))
+}
+
+pub async fn run_device_code_login(
+    _client_id: &str,
+    _codex_home: &std::path::Path,
+    _auth_credentials_store_mode: AuthCredentialsStoreMode,
+) -> std::io::Result<()> {
+    Err(std::io::Error::other(
+        "device code auth not supported in WASM",
+    ))
+}
+
+pub fn run_login_server(_options: ServerOptions) -> std::io::Result<LoginServer> {
+    Err(std::io::Error::other("login server not supported in WASM"))
+}
+
+// ---------------------------------------------------------------------------
+// Default client module
+// ---------------------------------------------------------------------------
+
+pub mod default_client {
+    use reqwest::header::{HeaderMap, HeaderValue};
+
+    pub use super::AuthManager;
+    pub use super::CodexAuth;
+
+    pub const DEFAULT_ORIGINATOR: &str = "codex_cli_rs";
+    pub const CODEX_INTERNAL_ORIGINATOR_OVERRIDE_ENV_VAR: &str =
+        "CODEX_INTERNAL_ORIGINATOR_OVERRIDE";
+    pub const RESIDENCY_HEADER_NAME: &str = "x-openai-internal-codex-residency";
+
+    #[derive(Debug, Clone)]
+    pub struct Originator {
+        pub value: String,
+        pub header_value: HeaderValue,
+    }
+
+    #[derive(Debug)]
+    pub enum SetOriginatorError {
+        InvalidHeaderValue,
+        AlreadyInitialized,
+    }
+
+    pub fn set_default_originator(_value: String) -> Result<(), SetOriginatorError> {
+        Ok(())
+    }
+
+    pub fn originator() -> Originator {
+        Originator {
+            value: DEFAULT_ORIGINATOR.to_string(),
+            header_value: HeaderValue::from_static(DEFAULT_ORIGINATOR),
+        }
+    }
+
+    pub fn is_first_party_originator(originator_value: &str) -> bool {
+        originator_value == DEFAULT_ORIGINATOR
+            || originator_value == "codex_vscode"
+            || originator_value.starts_with("Codex ")
+    }
+
+    pub fn is_first_party_chat_originator(originator_value: &str) -> bool {
+        originator_value == "codex_atlas" || originator_value == "codex_chatgpt_desktop"
+    }
+
+    pub fn get_codex_user_agent() -> String {
+        format!("{}/0.0.0 (wasm32-wasip2)", DEFAULT_ORIGINATOR)
+    }
+
+    /// Build a default reqwest::Client (our shim).
+    pub fn build_reqwest_client() -> reqwest::Client {
+        reqwest::Client::new()
+    }
+
+    /// Build a reqwest::Client that might fail.
+    pub fn try_build_reqwest_client() -> Result<reqwest::Client, std::io::Error> {
+        Ok(reqwest::Client::new())
+    }
+
+    /// Create the default HTTP client used by Codex.
+    pub fn create_client() -> reqwest::Client {
+        build_reqwest_client()
+    }
+
+    /// Return default HTTP headers for Codex requests.
+    pub fn default_headers() -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert("originator", originator().header_value);
+        headers
+    }
+
+    pub fn set_default_client_residency_requirement(_enforce_residency: Option<()>) {}
+}

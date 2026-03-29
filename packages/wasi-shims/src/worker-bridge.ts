@@ -91,6 +91,8 @@ export class WorkerBridge {
     private terminalOutputBuffer: string[] = [];
     private terminalOutputFlushScheduled = false;
     private workerUrl: URL | null = null;
+    // When true, stdin is sent via postMessage only (no Atomics check)
+    private jspiMode = false;
 
     constructor(terminal?: Terminal, options?: { mcpTransport?: HttpTransportHandler; workerUrl?: URL }) {
         this.terminal = terminal || null;
@@ -234,10 +236,17 @@ export class WorkerBridge {
      * Handle terminal input from ghostty-web.
      */
     private handleTerminalInput(data: string): void {
-        console.log(`[WorkerBridge] handleTerminalInput called, len=${data.length}, data=${JSON.stringify(data.slice(0, 20))}`);
+        // stdin logging removed for cleaner output
         const bytes = new TextEncoder().encode(data);
 
-        // Check if worker is waiting for stdin
+        if (this.jspiMode) {
+            // JSPI mode: always send via postMessage (worker event loop is free
+            // while WASM is suspended, so messages are processed immediately)
+            this.sendStdinViaPostMessage(bytes);
+            return;
+        }
+
+        // Sync mode: check if worker is waiting for stdin via Atomics
         const requestReady = Atomics.load(this.controlArray, STDIN_CONTROL.REQUEST_READY);
         console.log(`[WorkerBridge] REQUEST_READY=${requestReady}`);
 
@@ -262,6 +271,16 @@ export class WorkerBridge {
             this.sendStdinToWorker(data.slice(0, maxLen));
         }
         // Otherwise, wait for terminal input (handleTerminalInput will send it)
+    }
+
+    /**
+     * Send stdin data to worker via postMessage (JSPI mode).
+     * The worker's event loop is free while WASM is suspended via JSPI,
+     * so postMessage is received and pushes data into the stdin buffer.
+     */
+    private sendStdinViaPostMessage(data: Uint8Array): void {
+        if (!this.worker) return;
+        this.worker.postMessage({ type: 'stdin', data });
     }
 
     /**
@@ -301,7 +320,7 @@ export class WorkerBridge {
                     msg.body ? new Uint8Array(msg.body) : null
                 );
                 // Send as single chunk for MCP requests (legacy compatible)
-                this.sendHttpChunk(transportResponse.status, [], transportResponse.body, true);
+                this.sendHttpChunk(transportResponse.status, [], transportResponse.body, true, (msg as any).requestId);
                 return;
             }
 
@@ -377,27 +396,40 @@ export class WorkerBridge {
     }
 
     /**
-     * Send an HTTP chunk to the worker via SharedArrayBuffer.
+     * Send an HTTP chunk to the worker.
+     * JSPI mode: postMessage (Worker resolves Promise → JSPI resumes WASM)
+     * Sync mode: SharedArrayBuffer + Atomics (Worker wakes from Atomics.wait)
      */
     private sendHttpChunk(
         status: number,
         _headers: [string, string][],
         chunk: Uint8Array,
-        done: boolean
+        done: boolean,
+        requestId?: number
     ): void {
-        // Copy chunk to shared buffer
-        if (chunk.length > 0) {
-            this.httpDataArray.set(chunk.slice(0, HTTP_BUFFER_SIZE));
+        if (this.jspiMode && this.worker) {
+            // JSPI mode: send via postMessage so the Worker's onmessage handler
+            // can resolve the Promise, which makes JSPI resume the WASM stack.
+            this.worker.postMessage({
+                type: 'http-response',
+                status,
+                bodyChunk: chunk,
+                done,
+                requestId,
+            });
+            console.log(`[WorkerBridge] Sent HTTP chunk via postMessage: ${chunk.length} bytes, done=${done}`);
+        } else {
+            // Sync mode: SharedArrayBuffer + Atomics
+            if (chunk.length > 0) {
+                this.httpDataArray.set(chunk.slice(0, HTTP_BUFFER_SIZE));
+            }
+            Atomics.store(this.controlArray, HTTP_CONTROL.STATUS_CODE, status);
+            Atomics.store(this.controlArray, HTTP_CONTROL.BODY_LENGTH, Math.min(chunk.length, HTTP_BUFFER_SIZE));
+            Atomics.store(this.controlArray, HTTP_CONTROL.DONE, done ? 1 : 0);
+            Atomics.store(this.controlArray, HTTP_CONTROL.RESPONSE_READY, 1);
+            Atomics.notify(this.controlArray, HTTP_CONTROL.RESPONSE_READY);
+            console.log(`[WorkerBridge] Sent HTTP chunk via SAB: ${chunk.length} bytes, done=${done}`);
         }
-
-        // Set metadata in control array
-        Atomics.store(this.controlArray, HTTP_CONTROL.STATUS_CODE, status);
-        Atomics.store(this.controlArray, HTTP_CONTROL.BODY_LENGTH, Math.min(chunk.length, HTTP_BUFFER_SIZE));
-        Atomics.store(this.controlArray, HTTP_CONTROL.DONE, done ? 1 : 0);
-        Atomics.store(this.controlArray, HTTP_CONTROL.RESPONSE_READY, 1);
-        Atomics.notify(this.controlArray, HTTP_CONTROL.RESPONSE_READY);
-
-        console.log(`[WorkerBridge] Sent HTTP chunk: ${chunk.length} bytes, done=${done}`);
     }
 
     /**
@@ -428,16 +460,23 @@ export class WorkerBridge {
 
     /**
      * Run a WASM module in the worker.
+     * @param module Which module to run
+     * @param args Optional arguments
+     * @param options.jspi When true, load the JSPI (async) WASM variant
      */
-    runModule(module: 'tui' | 'mcp', args?: string[]): void {
+    runModule(module: 'tui' | 'mcp' | 'shell', args?: string[], options?: { jspi?: boolean }): void {
         if (!this.worker || !this.ready) {
             throw new Error('Worker not ready');
         }
 
+        const useJspi = options?.jspi ?? false;
+        this.jspiMode = useJspi;
+
         this.worker.postMessage({
             type: 'run',
             module,
-            args
+            args,
+            jspi: useJspi,
         });
     }
 
@@ -451,10 +490,21 @@ export class WorkerBridge {
     }
 
     /**
-     * Handle terminal resize event - inject directly via SharedArrayBuffer.
-     * We can't use postMessage because the worker is blocked on Atomics.wait.
+     * Handle terminal resize event.
+     * In sync mode: inject directly via SharedArrayBuffer (worker is blocked on Atomics.wait).
+     * In JSPI mode: send via postMessage (worker event loop is free while WASM suspended).
      */
     handleResize(cols: number, rows: number): void {
+        if (this.jspiMode) {
+            // JSPI mode: send resize via postMessage
+            if (this.worker) {
+                console.log(`[WorkerBridge] Sending resize via postMessage: ${cols}x${rows}`);
+                this.worker.postMessage({ type: 'resize', cols, rows });
+            }
+            return;
+        }
+
+        // Sync mode: inject directly into SharedArrayBuffer
         if (!this.controlArray || !this.stdinDataArray) {
             console.log('[WorkerBridge] handleResize called but no SharedArrayBuffer');
             return;
@@ -489,6 +539,13 @@ export class WorkerBridge {
      */
     isReady(): boolean {
         return this.ready;
+    }
+
+    /**
+     * Get the underlying Worker reference (for debug instrumentation).
+     */
+    getWorker(): Worker | null {
+        return this.worker;
     }
 }
 

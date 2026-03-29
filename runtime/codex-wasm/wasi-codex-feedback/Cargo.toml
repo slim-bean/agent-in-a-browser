@@ -1,0 +1,13 @@
+[package]
+name = "codex-feedback"
+version = "0.0.0"
+edition = "2021"
+description = "Stub for codex-feedback in wasip2 — no-op feedback collection"
+
+[lib]
+name = "codex_feedback"
+path = "src/lib.rs"
+
+[dependencies]
+tracing-subscriber = { version = "0.3", default-features = false }
+tracing = "0.1"

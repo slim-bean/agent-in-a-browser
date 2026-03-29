@@ -1,0 +1,19 @@
+[package]
+name = "codex-otel"
+version = "0.0.0"
+edition = "2024"
+description = "Stub for codex-otel in wasip2 — telemetry types with no-op implementations"
+
+[lib]
+name = "codex_otel"
+path = "src/lib.rs"
+
+[features]
+default = []
+disable-default-metrics-exporter = []
+
+[dependencies]
+codex-login = { path = "../wasi-codex-login" }
+serde = { version = "1", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false }

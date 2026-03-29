@@ -1,0 +1,36 @@
+{
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "declaration": true,
+        "declarationMap": true,
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "outDir": "dist",
+        "rootDir": "src",
+        "paths": {
+            "@tjfontaine/wasi-shims": [
+                "../wasi-shims/src/index.ts"
+            ],
+            "@tjfontaine/wasi-shims/*": [
+                "../wasi-shims/src/*"
+            ]
+        },
+        "composite": true
+    },
+    "include": [
+        "src/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist",
+        "src/wasm"
+    ],
+    "references": [
+        {
+            "path": "../wasi-shims"
+        }
+    ]
+}

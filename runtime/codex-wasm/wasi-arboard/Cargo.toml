@@ -1,0 +1,9 @@
+[package]
+name = "arboard"
+version = "3.4.1"
+edition = "2021"
+description = "Stub for arboard in wasip2 — clipboard not available"
+
+[lib]
+name = "arboard"
+path = "src/lib.rs"

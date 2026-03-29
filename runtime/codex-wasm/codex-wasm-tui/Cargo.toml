@@ -1,0 +1,57 @@
+[package]
+name = "codex-wasm-tui"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+codex-tui = { path = "../../codex-upstream/codex-rs/tui", default-features = false }
+codex-core = { path = "../../codex-upstream/codex-rs/core" }
+codex-protocol = { path = "../../codex-upstream/codex-rs/protocol" }
+codex-login = { path = "../wasi-codex-login" }
+codex-arg0 = { path = "../../codex-upstream/codex-rs/arg0" }
+codex-feedback = { path = "../wasi-codex-feedback" }
+codex-utils-sleep-inhibitor = { path = "../../codex-upstream/codex-rs/utils/sleep-inhibitor" }
+reqwest = { path = "../wasi-reqwest" }
+tokio = { path = "../wasi-tokio" }
+clap = { version = "4", features = ["derive"] }
+
+wit-bindgen = "0.36"
+wit-bindgen-rt = "0.36"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+
+# Standalone workspace — depends on codex-upstream crates that require the codemod.
+[workspace]
+
+# Redirect transitive dependencies to our WASM shims
+[patch.crates-io]
+crossterm = { path = "../wasi-crossterm" }
+tokio = { path = "../wasi-tokio" }
+reqwest = { path = "../wasi-reqwest" }
+libc = { path = "../wasi-libc" }
+tokio-util = { path = "../wasi-tokio-util" }
+arboard = { path = "../wasi-arboard" }
+sqlx = { path = "../wasi-sqlx" }
+
+[package.metadata.component]
+package = "codex:tui"
+
+[package.metadata.component.target]
+path = "wit"
+world = "codex-tui"
+
+[package.metadata.component.target.dependencies]
+"wasi:http" = { path = "../../wit/deps/http" }
+"wasi:clocks" = { path = "../../wit/deps/clocks" }
+"wasi:io" = { path = "../../wit/deps/io" }
+"wasi:random" = { path = "../../wit/deps/random" }
+"wasi:filesystem" = { path = "../../wit/deps/filesystem" }
+"wasi:cli" = { path = "../../wit/deps/cli" }
+"wasi:sockets" = { path = "../../wit/deps/sockets" }
+"terminal:info" = { path = "../../wit/deps/terminal-info" }

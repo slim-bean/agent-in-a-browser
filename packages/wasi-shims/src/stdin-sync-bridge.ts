@@ -62,8 +62,12 @@ export function initStdinSyncBridge(
     const state = getSharedState();
     state.controlArray = control;
     state.dataArray = data;
-    // Set global execution mode to sync-worker
-    setExecutionMode('sync-worker');
+    // Only set execution mode to sync-worker if JSPI is NOT available.
+    // In JSPI mode, the Worker uses async suspension — the execution mode
+    // should stay 'jspi' so wasi-http-impl takes the async code path.
+    if (!isSyncWorkerMode() && typeof (WebAssembly as any).Suspending === 'undefined' && typeof (WebAssembly as any).promising === 'undefined') {
+        setExecutionMode('sync-worker');
+    }
     console.log('[StdinSyncBridge] Initialized (globalThis singleton)');
 }
 

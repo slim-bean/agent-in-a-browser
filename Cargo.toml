@@ -12,6 +12,21 @@ members = [
     "runtime/crates/edtui-module",
     "runtime/crates/stripe-module",
     "runtime/crates/wasmtime-runner",
+    # Codex WASM fork — shim crates and tooling
+    "runtime/codex-wasm/platform-traits",
+    "runtime/codex-wasm/wasi-tokio",
+    "runtime/codex-wasm/wasi-reqwest",
+    "runtime/codex-wasm/wasi-tokio-util",
+    "runtime/codex-wasm/wasi-crossterm",
+    "runtime/codex-wasm/wasi-codex-otel",
+    "runtime/codex-wasm/wasi-codex-login",
+    "runtime/codex-wasm/codex-codemod",
+]
+exclude = [
+    # codex-wasm-agent depends on codex-upstream crates which require
+    # the codemod to be applied first. It is built separately after
+    # the codemod runs: cargo component build -p codex-wasm-agent
+    "runtime/codex-wasm/codex-wasm-agent",
 ]
 resolver = "2"
 

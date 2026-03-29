@@ -6,3 +6,7 @@
 	path = git-cli-wasm/patches/go-git
 	url = https://github.com/tjfontaine/go-git.git
 	branch = wasip1-patches
+[submodule "runtime/codex-upstream"]
+	path = runtime/codex-upstream
+	url = https://github.com/tjfontaine/codex.git
+	branch = wasm32-wasip2

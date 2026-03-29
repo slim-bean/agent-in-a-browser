@@ -15,6 +15,7 @@ typescript:
   routeOutDirToCache: false
 
 rust:
+  version: "stable"
   components:
     - "rustfmt"
   targets:

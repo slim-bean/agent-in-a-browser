@@ -1,0 +1,18 @@
+[package]
+name = "crossterm"
+version = "0.28.1"
+edition = "2021"
+description = "wasip2-compatible shim providing crossterm's API surface for browser terminals"
+
+[lib]
+name = "crossterm"
+path = "src/lib.rs"
+
+[features]
+default = []
+# Feature flags that Codex enables — accepted but no-op in the shim
+bracketed-paste = []
+event-stream = []
+
+[dependencies]
+futures-core = "0.3"

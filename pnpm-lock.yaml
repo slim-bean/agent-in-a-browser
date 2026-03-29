@@ -20,6 +20,9 @@ importers:
 
   frontend:
     dependencies:
+      '@tjfontaine/codex-agent-core':
+        specifier: workspace:*
+        version: link:../packages/codex-agent-core
       '@tjfontaine/edge-agent-session':
         specifier: workspace:*
         version: link:../packages/edge-agent-session
@@ -53,9 +56,6 @@ importers:
       '@tjfontaine/wasm-vim':
         specifier: workspace:*
         version: link:../packages/wasm-vim
-      '@tjfontaine/web-agent-core':
-        specifier: workspace:*
-        version: link:../packages/web-agent-core
       ghostty-web:
         specifier: ^0.4.0
         version: 0.4.0
@@ -112,6 +112,19 @@ importers:
       vitest:
         specifier: ^4.0.0
         version: 4.0.17(@types/node@25.0.9)(jsdom@27.4.0)(terser@5.46.0)
+
+  packages/codex-agent-core:
+    dependencies:
+      '@tjfontaine/wasi-shims':
+        specifier: workspace:*
+        version: link:../wasi-shims
+    devDependencies:
+      '@bytecodealliance/jco':
+        specifier: ^1.8.0
+        version: 1.15.4
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
 
   packages/edge-agent-mcp:
     dependencies:

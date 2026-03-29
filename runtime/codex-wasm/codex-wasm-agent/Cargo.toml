@@ -1,0 +1,50 @@
+[package]
+name = "codex-wasm-agent"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+codex-platform = { path = "../platform-traits" }
+codex-core = { path = "../../codex-upstream/codex-rs/core" }
+codex-protocol = { path = "../../codex-upstream/codex-rs/protocol" }
+codex-login = { path = "../wasi-codex-login" }
+reqwest = { path = "../wasi-reqwest" }
+tokio = { path = "../wasi-tokio" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+wit-bindgen = "0.36"
+wit-bindgen-rt = "0.36"
+
+[patch.crates-io]
+sqlx = { path = "../wasi-sqlx" }
+
+[profile.release]
+opt-level = "z"   # Optimize for size
+lto = true        # Link-time optimization
+codegen-units = 1 # Better optimization
+
+# This crate is excluded from the root workspace because it depends on
+# codex-upstream crates that require the codemod to be applied first.
+# Build after codemod: cargo component build --manifest-path runtime/codex-wasm/codex-wasm-agent/Cargo.toml --target wasm32-wasip2
+[workspace]
+
+[package.metadata.component]
+package = "codex:agent"
+
+[package.metadata.component.target]
+path = "wit"
+world = "codex-agent"
+
+[package.metadata.component.target.dependencies]
+"wasi:http" = { path = "../../wit/deps/http" }
+"wasi:clocks" = { path = "../../wit/deps/clocks" }
+"wasi:io" = { path = "../../wit/deps/io" }
+"wasi:random" = { path = "../../wit/deps/random" }
+"wasi:filesystem" = { path = "../../wit/deps/filesystem" }
+"wasi:cli" = { path = "../../wit/deps/cli" }
+"wasi:sockets" = { path = "../../wit/deps/sockets" }

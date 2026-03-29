@@ -73,8 +73,8 @@
             "@tjfontaine/wasm-vim": [
                 "../packages/wasm-vim/src/index.ts"
             ],
-            "@tjfontaine/web-agent-core": [
-                "../packages/web-agent-core/src/index.ts"
+            "@tjfontaine/codex-agent-core": [
+                "../packages/codex-agent-core/src/index.ts"
             ],
             "@tjfontaine/web-agent-core/*": [
                 "../packages/web-agent-core/src/*"
@@ -84,6 +84,9 @@
             ],
             "@tjfontaine/wasm-git/*": [
                 "../packages/wasm-git/src/*"
+            ],
+            "@tjfontaine/codex-agent-core/*": [
+                "../packages/codex-agent-core/src/*"
             ]
         }
     },
@@ -93,6 +96,9 @@
         "playwright.config.ts"
     ],
     "references": [
+        {
+            "path": "../packages/codex-agent-core"
+        },
         {
             "path": "../packages/edge-agent-session"
         },

@@ -15,7 +15,7 @@
         "test:e2e:headed": "playwright test --headed",
         "test:e2e:ui": "playwright test --ui",
         "test:all": "pnpm run test && pnpm run test:e2e",
-        "clean:wasm": "rm -rf src/wasm/mcp-server-jspi src/wasm/mcp-server-sync src/wasm/tsx-engine src/wasm/sqlite-module src/wasm/ratatui-demo src/wasm/edtui-module src/wasm/web-agent-tui"
+        "clean:wasm": "rm -rf src/wasm/mcp-server-jspi src/wasm/mcp-server-sync src/wasm/tsx-engine src/wasm/sqlite-module src/wasm/ratatui-demo src/wasm/edtui-module src/wasm/codex-tui src/wasm/codex-tui-sync"
     },
     "dependencies": {
         "@tjfontaine/mcp-wasm-server": "workspace:*",
@@ -29,7 +29,7 @@
         "@tjfontaine/wasm-vim": "workspace:*",
         "@tjfontaine/wasm-python": "workspace:*",
         "@tjfontaine/edge-agent-session": "workspace:*",
-        "@tjfontaine/web-agent-core": "workspace:*",
+        "@tjfontaine/codex-agent-core": "workspace:*",
         "ghostty-web": "^0.4.0",
         "vite-plugin-node-polyfills": "^0.24.0"
     },

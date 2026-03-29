@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "chrome-devtools-mcp": {
+      "command": "npx",
+      "args": [
+        "chrome-devtools-mcp@latest",
+        "--headless",
+        "--isolated",
+        "--chrome-arg=--enable-experimental-web-platform-features",
+        "--chrome-arg=--enable-features=WebAssemblyJSPromiseIntegration"
+      ]
+    }
+  }
+}

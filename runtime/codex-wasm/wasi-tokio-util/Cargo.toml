@@ -1,0 +1,23 @@
+[package]
+name = "tokio-util"
+version = "0.7.18"
+edition = "2021"
+description = "wasip2-compatible shim providing tokio-util's API surface"
+
+[lib]
+name = "tokio_util"
+path = "src/lib.rs"
+
+[features]
+default = []
+# Feature flags that Codex enables — accepted but no-op in the shim
+codec = []
+rt = []
+time = []
+io = []
+
+[dependencies]
+bytes = "1"
+futures-core = { version = "0.3", default-features = false }
+futures-sink = { version = "0.3", default-features = false }
+tokio = { path = "../wasi-tokio" }

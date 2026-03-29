@@ -101,6 +101,19 @@ export function setTerminal(terminal: Terminal): void {
 }
 
 /**
+ * Push raw bytes into the stdin buffer (used by JSPI worker mode where
+ * there is no Terminal instance but stdin data arrives via postMessage).
+ */
+export function pushStdinData(data: Uint8Array): void {
+    if (stdinWaiters.length > 0) {
+        const waiter = stdinWaiters.shift()!;
+        waiter(data);
+    } else {
+        stdinBuffer.push(data);
+    }
+}
+
+/**
  * Set terminal size (called on resize)
  */
 export function setTerminalSize(cols: number, rows: number): void {
@@ -140,6 +153,10 @@ export function getTerminalSize(): { cols: number; rows: number } {
 let hasDataBeenDelivered = false; // Tracks if we're mid-sequence
 
 async function readStdin(len: number): Promise<Uint8Array> {
+    // Notify deadlock watchdog that WASM is still making progress
+    if (typeof (globalThis as any).__wasmStdinActivity === 'function') {
+        (globalThis as any).__wasmStdinActivity();
+    }
     // Check if we have buffered data
     if (stdinBuffer.length > 0) {
         const chunk = stdinBuffer.shift()!;
@@ -153,17 +170,24 @@ async function readStdin(len: number): Promise<Uint8Array> {
         return result;
     }
 
-    // Buffer is empty - check if we already delivered data this sequence
-    if (hasDataBeenDelivered) {
-        // Already delivered data, return empty to let render loop continue
-        hasDataBeenDelivered = false;
-        return new Uint8Array(0);
-    }
-
-    // Wait for data - this suspends the WASM via JSPI
+    // Buffer is empty - wait for data with a timeout.
+    // The timeout allows the WASM event loop to process draw events
+    // and other async work instead of blocking forever on stdin.
     const data = await new Promise<Uint8Array>(resolve => {
         stdinWaiters.push(resolve);
+        // Timeout after 33ms (~30fps) so the WASM select! loop can
+        // process draw events, streaming responses, etc.
+        setTimeout(() => {
+            const idx = stdinWaiters.indexOf(resolve);
+            if (idx !== -1) {
+                stdinWaiters.splice(idx, 1);
+                resolve(new Uint8Array(0)); // Empty = no data, maps to WouldBlock
+            }
+        }, 33);
     });
+    if (data.length === 0) {
+        return data; // Timeout - return empty so Rust gets WouldBlock
+    }
 
     hasDataBeenDelivered = true;
 
@@ -194,6 +218,7 @@ const stdinStream = new CustomInputStream({
 
     // blockingRead: supports both JSPI (async) and sync (worker) modes
     blockingRead(len: bigint): Uint8Array | Promise<Uint8Array> {
+        const isSyncMode = isSyncWorkerMode();
         // In sync-worker mode (Safari), use synchronous blocking via Atomics
         if (isSyncWorkerMode()) {
             return syncBlockingRead(Number(len));
@@ -253,27 +278,42 @@ const stdoutStream = new CustomOutputStream({
     blockingFlush(): void { },
 });
 
-// Create stderr stream (goes to console.log only to avoid corrupting TUI)
+// Create stderr stream — routes to terminal (same as stdout) so shell
+// commands, --help, and error messages are visible to the user.
+// Also logs to console for debugging.
 const stderrStream = new CustomOutputStream({
     write(contents: Uint8Array): bigint {
         if (contents.length === 0) {
             return BigInt(0);
         }
 
-        // Check for piped mode first - route to buffer instead of console
+        // Check for piped mode first - route to buffer instead of terminal
         if (pipedStderrWrite) {
             return pipedStderrWrite(contents);
         }
 
         try {
             const text = textDecoder.decode(contents);
-            // Skip empty writes
             if (text.length > 0) {
-                // Log to browser console for debugging WASM output
-                // Note: We intentionally don't write to terminal to avoid corrupting the TUI
+                // Write to terminal (same path as stdout)
+                if (currentTerminal) {
+                    currentTerminal.write(convertToCrlf(text));
+                } else if (typeof self !== 'undefined' && typeof self.postMessage === 'function') {
+                    self.postMessage({
+                        type: 'terminal-output',
+                        data: convertToCrlf(text)
+                    });
+                }
+
+                // Also log to browser console for debugging
                 console.log('[WASM stderr]', text.trimEnd());
 
-                // Forward to main thread via debug callback if set (uses globalThis for cross-bundle sharing)
+                // Notify deadlock watchdog that WASM is still producing output
+                if (typeof (globalThis as any).__wasmStderrTime === 'function') {
+                    (globalThis as any).__wasmStderrTime();
+                }
+
+                // Forward to main thread via debug callback if set
                 const debugCallback = getDebugStderrCallback();
                 if (debugCallback) {
                     debugCallback(text.trimEnd());

@@ -1,0 +1,30 @@
+[package]
+name = "tokio"
+version = "1.0.0"
+edition = "2021"
+description = "wasip2-compatible shim providing tokio's API surface backed by WASI primitives"
+
+[lib]
+name = "tokio"
+path = "src/lib.rs"
+
+[features]
+default = []
+# Feature flags that Codex enables — accepted but no-op in the shim
+full = []
+io-std = []
+io-util = []
+macros = []
+net = []
+process = []
+rt = []
+rt-multi-thread = []
+signal = []
+sync = []
+test-util = []
+time = []
+fs = []
+
+[dependencies]
+futures-core = { version = "0.3", default-features = false }
+pin-project-lite = "0.2"

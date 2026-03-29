@@ -1,0 +1,39 @@
+{
+    "name": "@tjfontaine/codex-agent-core",
+    "version": "0.1.0",
+    "description": "Codex-based AI agent for web applications (OpenAI Codex fork compiled to WASM)",
+    "type": "module",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        }
+    },
+    "scripts": {
+        "build": "tsc && cp -r src/wasm dist/",
+        "clean": "rm -rf dist src/wasm src/wasm-sync"
+    },
+    "files": [
+        "dist",
+        "src/wasm"
+    ],
+    "keywords": [
+        "ai",
+        "agent",
+        "codex",
+        "wasm",
+        "llm",
+        "openai"
+    ],
+    "author": "Web Agent Contributors",
+    "license": "MIT",
+    "dependencies": {
+        "@tjfontaine/wasi-shims": "workspace:*"
+    },
+    "devDependencies": {
+        "@bytecodealliance/jco": "^1.8.0",
+        "typescript": "^5.7.0"
+    }
+}

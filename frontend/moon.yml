@@ -2,25 +2,25 @@ $schema: "https://moonrepo.dev/schemas/project.json"
 
 tasks:
   transpile:
-    command: "node ../scripts/transpile.mjs web-agent-tui"
+    command: "node ../scripts/transpile.mjs codex-wasm-tui"
     inputs:
-      - "/target/wasm32-wasip2/release/web_agent_tui.wasm"
+      - "/target/wasm32-wasip2/release/codex_wasm_tui.wasm"
       - "/scripts/transpile.mjs"
     outputs:
-      - "src/wasm/web-agent-tui"
+      - "src/wasm/codex-tui"
     deps:
-      - "runtime:build-wasm"
+      - "runtime:build-codex-tui"
       - "mcp-wasm-server:transpile"
 
   transpile-sync:
-    command: "node ../scripts/transpile.mjs web-agent-tui --sync"
+    command: "node ../scripts/transpile.mjs codex-wasm-tui --sync"
     inputs:
-      - "/target/wasm32-wasip2/release/web_agent_tui.wasm"
+      - "/target/wasm32-wasip2/release/codex_wasm_tui.wasm"
       - "/scripts/transpile.mjs"
     outputs:
-      - "src/wasm/web-agent-tui-sync"
+      - "src/wasm/codex-tui-sync"
     deps:
-      - "runtime:build-wasm"
+      - "runtime:build-codex-tui"
       - "mcp-wasm-server:transpile-sync"
 
   build:
@@ -54,6 +54,8 @@ tasks:
       - "wasm-git:transpile-sync"
       - "web-agent-core:transpile"
       - "web-agent-core:transpile-sync"
+      - "codex-agent-core:transpile"
+      - "codex-agent-core:transpile-sync"
 
   # Copy non-Vite assets into dist/ that the app expects at runtime.
   # stripe.wasm is included here for local dev (`vite dev`) and E2E tests

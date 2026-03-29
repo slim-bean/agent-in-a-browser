@@ -151,12 +151,17 @@ export class OutputStream {
         return this.handler.write(buf);
     }
 
-    blockingWriteAndFlush(buf: Uint8Array): void {
+    blockingWriteAndFlush(buf: Uint8Array): void | Promise<void> {
         if (this.handler.blockingWriteAndFlush) {
-            this.handler.blockingWriteAndFlush(buf);
+            return this.handler.blockingWriteAndFlush(buf);
         } else {
             this.write(buf);
             this.flush();
+            // Return a Promise that resolves via setTimeout(0) to yield to
+            // the JS macro-task queue. Promise.resolve() only yields to
+            // microtasks, which doesn't help JSPI suspension. setTimeout
+            // ensures the event loop processes DOM rendering and input.
+            return new Promise<void>(resolve => setTimeout(resolve, 0));
         }
     }
 

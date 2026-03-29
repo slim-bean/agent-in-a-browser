@@ -220,21 +220,50 @@ const MODULES = {
         syncOut: `${FRONTEND}/src/wasm/web-agent-tui-sync`,
         shims: {
             ...SHIMS,
-            'shell:unix/command@0.1.0': '@tjfontaine/mcp-wasm-server/mcp-server-jspi/ts-runtime-mcp.js#command'
+            'codex:agent/shell-exec@0.1.0': '@tjfontaine/wasi-shims/shell-exec-impl.js',
         },
-        syncShims: {
-            ...SYNC_SHIMS,
-            'shell:unix/command@0.1.0': '@tjfontaine/mcp-wasm-server/mcp-server-sync/ts-runtime-mcp.js#command'
+        // All exported functions that may suspend need --async-exports for JSPI
+        exports: ['create', 'destroy', 'sendMessage', 'poll', 'cancel', 'plan', 'execute', 'getHistory', 'clearHistory', 'listProviders', 'listModels', 'fetchModels'],
+        // shell-exec is async (suspends via JSPI while host runs the command)
+        extraAsyncImports: [
+            'codex:agent/shell-exec@0.1.0#exec',
+        ],
+    },
+    'codex-wasm-agent': {
+        wasm: 'codex_wasm_agent.wasm',
+        jspiOut: `${PACKAGES}/codex-agent-core/src/wasm`,
+        syncOut: `${PACKAGES}/codex-agent-core/src/wasm-sync`,
+        shims: {
+            ...SHIMS,
+            'codex:agent/shell-exec@0.1.0': '@tjfontaine/wasi-shims/shell-exec-impl.js',
+        },
+        // All exported functions that may suspend need --async-exports for JSPI
+        exports: ['create', 'destroy', 'sendMessage', 'poll', 'cancel', 'plan', 'execute', 'getHistory', 'clearHistory', 'listProviders', 'listModels', 'fetchModels'],
+        // shell-exec is async (suspends via JSPI while host runs the command)
+        extraAsyncImports: [
+            'codex:agent/shell-exec@0.1.0#exec',
+        ],
+    },
+    'codex-wasm-tui': {
+        wasm: 'codex_wasm_tui.wasm',
+        jspiOut: `${FRONTEND}/src/wasm/codex-tui`,
+        syncOut: `${FRONTEND}/src/wasm/codex-tui-sync`,
+        shims: {
+            ...SHIMS,
+            'codex:tui/shell-exec@0.1.0': '@tjfontaine/wasi-shims/shell-exec-impl.js',
+            'codex:tui/websocket@0.1.0': '@tjfontaine/wasi-shims/websocket-impl.js',
         },
         exports: ['run'],
-    },
-    'web-headless-agent': {
-        wasm: 'web_headless_agent.wasm',
-        jspiOut: `${PACKAGES}/web-agent-core/src/wasm`,
-        syncOut: `${PACKAGES}/web-agent-core/src/wasm-sync`,
-        shims: SHIMS,
-        // All exported functions that may suspend need --async-exports for JSPI
-        exports: ['create', 'send', 'poll', 'listProviders', 'listModels', 'fetchModels'],
+        extraAsyncImports: [
+            'codex:tui/shell-exec@0.1.0#exec',
+            // WebSocket connect and recv must be async for JSPI suspension
+            'codex:tui/websocket@0.1.0#connect',
+            'codex:tui/websocket@0.1.0#recv',
+            // stdin blocking-read must be async so JSPI suspends while waiting for input
+            'wasi:io/streams@0.2.9#[method]input-stream.blocking-read',
+            // HTTP outgoing-handler must be async for LLM API calls
+            'wasi:http/outgoing-handler@0.2.9#handle',
+        ],
     },
     // iOS-specific build: uses local:// scheme for ES module imports via WKURLSchemeHandler
     'web-headless-agent-ios': {

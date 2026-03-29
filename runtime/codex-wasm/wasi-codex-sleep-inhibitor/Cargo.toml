@@ -1,0 +1,9 @@
+[package]
+name = "codex-utils-sleep-inhibitor"
+version = "0.0.0"
+edition = "2021"
+description = "Stub for codex-utils-sleep-inhibitor in wasip2"
+
+[lib]
+name = "codex_utils_sleep_inhibitor"
+path = "src/lib.rs"
