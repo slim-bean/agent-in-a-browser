@@ -8,6 +8,22 @@ const useSystemChrome = process.env.PLAYWRIGHT_USE_SYSTEM_CHROME === '1';
 
 export default defineConfig({
     testDir: './tests/e2e',
+    /* Tests that depend on the old wasm-test.html harness or TUI mode
+     * (removed in fe269a1c3) are skipped until rewritten for shell-only mode. */
+    testIgnore: [
+        '**/debug-worker.test.ts',
+        '**/llm-async-patterns.test.ts',
+        '**/oauth-flow.test.ts',
+        '**/opfs-resilience.test.ts',
+        '**/python-pyodide.test.ts',
+        '**/wasm-runtime.test.ts',
+        '**/webkit-http-api.test.ts',
+        '**/webkit-sab-diagnostic.test.ts',
+        '**/submit-state.test.ts',
+        '**/tui.test.ts',
+        '**/vim-performance.test.ts',
+        '**/vim.test.ts',
+    ],
     fullyParallel: true,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 2 : 0,
