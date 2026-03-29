@@ -55,3 +55,4 @@ world = "codex-tui"
 "wasi:cli" = { path = "../../wit/deps/cli" }
 "wasi:sockets" = { path = "../../wit/deps/sockets" }
 "terminal:info" = { path = "../../wit/deps/terminal-info" }
+"host:browser" = { path = "../../wit/deps/browser" }

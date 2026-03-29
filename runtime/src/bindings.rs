@@ -3,6 +3,80 @@
 //   * runtime_path: "wit_bindgen_rt"
 #[rustfmt::skip]
 #[allow(dead_code, clippy::all)]
+pub mod host {
+    pub mod browser {
+        /// Browser interaction — the host opens URLs in new browser tabs.
+        #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
+        pub mod actions {
+            #[used]
+            #[doc(hidden)]
+            static __FORCE_SECTION_REF: fn() = super::super::super::__link_custom_section_describing_imports;
+            use super::super::super::_rt;
+            #[allow(unused_unsafe, clippy::all)]
+            /// Open a URL in a new browser tab/window.
+            /// The host must never replace the current page.
+            pub fn open_url(url: &str) -> Result<(), _rt::String> {
+                unsafe {
+                    #[cfg_attr(target_pointer_width = "64", repr(align(8)))]
+                    #[cfg_attr(target_pointer_width = "32", repr(align(4)))]
+                    struct RetArea(
+                        [::core::mem::MaybeUninit<
+                            u8,
+                        >; 3 * ::core::mem::size_of::<*const u8>()],
+                    );
+                    let mut ret_area = RetArea(
+                        [::core::mem::MaybeUninit::uninit(); 3
+                            * ::core::mem::size_of::<*const u8>()],
+                    );
+                    let vec0 = url;
+                    let ptr0 = vec0.as_ptr().cast::<u8>();
+                    let len0 = vec0.len();
+                    let ptr1 = ret_area.0.as_mut_ptr().cast::<u8>();
+                    #[cfg(target_arch = "wasm32")]
+                    #[link(wasm_import_module = "host:browser/actions@0.1.0")]
+                    unsafe extern "C" {
+                        #[link_name = "open-url"]
+                        fn wit_import2(_: *mut u8, _: usize, _: *mut u8);
+                    }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    unsafe extern "C" fn wit_import2(_: *mut u8, _: usize, _: *mut u8) {
+                        unreachable!()
+                    }
+                    unsafe { wit_import2(ptr0.cast_mut(), len0, ptr1) };
+                    let l3 = i32::from(*ptr1.add(0).cast::<u8>());
+                    let result7 = match l3 {
+                        0 => {
+                            let e = ();
+                            Ok(e)
+                        }
+                        1 => {
+                            let e = {
+                                let l4 = *ptr1
+                                    .add(::core::mem::size_of::<*const u8>())
+                                    .cast::<*mut u8>();
+                                let l5 = *ptr1
+                                    .add(2 * ::core::mem::size_of::<*const u8>())
+                                    .cast::<usize>();
+                                let len6 = l5;
+                                let bytes6 = _rt::Vec::from_raw_parts(
+                                    l4.cast(),
+                                    len6,
+                                    len6,
+                                );
+                                _rt::string_lift(bytes6)
+                            };
+                            Err(e)
+                        }
+                        _ => _rt::invalid_enum_discriminant(),
+                    };
+                    result7
+                }
+            }
+        }
+    }
+}
+#[rustfmt::skip]
+#[allow(dead_code, clippy::all)]
 pub mod mcp {
     pub mod module_loader {
         /// Interface for lazy-loading WASM command modules
@@ -17996,9 +18070,9 @@ pub(crate) use __export_ts_runtime_mcp_impl as export;
 #[unsafe(link_section = "component-type:wit-bindgen:0.41.0:mcp:ts-runtime@0.2.0:ts-runtime-mcp:encoded world")]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 16575] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xb9\x80\x01\x01A\x02\
-\x01AO\x01B\x04\x04\0\x05error\x03\x01\x01h\0\x01@\x01\x04self\x01\0s\x04\0\x1d[\
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 16637] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xf7\x80\x01\x01A\x02\
+\x01AQ\x01B\x04\x04\0\x05error\x03\x01\x01h\0\x01@\x01\x04self\x01\0s\x04\0\x1d[\
 method]error.to-debug-string\x01\x02\x03\0\x13wasi:io/error@0.2.9\x05\0\x01B\x0a\
 \x04\0\x08pollable\x03\x01\x01h\0\x01@\x01\x04self\x01\0\x7f\x04\0\x16[method]po\
 llable.ready\x01\x02\x01@\x01\x04self\x01\x01\0\x04\0\x16[method]pollable.block\x01\
@@ -18315,18 +18389,20 @@ spawn-lazy-command\x01\x1b\x01@\x05\x06modules\x07commands\x04args\x19\x03env\x0
 \x04size\x07\0\x1a\x04\0\x11spawn-interactive\x01\x1c\x01@\x01\x07commands\0\x7f\
 \x04\0\x16is-interactive-command\x01\x1d\x01@\0\0\x7f\x04\0\x08has-jspi\x01\x1e\x01\
 @\x03\x07commands\x04args\x19\x03env\x05\0\x1a\x04\0\x14spawn-worker-command\x01\
-\x1f\x03\0\x1emcp:module-loader/loader@0.1.0\x05-\x02\x03\0\x0a\x10incoming-requ\
-est\x02\x03\0\x0a\x11response-outparam\x01B\x08\x02\x03\x02\x01.\x04\0\x10incomi\
-ng-request\x03\0\0\x02\x03\x02\x01/\x04\0\x11response-outparam\x03\0\x02\x01i\x01\
-\x01i\x03\x01@\x02\x07request\x04\x0cresponse-out\x05\x01\0\x04\0\x06handle\x01\x06\
-\x04\0\x20wasi:http/incoming-handler@0.2.9\x050\x01B\x0f\x02\x03\x02\x01\x06\x04\
-\0\x0cinput-stream\x03\0\0\x02\x03\x02\x01\x07\x04\0\x0doutput-stream\x03\0\x02\x01\
-o\x02ss\x01p\x04\x01r\x02\x03cwds\x04vars\x05\x04\0\x08exec-env\x03\0\x06\x01ps\x01\
-i\x01\x01i\x03\x01@\x06\x04names\x04args\x08\x03env\x07\x05stdin\x09\x06stdout\x0a\
-\x06stderr\x0a\0z\x04\0\x03run\x01\x0b\x01@\0\0\x08\x04\0\x0dlist-commands\x01\x0c\
-\x04\0\x18shell:unix/command@0.1.0\x051\x04\0#mcp:ts-runtime/ts-runtime-mcp@0.2.\
-0\x04\0\x0b\x14\x01\0\x0ets-runtime-mcp\x03\0\0\0G\x09producers\x01\x0cprocessed\
--by\x02\x0dwit-component\x070.227.1\x10wit-bindgen-rust\x060.41.0";
+\x1f\x03\0\x1emcp:module-loader/loader@0.1.0\x05-\x01B\x03\x01j\0\x01s\x01@\x01\x03\
+urls\0\0\x04\0\x08open-url\x01\x01\x03\0\x1ahost:browser/actions@0.1.0\x05.\x02\x03\
+\0\x0a\x10incoming-request\x02\x03\0\x0a\x11response-outparam\x01B\x08\x02\x03\x02\
+\x01/\x04\0\x10incoming-request\x03\0\0\x02\x03\x02\x010\x04\0\x11response-outpa\
+ram\x03\0\x02\x01i\x01\x01i\x03\x01@\x02\x07request\x04\x0cresponse-out\x05\x01\0\
+\x04\0\x06handle\x01\x06\x04\0\x20wasi:http/incoming-handler@0.2.9\x051\x01B\x0f\
+\x02\x03\x02\x01\x06\x04\0\x0cinput-stream\x03\0\0\x02\x03\x02\x01\x07\x04\0\x0d\
+output-stream\x03\0\x02\x01o\x02ss\x01p\x04\x01r\x02\x03cwds\x04vars\x05\x04\0\x08\
+exec-env\x03\0\x06\x01ps\x01i\x01\x01i\x03\x01@\x06\x04names\x04args\x08\x03env\x07\
+\x05stdin\x09\x06stdout\x0a\x06stderr\x0a\0z\x04\0\x03run\x01\x0b\x01@\0\0\x08\x04\
+\0\x0dlist-commands\x01\x0c\x04\0\x18shell:unix/command@0.1.0\x052\x04\0#mcp:ts-\
+runtime/ts-runtime-mcp@0.2.0\x04\0\x0b\x14\x01\0\x0ets-runtime-mcp\x03\0\0\0G\x09\
+producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.227.1\x10wit-bindgen-rus\
+t\x060.41.0";
 #[inline(never)]
 #[doc(hidden)]
 pub fn __link_custom_section_describing_imports() {

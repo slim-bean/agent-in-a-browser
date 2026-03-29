@@ -1904,11 +1904,11 @@ impl<T> FileRwLock<T> {
             "        // reqwest::blocking not available in WASM\n        None::<String>",
         );
 
-        // --- tui/src/app.rs: stub webbrowser::open ---
+        // --- tui/src/app.rs: webbrowser::open → WIT browser binding ---
         self.string_replace(
             "tui/src/app.rs",
             "if let Err(err) = webbrowser::open(&url) {",
-            "if let Err(err) = Err::<(), String>(\"webbrowser not available in WASM\".into()).map_err(|e| std::io::Error::other(e)) {\n            let _ = &url;",
+            "if let Err(err) = crate::bindings::host::browser::actions::open_url(&url).map_err(|e| std::io::Error::other(e)) {",
         );
 
         // --- tui/src/app.rs: replace InProcessClientStartArgs with bail ---
@@ -2515,11 +2515,11 @@ impl<T> FileRwLock<T> {
             "tokio::spawn(async move {\n        let decision = review_approval_request_with_cancel(\n            &session,\n            &turn,\n            request,\n            retry_reason,\n            cancel_token,\n        ).await;\n        let _ = tx.send(decision);\n    });",
         );
 
-        // 23. webbrowser::open stub (tui/src/app.rs)
+        // 23. webbrowser::open → WIT browser binding (tui/src/app.rs)
         self.replace_in_file(
             "tui/src/app.rs",
             "if let Err(err) = webbrowser::open(&url) {",
-            "if let Err(err) = Err::<(), String>(\"webbrowser not available in WASM\".into()).map_err(|e| std::io::Error::other(e)) {\n            let _ = &url;",
+            "if let Err(err) = crate::bindings::host::browser::actions::open_url(&url).map_err(|e| std::io::Error::other(e)) {",
         );
 
         // 24. InProcessAppServerClient start bail (tui/src/app.rs)

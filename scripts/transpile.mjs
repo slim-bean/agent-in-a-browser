@@ -104,6 +104,8 @@ function buildAsyncImports(V) {
         'mcp:module-loader/loader#[method]lazy-process.try-wait',
         // Shell
         'shell:unix/command@0.1.0#run',
+        // Browser actions
+        'host:browser/actions@0.1.0#open-url',
     ];
 }
 
@@ -130,6 +132,8 @@ const SHIMS = {
     'terminal:info/size': '@tjfontaine/wasi-shims/ghostty-cli-shim.js#size',
     // iOS bridge stubs — native host APIs not available in the browser
     'ios:bridge/*': '@tjfontaine/wasi-shims/ios-bridge-stub.js#*',
+    // Browser actions — open URLs in new tabs
+    'host:browser/actions': '@tjfontaine/wasi-shims/browser-impl.js',
 };
 
 // SYNC SHIMS: Uses sync opfs-filesystem-sync-impl for Safari/non-JSPI browsers
@@ -226,6 +230,8 @@ const MODULES = {
             'wasi:io/streams@0.2.9#[method]input-stream.blocking-read',
             // HTTP outgoing-handler must be async for LLM API calls
             'wasi:http/outgoing-handler@0.2.9#handle',
+            // Browser actions
+            'host:browser/actions@0.1.0#open-url',
         ],
     },
 };

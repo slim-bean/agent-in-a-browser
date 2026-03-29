@@ -432,6 +432,39 @@ impl MiscCommands {
             0
         })
     }
+
+    /// open - open a URL in the browser
+    #[shell_command(
+        name = "open",
+        usage = "open URL",
+        description = "Open a URL in a new browser tab"
+    )]
+    fn cmd_open(
+        args: Vec<String>,
+        _env: &ShellEnv,
+        _stdin: piper::Reader,
+        _stdout: piper::Writer,
+        mut stderr: piper::Writer,
+    ) -> futures_lite::future::Boxed<i32> {
+        Box::pin(async move {
+            let (_, remaining) = parse_common(&args);
+
+            if remaining.is_empty() {
+                let _ = stderr.write_all(b"open: missing URL\n").await;
+                return 1;
+            }
+
+            let url = &remaining[0];
+            match crate::bindings::host::browser::actions::open_url(url) {
+                Ok(()) => 0,
+                Err(e) => {
+                    let msg = format!("open: {}\n", e);
+                    let _ = stderr.write_all(msg.as_bytes()).await;
+                    1
+                }
+            }
+        })
+    }
 }
 
 /// Convert days since Unix epoch to year, month, day

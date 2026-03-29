@@ -16,6 +16,7 @@ import './oauth-handler.js';
 
 import { hasJSPI } from '@tjfontaine/mcp-wasm-server';
 import { WorkerBridge } from '@tjfontaine/wasi-shims';
+import { listenForOpenUrl } from '@tjfontaine/wasi-shims/browser-impl.js';
 
 // Debug instrumentation for diagnosing WASM/JSPI hangs
 import { installDebugAPI } from './debug/wasm-debug.js';
@@ -31,6 +32,9 @@ const root = document.getElementById('root')!;
 root.innerHTML = '<div id="terminal" style="width: 100%; height: 100vh;"></div>';
 
 const terminalEl = document.getElementById('terminal')!;
+
+// Listen for open-url requests from WASM workers (opens new tabs)
+listenForOpenUrl();
 
 // Auto-launch the TUI
 (async () => {

@@ -119,9 +119,7 @@ fn execute_sql(db_path: &str, sql: &str) -> Result<Vec<String>, String> {
     // to prevent re-validation failures under WASI's stream I/O model.
     let has_user_txn = statements.iter().any(|s| {
         let upper = s.to_uppercase();
-        upper.starts_with("BEGIN")
-            || upper.starts_with("COMMIT")
-            || upper.starts_with("ROLLBACK")
+        upper.starts_with("BEGIN") || upper.starts_with("COMMIT") || upper.starts_with("ROLLBACK")
     });
     let use_explicit_txn = db_path != ":memory:" && !has_user_txn;
     if use_explicit_txn {
@@ -143,14 +141,11 @@ fn execute_sql(db_path: &str, sql: &str) -> Result<Vec<String>, String> {
 
         let col_count = stmt.column_count();
         if col_count == 0 {
-            stmt.execute([])
-                .map_err(|e| format!("Error: {}\n", e))?;
+            stmt.execute([]).map_err(|e| format!("Error: {}\n", e))?;
             continue;
         }
 
-        let mut rows = stmt
-            .query([])
-            .map_err(|e| format!("Error: {}\n", e))?;
+        let mut rows = stmt.query([]).map_err(|e| format!("Error: {}\n", e))?;
 
         loop {
             match rows.next() {
