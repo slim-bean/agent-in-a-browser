@@ -4,6 +4,9 @@ fn main() {
         return;
     }
 
+    // Re-run if the SDK path changes so cargo doesn't cache a stale -L path.
+    println!("cargo:rerun-if-env-changed=WASI_SDK_PATH");
+
     // libsqlite3-sys (bundled) compiles sqlite3.c with _WASI_EMULATED_* defines
     // (set via CFLAGS_wasm32_wasip2 in moon.yml). The corresponding emulation
     // libraries must be linked. We also need a -L search path pointing to the
