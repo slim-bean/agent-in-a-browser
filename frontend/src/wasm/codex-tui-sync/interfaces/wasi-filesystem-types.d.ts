@@ -121,6 +121,17 @@ export interface DescriptorStat {
 export interface PathFlags {
   symlinkFollow?: boolean,
 }
+export type NewTimestamp = NewTimestampNoChange | NewTimestampNow | NewTimestampTimestamp;
+export interface NewTimestampNoChange {
+  tag: 'no-change',
+}
+export interface NewTimestampNow {
+  tag: 'now',
+}
+export interface NewTimestampTimestamp {
+  tag: 'timestamp',
+  val: Datetime,
+}
 export interface OpenFlags {
   create?: boolean,
   directory?: boolean,
@@ -145,10 +156,13 @@ export class Descriptor {
   writeViaStream(offset: Filesize): OutputStream;
   appendViaStream(): OutputStream;
   getFlags(): DescriptorFlags;
+  setSize(size: Filesize): void;
   readDirectory(): DirectoryEntryStream;
+  sync(): void;
   createDirectoryAt(path: string): void;
   stat(): DescriptorStat;
   statAt(pathFlags: PathFlags, path: string): DescriptorStat;
+  setTimesAt(pathFlags: PathFlags, path: string, dataAccessTimestamp: NewTimestamp, dataModificationTimestamp: NewTimestamp): void;
   openAt(pathFlags: PathFlags, path: string, openFlags: OpenFlags, flags: DescriptorFlags): Descriptor;
   readlinkAt(path: string): string;
   removeDirectoryAt(path: string): void;

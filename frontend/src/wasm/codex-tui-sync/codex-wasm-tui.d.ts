@@ -1,5 +1,7 @@
 // world root:component/root
 export type * as CodexTuiShellExec010 from './interfaces/codex-tui-shell-exec.js'; // import codex:tui/shell-exec@0.1.0
+export type * as CodexTuiWebsocket010 from './interfaces/codex-tui-websocket.js'; // import codex:tui/websocket@0.1.0
+export type * as HostBrowserActions010 from './interfaces/host-browser-actions.js'; // import host:browser/actions@0.1.0
 export type * as WasiCliEnvironment029 from './interfaces/wasi-cli-environment.js'; // import wasi:cli/environment@0.2.9
 export type * as WasiCliExit029 from './interfaces/wasi-cli-exit.js'; // import wasi:cli/exit@0.2.9
 export type * as WasiCliStderr029 from './interfaces/wasi-cli-stderr.js'; // import wasi:cli/stderr@0.2.9

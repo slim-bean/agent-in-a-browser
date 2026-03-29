@@ -1,3 +1,4 @@
+import { openUrl } from '@tjfontaine/wasi-shims/browser-impl.js';
 import { monotonicClock, wallClock } from '@tjfontaine/wasi-shims/clocks-impl.js';
 import { error } from '@tjfontaine/wasi-shims/error.js';
 import { environment, exit as exit$1, stderr, stdin, stdout, terminalInput, terminalOutput, terminalStderr, terminalStdin, terminalStdout } from '@tjfontaine/wasi-shims/ghostty-cli-shim.js';
@@ -7,12 +8,14 @@ import { insecureSeed as insecureSeed$1, random } from '@tjfontaine/wasi-shims/r
 import { exec } from '@tjfontaine/wasi-shims/shell-exec-impl.js';
 import { InputStream, OutputStream } from '@tjfontaine/wasi-shims/streams.js';
 import { Fields, FutureIncomingResponse, IncomingBody, IncomingResponse, OutgoingBody, OutgoingRequest, RequestOptions, outgoingHandler } from '@tjfontaine/wasi-shims/wasi-http-impl.js';
+import { close, connect, isClosed, recv, send } from '@tjfontaine/wasi-shims/websocket-impl.js';
 const { now,
   subscribeDuration,
   subscribeInstant } = monotonicClock;
 const { now: now$1 } = wallClock;
 const { Error: Error$1 } = error;
-const { getEnvironment } = environment;
+const { getArguments,
+  getEnvironment } = environment;
 const { exit } = exit$1;
 const { getStderr } = stderr;
 const { getStdin } = stdin;
@@ -827,12 +830,43 @@ const instantiateCore = WebAssembly.instantiate;
 
 
 let exports0;
+
+function trampoline0(arg0) {
+  _debugLog('[iface="codex:tui/websocket@0.1.0", function="close"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'close');
+  close(arg0 >>> 0);
+  _debugLog('[iface="codex:tui/websocket@0.1.0", function="close"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  _debugLog('[iface="codex:tui/websocket@0.1.0", function="close"][Instruction::Return]', {
+    funcName: 'close',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+
+
+function trampoline1(arg0) {
+  _debugLog('[iface="codex:tui/websocket@0.1.0", function="is-closed"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'is-closed');
+  const ret = isClosed(arg0 >>> 0);
+  _debugLog('[iface="codex:tui/websocket@0.1.0", function="is-closed"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  _debugLog('[iface="codex:tui/websocket@0.1.0", function="is-closed"][Instruction::Return]', {
+    funcName: 'is-closed',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  return ret ? 1 : 0;
+}
+
 const handleTable1 = [T_FLAG, 0];
 const captureTable1= new Map();
 let captureCnt1 = 0;
 handleTables[1] = handleTable1;
 
-function trampoline0(arg0) {
+function trampoline2(arg0) {
   _debugLog('[iface="wasi:clocks/monotonic-clock@0.2.9", function="subscribe-duration"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'subscribe-duration');
   const ret = subscribeDuration(BigInt.asUintN(64, arg0));
@@ -861,7 +895,7 @@ const captureTable6= new Map();
 let captureCnt6 = 0;
 handleTables[6] = handleTable6;
 
-function trampoline1() {
+function trampoline3() {
   _debugLog('[iface="wasi:http/types@0.2.9", function="[constructor]fields"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, '[constructor]fields');
   const ret = new Fields();
@@ -890,7 +924,7 @@ const captureTable7= new Map();
 let captureCnt7 = 0;
 handleTables[7] = handleTable7;
 
-function trampoline2(arg0) {
+function trampoline4(arg0) {
   var handle1 = arg0;
   var rep2 = handleTable6[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable6.get(rep2);
@@ -931,7 +965,7 @@ const captureTable3= new Map();
 let captureCnt3 = 0;
 handleTables[3] = handleTable3;
 
-function trampoline3(arg0) {
+function trampoline5(arg0) {
   var handle1 = arg0;
   var rep2 = handleTable3[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable3.get(rep2);
@@ -973,7 +1007,7 @@ const captureTable9= new Map();
 let captureCnt9 = 0;
 handleTables[9] = handleTable9;
 
-function trampoline4(arg0) {
+function trampoline6(arg0) {
   var handle1 = arg0;
   var rep2 = handleTable9[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable9.get(rep2);
@@ -1015,7 +1049,7 @@ const captureTable10= new Map();
 let captureCnt10 = 0;
 handleTables[10] = handleTable10;
 
-function trampoline6(arg0) {
+function trampoline8(arg0) {
   var handle1 = arg0;
   var rep2 = handleTable10[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable10.get(rep2);
@@ -1044,7 +1078,7 @@ function trampoline6(arg0) {
 }
 
 
-function trampoline7(arg0) {
+function trampoline9(arg0) {
   var handle1 = arg0;
   var rep2 = handleTable10[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable10.get(rep2);
@@ -1082,7 +1116,7 @@ function trampoline7(arg0) {
 }
 
 
-const trampoline8 = new WebAssembly.Suspending(async function(arg0) {
+const trampoline10 = new WebAssembly.Suspending(async function(arg0) {
   var handle1 = arg0;
   var rep2 = handleTable1[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable1.get(rep2);
@@ -1110,7 +1144,7 @@ const trampoline8 = new WebAssembly.Suspending(async function(arg0) {
 }
 );
 
-function trampoline18() {
+function trampoline20() {
   _debugLog('[iface="wasi:random/random@0.2.9", function="get-random-u64"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-random-u64');
   const ret = getRandomU64();
@@ -1126,7 +1160,7 @@ function trampoline18() {
 }
 
 
-function trampoline23(arg0) {
+function trampoline25(arg0) {
   let variant0;
   if (arg0) {
     variant0= {
@@ -1157,7 +1191,7 @@ const captureTable2= new Map();
 let captureCnt2 = 0;
 handleTables[2] = handleTable2;
 
-function trampoline24(arg0) {
+function trampoline26(arg0) {
   var handle1 = arg0;
   var rep2 = handleTable2[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable2.get(rep2);
@@ -1195,7 +1229,7 @@ function trampoline24(arg0) {
 }
 
 
-function trampoline25() {
+function trampoline27() {
   _debugLog('[iface="wasi:cli/stdin@0.2.9", function="get-stdin"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-stdin');
   const ret = getStdin();
@@ -1220,7 +1254,7 @@ function trampoline25() {
 }
 
 
-function trampoline26() {
+function trampoline28() {
   _debugLog('[iface="wasi:cli/stdout@0.2.9", function="get-stdout"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-stdout');
   const ret = getStdout();
@@ -1245,7 +1279,7 @@ function trampoline26() {
 }
 
 
-function trampoline27() {
+function trampoline29() {
   _debugLog('[iface="wasi:cli/stderr@0.2.9", function="get-stderr"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-stderr');
   const ret = getStderr();
@@ -1270,7 +1304,7 @@ function trampoline27() {
 }
 
 
-function trampoline28() {
+function trampoline30() {
   _debugLog('[iface="wasi:clocks/monotonic-clock@0.2.9", function="now"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'now');
   const ret = now();
@@ -1286,7 +1320,7 @@ function trampoline28() {
 }
 
 
-function trampoline29(arg0) {
+function trampoline31(arg0) {
   _debugLog('[iface="wasi:clocks/monotonic-clock@0.2.9", function="subscribe-instant"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'subscribe-instant');
   const ret = subscribeInstant(BigInt.asUintN(64, arg0));
@@ -1318,7 +1352,7 @@ const captureTable0= new Map();
 let captureCnt0 = 0;
 handleTables[0] = handleTable0;
 
-const trampoline30 = new WebAssembly.Suspending(async function(arg0, arg1, arg2) {
+const trampoline32 = new WebAssembly.Suspending(async function(arg0, arg1, arg2) {
   var handle1 = arg0;
   var rep2 = handleTable2[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable2.get(rep2);
@@ -1399,7 +1433,7 @@ const trampoline30 = new WebAssembly.Suspending(async function(arg0, arg1, arg2)
 }
 );
 
-function trampoline31(arg0, arg1, arg2) {
+function trampoline33(arg0, arg1, arg2) {
   var handle1 = arg0;
   var rep2 = handleTable2[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable2.get(rep2);
@@ -1480,7 +1514,7 @@ function trampoline31(arg0, arg1, arg2) {
 }
 
 
-function trampoline32(arg0, arg1, arg2, arg3) {
+function trampoline34(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable3[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable3.get(rep2);
@@ -1557,7 +1591,7 @@ function trampoline32(arg0, arg1, arg2, arg3) {
 }
 
 
-const trampoline33 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13) {
+const trampoline35 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13) {
   var ptr0 = arg0;
   var len0 = arg1;
   var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -1660,7 +1694,155 @@ const trampoline33 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-function trampoline34(arg0, arg1, arg2, arg3, arg4, arg5) {
+const trampoline36 = new WebAssembly.Suspending(async function(arg0, arg1) {
+  _debugLog('[iface="codex:tui/websocket@0.1.0", function="recv"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'recv');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: await recv(arg0 >>> 0)};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="codex:tui/websocket@0.1.0", function="recv"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  var variant3 = ret;
+  switch (variant3.tag) {
+    case 'ok': {
+      const e = variant3.val;
+      dataView(memory0).setInt8(arg1 + 0, 0, true);
+      var variant1 = e;
+      if (variant1 === null || variant1=== undefined) {
+        dataView(memory0).setInt8(arg1 + 4, 0, true);
+      } else {
+        const e = variant1;
+        dataView(memory0).setInt8(arg1 + 4, 1, true);
+        var ptr0 = utf8Encode(e, realloc0, memory0);
+        var len0 = utf8EncodedLen;
+        dataView(memory0).setUint32(arg1 + 12, len0, true);
+        dataView(memory0).setUint32(arg1 + 8, ptr0, true);
+      }
+      break;
+    }
+    case 'err': {
+      const e = variant3.val;
+      dataView(memory0).setInt8(arg1 + 0, 1, true);
+      var ptr2 = utf8Encode(e, realloc0, memory0);
+      var len2 = utf8EncodedLen;
+      dataView(memory0).setUint32(arg1 + 8, len2, true);
+      dataView(memory0).setUint32(arg1 + 4, ptr2, true);
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="codex:tui/websocket@0.1.0", function="recv"][Instruction::Return]', {
+    funcName: 'recv',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+);
+
+function trampoline37(arg0, arg1, arg2, arg3) {
+  var ptr0 = arg1;
+  var len0 = arg2;
+  var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+  _debugLog('[iface="codex:tui/websocket@0.1.0", function="send"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'send');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: send(arg0 >>> 0, result0)};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="codex:tui/websocket@0.1.0", function="send"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  var variant2 = ret;
+  switch (variant2.tag) {
+    case 'ok': {
+      const e = variant2.val;
+      dataView(memory0).setInt8(arg3 + 0, 0, true);
+      break;
+    }
+    case 'err': {
+      const e = variant2.val;
+      dataView(memory0).setInt8(arg3 + 0, 1, true);
+      var ptr1 = utf8Encode(e, realloc0, memory0);
+      var len1 = utf8EncodedLen;
+      dataView(memory0).setUint32(arg3 + 8, len1, true);
+      dataView(memory0).setUint32(arg3 + 4, ptr1, true);
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="codex:tui/websocket@0.1.0", function="send"][Instruction::Return]', {
+    funcName: 'send',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+
+
+const trampoline38 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4) {
+  var ptr0 = arg0;
+  var len0 = arg1;
+  var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+  var len2 = arg3;
+  var base2 = arg2;
+  var result2 = [];
+  for (let i = 0; i < len2; i++) {
+    const base = base2 + i * 8;
+    var ptr1 = dataView(memory0).getUint32(base + 0, true);
+    var len1 = dataView(memory0).getUint32(base + 4, true);
+    var result1 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr1, len1));
+    result2.push(result1);
+  }
+  _debugLog('[iface="codex:tui/websocket@0.1.0", function="connect"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'connect');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: await connect(result0, result2)};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="codex:tui/websocket@0.1.0", function="connect"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  var variant4 = ret;
+  switch (variant4.tag) {
+    case 'ok': {
+      const e = variant4.val;
+      dataView(memory0).setInt8(arg4 + 0, 0, true);
+      dataView(memory0).setInt32(arg4 + 4, toUint32(e), true);
+      break;
+    }
+    case 'err': {
+      const e = variant4.val;
+      dataView(memory0).setInt8(arg4 + 0, 1, true);
+      var ptr3 = utf8Encode(e, realloc0, memory0);
+      var len3 = utf8EncodedLen;
+      dataView(memory0).setUint32(arg4 + 8, len3, true);
+      dataView(memory0).setUint32(arg4 + 4, ptr3, true);
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="codex:tui/websocket@0.1.0", function="connect"][Instruction::Return]', {
+    funcName: 'connect',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+);
+
+function trampoline39(arg0, arg1, arg2, arg3, arg4, arg5) {
   var handle1 = arg0;
   var rep2 = handleTable6[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable6.get(rep2);
@@ -1733,7 +1915,7 @@ function trampoline34(arg0, arg1, arg2, arg3, arg4, arg5) {
 }
 
 
-function trampoline35(arg0, arg1, arg2, arg3) {
+function trampoline40(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable7[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable7.get(rep2);
@@ -1851,7 +2033,7 @@ function trampoline35(arg0, arg1, arg2, arg3) {
 }
 
 
-function trampoline36(arg0, arg1, arg2, arg3, arg4) {
+function trampoline41(arg0, arg1, arg2, arg3, arg4) {
   var handle1 = arg0;
   var rep2 = handleTable7[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable7.get(rep2);
@@ -1933,7 +2115,7 @@ function trampoline36(arg0, arg1, arg2, arg3, arg4) {
 }
 
 
-function trampoline37(arg0, arg1, arg2, arg3) {
+function trampoline42(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable7[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable7.get(rep2);
@@ -1993,7 +2175,7 @@ function trampoline37(arg0, arg1, arg2, arg3) {
 }
 
 
-function trampoline38(arg0, arg1, arg2, arg3) {
+function trampoline43(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable7[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable7.get(rep2);
@@ -2057,7 +2239,7 @@ const captureTable8= new Map();
 let captureCnt8 = 0;
 handleTables[8] = handleTable8;
 
-function trampoline39(arg0, arg1) {
+function trampoline44(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable7[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable7.get(rep2);
@@ -2116,7 +2298,7 @@ function trampoline39(arg0, arg1) {
 }
 
 
-function trampoline40(arg0, arg1) {
+function trampoline45(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable8[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable8.get(rep2);
@@ -2175,7 +2357,7 @@ function trampoline40(arg0, arg1) {
 }
 
 
-function trampoline41(arg0, arg1, arg2, arg3) {
+function trampoline46(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable8[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable8.get(rep2);
@@ -2626,7 +2808,7 @@ function trampoline41(arg0, arg1, arg2, arg3) {
 }
 
 
-const trampoline42 = new WebAssembly.Suspending(async function(arg0, arg1) {
+const trampoline47 = new WebAssembly.Suspending(async function(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable9[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable9.get(rep2);
@@ -3088,7 +3270,7 @@ const trampoline42 = new WebAssembly.Suspending(async function(arg0, arg1) {
 }
 );
 
-function trampoline43(arg0, arg1) {
+function trampoline48(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable6[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable6.get(rep2);
@@ -3140,7 +3322,7 @@ const captureTable11= new Map();
 let captureCnt11 = 0;
 handleTables[11] = handleTable11;
 
-function trampoline44(arg0, arg1) {
+function trampoline49(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable11[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable11.get(rep2);
@@ -3199,7 +3381,7 @@ function trampoline44(arg0, arg1) {
 }
 
 
-function trampoline45(arg0, arg1) {
+function trampoline50(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable10[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable10.get(rep2);
@@ -3262,7 +3444,7 @@ const captureTable12= new Map();
 let captureCnt12 = 0;
 handleTables[12] = handleTable12;
 
-const trampoline46 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
+const trampoline51 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable7[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable7.get(rep2);
@@ -3723,7 +3905,77 @@ const trampoline46 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-function trampoline47(arg0) {
+const trampoline52 = new WebAssembly.Suspending(async function(arg0, arg1, arg2) {
+  var ptr0 = arg0;
+  var len0 = arg1;
+  var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+  _debugLog('[iface="host:browser/actions@0.1.0", function="open-url"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'open-url');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: await openUrl(result0)};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="host:browser/actions@0.1.0", function="open-url"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  var variant2 = ret;
+  switch (variant2.tag) {
+    case 'ok': {
+      const e = variant2.val;
+      dataView(memory0).setInt8(arg2 + 0, 0, true);
+      break;
+    }
+    case 'err': {
+      const e = variant2.val;
+      dataView(memory0).setInt8(arg2 + 0, 1, true);
+      var ptr1 = utf8Encode(e, realloc0, memory0);
+      var len1 = utf8EncodedLen;
+      dataView(memory0).setUint32(arg2 + 8, len1, true);
+      dataView(memory0).setUint32(arg2 + 4, ptr1, true);
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="host:browser/actions@0.1.0", function="open-url"][Instruction::Return]', {
+    funcName: 'open-url',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+);
+
+function trampoline53(arg0) {
+  _debugLog('[iface="wasi:cli/environment@0.2.9", function="get-arguments"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-arguments');
+  const ret = getArguments();
+  _debugLog('[iface="wasi:cli/environment@0.2.9", function="get-arguments"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  var vec1 = ret;
+  var len1 = vec1.length;
+  var result1 = realloc0(0, 0, 4, len1 * 8);
+  for (let i = 0; i < vec1.length; i++) {
+    const e = vec1[i];
+    const base = result1 + i * 8;var ptr0 = utf8Encode(e, realloc0, memory0);
+    var len0 = utf8EncodedLen;
+    dataView(memory0).setUint32(base + 4, len0, true);
+    dataView(memory0).setUint32(base + 0, ptr0, true);
+  }
+  dataView(memory0).setUint32(arg0 + 4, len1, true);
+  dataView(memory0).setUint32(arg0 + 0, result1, true);
+  _debugLog('[iface="wasi:cli/environment@0.2.9", function="get-arguments"][Instruction::Return]', {
+    funcName: 'get-arguments',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+
+
+function trampoline54(arg0) {
   _debugLog('[iface="wasi:random/insecure-seed@0.2.9", function="insecure-seed"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'insecure-seed');
   const ret = insecureSeed();
@@ -3741,7 +3993,7 @@ function trampoline47(arg0) {
 }
 
 
-function trampoline48(arg0, arg1) {
+function trampoline55(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable3[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable3.get(rep2);
@@ -3816,7 +4068,7 @@ function trampoline48(arg0, arg1) {
 }
 
 
-function trampoline49(arg0, arg1) {
+function trampoline56(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable3[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable3.get(rep2);
@@ -3894,7 +4146,7 @@ const captureTable13= new Map();
 let captureCnt13 = 0;
 handleTables[13] = handleTable13;
 
-function trampoline50(arg0, arg1, arg2) {
+function trampoline57(arg0, arg1, arg2) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -4110,7 +4362,7 @@ function trampoline50(arg0, arg1, arg2) {
 }
 
 
-function trampoline51(arg0, arg1, arg2) {
+function trampoline58(arg0, arg1, arg2) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -4326,7 +4578,7 @@ function trampoline51(arg0, arg1, arg2) {
 }
 
 
-function trampoline52(arg0, arg1) {
+function trampoline59(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -4542,7 +4794,7 @@ function trampoline52(arg0, arg1) {
 }
 
 
-function trampoline53(arg0, arg1) {
+function trampoline60(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -4754,12 +5006,218 @@ function trampoline53(arg0, arg1) {
   });
 }
 
+
+function trampoline61(arg0, arg1, arg2) {
+  var handle1 = arg0;
+  var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
+  var rsc0 = captureTable13.get(rep2);
+  if (!rsc0) {
+    rsc0 = Object.create(Descriptor.prototype);
+    Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
+    Object.defineProperty(rsc0, symbolRscRep, { writable: true, value: rep2});
+  }
+  curResourceBorrows.push(rsc0);
+  _debugLog('[iface="wasi:filesystem/types@0.2.9", function="[method]descriptor.set-size"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, '[method]descriptor.set-size');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: rsc0.setSize(BigInt.asUintN(64, arg1))};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="wasi:filesystem/types@0.2.9", function="[method]descriptor.set-size"] [Instruction::CallInterface] (sync, @ post-call)');
+  for (const rsc of curResourceBorrows) {
+    rsc[symbolRscHandle] = undefined;
+  }
+  curResourceBorrows = [];
+  endCurrentTask(0);
+  var variant4 = ret;
+  switch (variant4.tag) {
+    case 'ok': {
+      const e = variant4.val;
+      dataView(memory0).setInt8(arg2 + 0, 0, true);
+      break;
+    }
+    case 'err': {
+      const e = variant4.val;
+      dataView(memory0).setInt8(arg2 + 0, 1, true);
+      var val3 = e;
+      let enum3;
+      switch (val3) {
+        case 'access': {
+          enum3 = 0;
+          break;
+        }
+        case 'would-block': {
+          enum3 = 1;
+          break;
+        }
+        case 'already': {
+          enum3 = 2;
+          break;
+        }
+        case 'bad-descriptor': {
+          enum3 = 3;
+          break;
+        }
+        case 'busy': {
+          enum3 = 4;
+          break;
+        }
+        case 'deadlock': {
+          enum3 = 5;
+          break;
+        }
+        case 'quota': {
+          enum3 = 6;
+          break;
+        }
+        case 'exist': {
+          enum3 = 7;
+          break;
+        }
+        case 'file-too-large': {
+          enum3 = 8;
+          break;
+        }
+        case 'illegal-byte-sequence': {
+          enum3 = 9;
+          break;
+        }
+        case 'in-progress': {
+          enum3 = 10;
+          break;
+        }
+        case 'interrupted': {
+          enum3 = 11;
+          break;
+        }
+        case 'invalid': {
+          enum3 = 12;
+          break;
+        }
+        case 'io': {
+          enum3 = 13;
+          break;
+        }
+        case 'is-directory': {
+          enum3 = 14;
+          break;
+        }
+        case 'loop': {
+          enum3 = 15;
+          break;
+        }
+        case 'too-many-links': {
+          enum3 = 16;
+          break;
+        }
+        case 'message-size': {
+          enum3 = 17;
+          break;
+        }
+        case 'name-too-long': {
+          enum3 = 18;
+          break;
+        }
+        case 'no-device': {
+          enum3 = 19;
+          break;
+        }
+        case 'no-entry': {
+          enum3 = 20;
+          break;
+        }
+        case 'no-lock': {
+          enum3 = 21;
+          break;
+        }
+        case 'insufficient-memory': {
+          enum3 = 22;
+          break;
+        }
+        case 'insufficient-space': {
+          enum3 = 23;
+          break;
+        }
+        case 'not-directory': {
+          enum3 = 24;
+          break;
+        }
+        case 'not-empty': {
+          enum3 = 25;
+          break;
+        }
+        case 'not-recoverable': {
+          enum3 = 26;
+          break;
+        }
+        case 'unsupported': {
+          enum3 = 27;
+          break;
+        }
+        case 'no-tty': {
+          enum3 = 28;
+          break;
+        }
+        case 'no-such-device': {
+          enum3 = 29;
+          break;
+        }
+        case 'overflow': {
+          enum3 = 30;
+          break;
+        }
+        case 'not-permitted': {
+          enum3 = 31;
+          break;
+        }
+        case 'pipe': {
+          enum3 = 32;
+          break;
+        }
+        case 'read-only': {
+          enum3 = 33;
+          break;
+        }
+        case 'invalid-seek': {
+          enum3 = 34;
+          break;
+        }
+        case 'text-file-busy': {
+          enum3 = 35;
+          break;
+        }
+        case 'cross-device': {
+          enum3 = 36;
+          break;
+        }
+        default: {
+          
+          throw new TypeError(`"${val3}" is not one of the cases of error-code`);
+        }
+      }
+      dataView(memory0).setInt8(arg2 + 1, enum3, true);
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="wasi:filesystem/types@0.2.9", function="[method]descriptor.set-size"][Instruction::Return]', {
+    funcName: '[method]descriptor.set-size',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+
 const handleTable14 = [T_FLAG, 0];
 const captureTable14= new Map();
 let captureCnt14 = 0;
 handleTables[14] = handleTable14;
 
-const trampoline54 = new WebAssembly.Suspending(async function(arg0, arg1) {
+const trampoline62 = new WebAssembly.Suspending(async function(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -4975,7 +5433,213 @@ const trampoline54 = new WebAssembly.Suspending(async function(arg0, arg1) {
 }
 );
 
-const trampoline55 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
+function trampoline63(arg0, arg1) {
+  var handle1 = arg0;
+  var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
+  var rsc0 = captureTable13.get(rep2);
+  if (!rsc0) {
+    rsc0 = Object.create(Descriptor.prototype);
+    Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
+    Object.defineProperty(rsc0, symbolRscRep, { writable: true, value: rep2});
+  }
+  curResourceBorrows.push(rsc0);
+  _debugLog('[iface="wasi:filesystem/types@0.2.9", function="[method]descriptor.sync"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, '[method]descriptor.sync');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: rsc0.sync()};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="wasi:filesystem/types@0.2.9", function="[method]descriptor.sync"] [Instruction::CallInterface] (sync, @ post-call)');
+  for (const rsc of curResourceBorrows) {
+    rsc[symbolRscHandle] = undefined;
+  }
+  curResourceBorrows = [];
+  endCurrentTask(0);
+  var variant4 = ret;
+  switch (variant4.tag) {
+    case 'ok': {
+      const e = variant4.val;
+      dataView(memory0).setInt8(arg1 + 0, 0, true);
+      break;
+    }
+    case 'err': {
+      const e = variant4.val;
+      dataView(memory0).setInt8(arg1 + 0, 1, true);
+      var val3 = e;
+      let enum3;
+      switch (val3) {
+        case 'access': {
+          enum3 = 0;
+          break;
+        }
+        case 'would-block': {
+          enum3 = 1;
+          break;
+        }
+        case 'already': {
+          enum3 = 2;
+          break;
+        }
+        case 'bad-descriptor': {
+          enum3 = 3;
+          break;
+        }
+        case 'busy': {
+          enum3 = 4;
+          break;
+        }
+        case 'deadlock': {
+          enum3 = 5;
+          break;
+        }
+        case 'quota': {
+          enum3 = 6;
+          break;
+        }
+        case 'exist': {
+          enum3 = 7;
+          break;
+        }
+        case 'file-too-large': {
+          enum3 = 8;
+          break;
+        }
+        case 'illegal-byte-sequence': {
+          enum3 = 9;
+          break;
+        }
+        case 'in-progress': {
+          enum3 = 10;
+          break;
+        }
+        case 'interrupted': {
+          enum3 = 11;
+          break;
+        }
+        case 'invalid': {
+          enum3 = 12;
+          break;
+        }
+        case 'io': {
+          enum3 = 13;
+          break;
+        }
+        case 'is-directory': {
+          enum3 = 14;
+          break;
+        }
+        case 'loop': {
+          enum3 = 15;
+          break;
+        }
+        case 'too-many-links': {
+          enum3 = 16;
+          break;
+        }
+        case 'message-size': {
+          enum3 = 17;
+          break;
+        }
+        case 'name-too-long': {
+          enum3 = 18;
+          break;
+        }
+        case 'no-device': {
+          enum3 = 19;
+          break;
+        }
+        case 'no-entry': {
+          enum3 = 20;
+          break;
+        }
+        case 'no-lock': {
+          enum3 = 21;
+          break;
+        }
+        case 'insufficient-memory': {
+          enum3 = 22;
+          break;
+        }
+        case 'insufficient-space': {
+          enum3 = 23;
+          break;
+        }
+        case 'not-directory': {
+          enum3 = 24;
+          break;
+        }
+        case 'not-empty': {
+          enum3 = 25;
+          break;
+        }
+        case 'not-recoverable': {
+          enum3 = 26;
+          break;
+        }
+        case 'unsupported': {
+          enum3 = 27;
+          break;
+        }
+        case 'no-tty': {
+          enum3 = 28;
+          break;
+        }
+        case 'no-such-device': {
+          enum3 = 29;
+          break;
+        }
+        case 'overflow': {
+          enum3 = 30;
+          break;
+        }
+        case 'not-permitted': {
+          enum3 = 31;
+          break;
+        }
+        case 'pipe': {
+          enum3 = 32;
+          break;
+        }
+        case 'read-only': {
+          enum3 = 33;
+          break;
+        }
+        case 'invalid-seek': {
+          enum3 = 34;
+          break;
+        }
+        case 'text-file-busy': {
+          enum3 = 35;
+          break;
+        }
+        case 'cross-device': {
+          enum3 = 36;
+          break;
+        }
+        default: {
+          
+          throw new TypeError(`"${val3}" is not one of the cases of error-code`);
+        }
+      }
+      dataView(memory0).setInt8(arg1 + 1, enum3, true);
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="wasi:filesystem/types@0.2.9", function="[method]descriptor.sync"][Instruction::Return]', {
+    funcName: '[method]descriptor.sync',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+
+
+const trampoline64 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -5184,7 +5848,7 @@ const trampoline55 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-const trampoline56 = new WebAssembly.Suspending(async function(arg0, arg1) {
+const trampoline65 = new WebAssembly.Suspending(async function(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -5464,7 +6128,7 @@ const trampoline56 = new WebAssembly.Suspending(async function(arg0, arg1) {
 }
 );
 
-const trampoline57 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4) {
+const trampoline66 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -5750,7 +6414,269 @@ const trampoline57 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-const trampoline58 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
+function trampoline67(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10) {
+  var handle1 = arg0;
+  var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
+  var rsc0 = captureTable13.get(rep2);
+  if (!rsc0) {
+    rsc0 = Object.create(Descriptor.prototype);
+    Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
+    Object.defineProperty(rsc0, symbolRscRep, { writable: true, value: rep2});
+  }
+  curResourceBorrows.push(rsc0);
+  var flags3 = {
+    symlinkFollow: Boolean(arg1 & 1),
+  };
+  var ptr4 = arg2;
+  var len4 = arg3;
+  var result4 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr4, len4));
+  let variant5;
+  switch (arg4) {
+    case 0: {
+      variant5= {
+        tag: 'no-change',
+      };
+      break;
+    }
+    case 1: {
+      variant5= {
+        tag: 'now',
+      };
+      break;
+    }
+    case 2: {
+      variant5= {
+        tag: 'timestamp',
+        val: {
+          seconds: BigInt.asUintN(64, arg5),
+          nanoseconds: arg6 >>> 0,
+        }
+      };
+      break;
+    }
+  }
+  let variant6;
+  switch (arg7) {
+    case 0: {
+      variant6= {
+        tag: 'no-change',
+      };
+      break;
+    }
+    case 1: {
+      variant6= {
+        tag: 'now',
+      };
+      break;
+    }
+    case 2: {
+      variant6= {
+        tag: 'timestamp',
+        val: {
+          seconds: BigInt.asUintN(64, arg8),
+          nanoseconds: arg9 >>> 0,
+        }
+      };
+      break;
+    }
+  }
+  _debugLog('[iface="wasi:filesystem/types@0.2.9", function="[method]descriptor.set-times-at"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, '[method]descriptor.set-times-at');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: rsc0.setTimesAt(flags3, result4, variant5, variant6)};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="wasi:filesystem/types@0.2.9", function="[method]descriptor.set-times-at"] [Instruction::CallInterface] (sync, @ post-call)');
+  for (const rsc of curResourceBorrows) {
+    rsc[symbolRscHandle] = undefined;
+  }
+  curResourceBorrows = [];
+  endCurrentTask(0);
+  var variant8 = ret;
+  switch (variant8.tag) {
+    case 'ok': {
+      const e = variant8.val;
+      dataView(memory0).setInt8(arg10 + 0, 0, true);
+      break;
+    }
+    case 'err': {
+      const e = variant8.val;
+      dataView(memory0).setInt8(arg10 + 0, 1, true);
+      var val7 = e;
+      let enum7;
+      switch (val7) {
+        case 'access': {
+          enum7 = 0;
+          break;
+        }
+        case 'would-block': {
+          enum7 = 1;
+          break;
+        }
+        case 'already': {
+          enum7 = 2;
+          break;
+        }
+        case 'bad-descriptor': {
+          enum7 = 3;
+          break;
+        }
+        case 'busy': {
+          enum7 = 4;
+          break;
+        }
+        case 'deadlock': {
+          enum7 = 5;
+          break;
+        }
+        case 'quota': {
+          enum7 = 6;
+          break;
+        }
+        case 'exist': {
+          enum7 = 7;
+          break;
+        }
+        case 'file-too-large': {
+          enum7 = 8;
+          break;
+        }
+        case 'illegal-byte-sequence': {
+          enum7 = 9;
+          break;
+        }
+        case 'in-progress': {
+          enum7 = 10;
+          break;
+        }
+        case 'interrupted': {
+          enum7 = 11;
+          break;
+        }
+        case 'invalid': {
+          enum7 = 12;
+          break;
+        }
+        case 'io': {
+          enum7 = 13;
+          break;
+        }
+        case 'is-directory': {
+          enum7 = 14;
+          break;
+        }
+        case 'loop': {
+          enum7 = 15;
+          break;
+        }
+        case 'too-many-links': {
+          enum7 = 16;
+          break;
+        }
+        case 'message-size': {
+          enum7 = 17;
+          break;
+        }
+        case 'name-too-long': {
+          enum7 = 18;
+          break;
+        }
+        case 'no-device': {
+          enum7 = 19;
+          break;
+        }
+        case 'no-entry': {
+          enum7 = 20;
+          break;
+        }
+        case 'no-lock': {
+          enum7 = 21;
+          break;
+        }
+        case 'insufficient-memory': {
+          enum7 = 22;
+          break;
+        }
+        case 'insufficient-space': {
+          enum7 = 23;
+          break;
+        }
+        case 'not-directory': {
+          enum7 = 24;
+          break;
+        }
+        case 'not-empty': {
+          enum7 = 25;
+          break;
+        }
+        case 'not-recoverable': {
+          enum7 = 26;
+          break;
+        }
+        case 'unsupported': {
+          enum7 = 27;
+          break;
+        }
+        case 'no-tty': {
+          enum7 = 28;
+          break;
+        }
+        case 'no-such-device': {
+          enum7 = 29;
+          break;
+        }
+        case 'overflow': {
+          enum7 = 30;
+          break;
+        }
+        case 'not-permitted': {
+          enum7 = 31;
+          break;
+        }
+        case 'pipe': {
+          enum7 = 32;
+          break;
+        }
+        case 'read-only': {
+          enum7 = 33;
+          break;
+        }
+        case 'invalid-seek': {
+          enum7 = 34;
+          break;
+        }
+        case 'text-file-busy': {
+          enum7 = 35;
+          break;
+        }
+        case 'cross-device': {
+          enum7 = 36;
+          break;
+        }
+        default: {
+          
+          throw new TypeError(`"${val7}" is not one of the cases of error-code`);
+        }
+      }
+      dataView(memory0).setInt8(arg10 + 1, enum7, true);
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="wasi:filesystem/types@0.2.9", function="[method]descriptor.set-times-at"][Instruction::Return]', {
+    funcName: '[method]descriptor.set-times-at',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+
+
+const trampoline68 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -5986,7 +6912,7 @@ const trampoline58 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-function trampoline59(arg0, arg1, arg2, arg3) {
+function trampoline69(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -6199,7 +7125,7 @@ function trampoline59(arg0, arg1, arg2, arg3) {
 }
 
 
-const trampoline60 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
+const trampoline70 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -6408,7 +7334,7 @@ const trampoline60 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-const trampoline61 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
+const trampoline71 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -6629,7 +7555,7 @@ const trampoline61 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-const trampoline62 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
+const trampoline72 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -6838,7 +7764,7 @@ const trampoline62 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-function trampoline63(arg0, arg1) {
+function trampoline73(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -7047,7 +7973,7 @@ function trampoline63(arg0, arg1) {
 }
 
 
-function trampoline64(arg0, arg1, arg2, arg3, arg4) {
+function trampoline74(arg0, arg1, arg2, arg3, arg4) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -7262,7 +8188,7 @@ function trampoline64(arg0, arg1, arg2, arg3, arg4) {
 }
 
 
-function trampoline65(arg0, arg1) {
+function trampoline75(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable14[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable14.get(rep2);
@@ -7521,7 +8447,7 @@ function trampoline65(arg0, arg1) {
 }
 
 
-function trampoline66(arg0) {
+function trampoline76(arg0) {
   _debugLog('[iface="wasi:cli/environment@0.2.9", function="get-environment"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-environment');
   const ret = getEnvironment();
@@ -7557,7 +8483,7 @@ const captureTable4= new Map();
 let captureCnt4 = 0;
 handleTables[4] = handleTable4;
 
-function trampoline67(arg0) {
+function trampoline77(arg0) {
   _debugLog('[iface="wasi:cli/terminal-stdin@0.2.9", function="get-terminal-stdin"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-terminal-stdin');
   const ret = getTerminalStdin();
@@ -7593,7 +8519,7 @@ const captureTable5= new Map();
 let captureCnt5 = 0;
 handleTables[5] = handleTable5;
 
-function trampoline68(arg0) {
+function trampoline78(arg0) {
   _debugLog('[iface="wasi:cli/terminal-stdout@0.2.9", function="get-terminal-stdout"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-terminal-stdout');
   const ret = getTerminalStdout();
@@ -7625,7 +8551,7 @@ function trampoline68(arg0) {
 }
 
 
-function trampoline69(arg0) {
+function trampoline79(arg0) {
   _debugLog('[iface="wasi:cli/terminal-stderr@0.2.9", function="get-terminal-stderr"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-terminal-stderr');
   const ret = getTerminalStderr();
@@ -7657,7 +8583,7 @@ function trampoline69(arg0) {
 }
 
 
-function trampoline70(arg0) {
+function trampoline80(arg0) {
   _debugLog('[iface="wasi:clocks/wall-clock@0.2.9", function="now"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'now');
   const ret = now$1();
@@ -7675,7 +8601,7 @@ function trampoline70(arg0) {
 }
 
 
-function trampoline71(arg0) {
+function trampoline81(arg0) {
   _debugLog('[iface="wasi:filesystem/preopens@0.2.9", function="get-directories"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-directories');
   const ret = getDirectories();
@@ -7713,7 +8639,7 @@ function trampoline71(arg0) {
 }
 
 let exports2;
-function trampoline5(handle) {
+function trampoline7(handle) {
   const handleEntry = rscTableRemove(handleTable9, handle);
   if (handleEntry.own) {
     
@@ -7726,7 +8652,7 @@ function trampoline5(handle) {
     }
   }
 }
-function trampoline9(handle) {
+function trampoline11(handle) {
   const handleEntry = rscTableRemove(handleTable1, handle);
   if (handleEntry.own) {
     
@@ -7739,7 +8665,7 @@ function trampoline9(handle) {
     }
   }
 }
-function trampoline10(handle) {
+function trampoline12(handle) {
   const handleEntry = rscTableRemove(handleTable6, handle);
   if (handleEntry.own) {
     
@@ -7752,7 +8678,7 @@ function trampoline10(handle) {
     }
   }
 }
-function trampoline11(handle) {
+function trampoline13(handle) {
   const handleEntry = rscTableRemove(handleTable2, handle);
   if (handleEntry.own) {
     
@@ -7765,7 +8691,7 @@ function trampoline11(handle) {
     }
   }
 }
-function trampoline12(handle) {
+function trampoline14(handle) {
   const handleEntry = rscTableRemove(handleTable0, handle);
   if (handleEntry.own) {
     
@@ -7778,7 +8704,7 @@ function trampoline12(handle) {
     }
   }
 }
-function trampoline13(handle) {
+function trampoline15(handle) {
   const handleEntry = rscTableRemove(handleTable11, handle);
   if (handleEntry.own) {
     
@@ -7791,7 +8717,7 @@ function trampoline13(handle) {
     }
   }
 }
-function trampoline14(handle) {
+function trampoline16(handle) {
   const handleEntry = rscTableRemove(handleTable8, handle);
   if (handleEntry.own) {
     
@@ -7804,7 +8730,7 @@ function trampoline14(handle) {
     }
   }
 }
-function trampoline15(handle) {
+function trampoline17(handle) {
   const handleEntry = rscTableRemove(handleTable3, handle);
   if (handleEntry.own) {
     
@@ -7817,7 +8743,7 @@ function trampoline15(handle) {
     }
   }
 }
-function trampoline16(handle) {
+function trampoline18(handle) {
   const handleEntry = rscTableRemove(handleTable7, handle);
   if (handleEntry.own) {
     
@@ -7830,7 +8756,7 @@ function trampoline16(handle) {
     }
   }
 }
-function trampoline17(handle) {
+function trampoline19(handle) {
   const handleEntry = rscTableRemove(handleTable10, handle);
   if (handleEntry.own) {
     
@@ -7843,7 +8769,7 @@ function trampoline17(handle) {
     }
   }
 }
-function trampoline19(handle) {
+function trampoline21(handle) {
   const handleEntry = rscTableRemove(handleTable4, handle);
   if (handleEntry.own) {
     
@@ -7856,7 +8782,7 @@ function trampoline19(handle) {
     }
   }
 }
-function trampoline20(handle) {
+function trampoline22(handle) {
   const handleEntry = rscTableRemove(handleTable5, handle);
   if (handleEntry.own) {
     
@@ -7869,7 +8795,7 @@ function trampoline20(handle) {
     }
   }
 }
-function trampoline21(handle) {
+function trampoline23(handle) {
   const handleEntry = rscTableRemove(handleTable13, handle);
   if (handleEntry.own) {
     
@@ -7882,7 +8808,7 @@ function trampoline21(handle) {
     }
   }
 }
-function trampoline22(handle) {
+function trampoline24(handle) {
   const handleEntry = rscTableRemove(handleTable14, handle);
   if (handleEntry.own) {
     
@@ -7919,142 +8845,158 @@ async function run() {
 const $init = (() => {
   let gen = (function* _initGenerator () {
     const module0 = fetchCompile(new URL('./codex-wasm-tui.core.wasm', import.meta.url));
-    const module1 = base64Compile('AGFzbQEAAAABZQxgA39+fwBgBH9/f38AYA5/f39/f39/f39/f39/fwBgBn9/f39/fwBgBH9/f38Bf2AFf39/f38Bf2ACf38AYAR/f39/AGABfwBgBX9/f39/AGAHf39/f39/fwBgB39/f39/f38AAysqAAABAgMEBQQEBgYHBgYGBgcIBgYAAAYGBgEGCQoBAQsBBgkGCAgICAgIBAUBcAEqKgfUASsBMAAAATEAAQEyAAIBMwADATQABAE1AAUBNgAGATcABwE4AAgBOQAJAjEwAAoCMTEACwIxMgAMAjEzAA0CMTQADgIxNQAPAjE2ABACMTcAEQIxOAASAjE5ABMCMjAAFAIyMQAVAjIyABYCMjMAFwIyNAAYAjI1ABkCMjYAGgIyNwAbAjI4ABwCMjkAHQIzMAAeAjMxAB8CMzIAIAIzMwAhAjM0ACICMzUAIwIzNgAkAjM3ACUCMzgAJgIzOQAnAjQwACgCNDEAKQgkaW1wb3J0cwEACuEEKg0AIAAgASACQQARAAALDQAgACABIAJBAREAAAsPACAAIAEgAiADQQIRAQALIwAgACABIAIgAyAEIAUgBiAHIAggCSAKIAsgDCANQQMRAgALEwAgACABIAIgAyAEIAVBBBEDAAsPACAAIAEgAiADQQURBAALEQAgACABIAIgAyAEQQYRBQALDwAgACABIAIgA0EHEQQACw8AIAAgASACIANBCBEEAAsLACAAIAFBCREGAAsLACAAIAFBChEGAAsPACAAIAEgAiADQQsRBwALCwAgACABQQwRBgALCwAgACABQQ0RBgALCwAgACABQQ4RBgALCwAgACABQQ8RBgALDwAgACABIAIgA0EQEQcACwkAIABBEREIAAsLACAAIAFBEhEGAAsLACAAIAFBExEGAAsNACAAIAEgAkEUEQAACw0AIAAgASACQRURAAALCwAgACABQRYRBgALCwAgACABQRcRBgALCwAgACABQRgRBgALDwAgACABIAIgA0EZEQEACwsAIAAgAUEaEQYACxEAIAAgASACIAMgBEEbEQkACxUAIAAgASACIAMgBCAFIAZBHBEKAAsPACAAIAEgAiADQR0RAQALDwAgACABIAIgA0EeEQEACxUAIAAgASACIAMgBCAFIAZBHxELAAsPACAAIAEgAiADQSARAQALCwAgACABQSERBgALEQAgACABIAIgAyAEQSIRCQALCwAgACABQSMRBgALCQAgAEEkEQgACwkAIABBJREIAAsJACAAQSYRCAALCQAgAEEnEQgACwkAIABBKBEIAAsJACAAQSkRCAALAC8JcHJvZHVjZXJzAQxwcm9jZXNzZWQtYnkBDXdpdC1jb21wb25lbnQHMC4yNDMuMA');
-    const module2 = base64Compile('AGFzbQEAAAABZQxgA39+fwBgBH9/f38AYA5/f39/f39/f39/f39/fwBgBn9/f39/fwBgBH9/f38Bf2AFf39/f38Bf2ACf38AYAR/f39/AGABfwBgBX9/f39/AGAHf39/f39/fwBgB39/f39/f38AAoICKwABMAAAAAExAAAAATIAAQABMwACAAE0AAMAATUABAABNgAFAAE3AAQAATgABAABOQAGAAIxMAAGAAIxMQAHAAIxMgAGAAIxMwAGAAIxNAAGAAIxNQAGAAIxNgAHAAIxNwAIAAIxOAAGAAIxOQAGAAIyMAAAAAIyMQAAAAIyMgAGAAIyMwAGAAIyNAAGAAIyNQABAAIyNgAGAAIyNwAJAAIyOAAKAAIyOQABAAIzMAABAAIzMQALAAIzMgABAAIzMwAGAAIzNAAJAAIzNQAGAAIzNgAIAAIzNwAIAAIzOAAIAAIzOQAIAAI0MAAIAAI0MQAIAAgkaW1wb3J0cwFwASoqCTABAEEACyoAAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkALwlwcm9kdWNlcnMBDHByb2Nlc3NlZC1ieQENd2l0LWNvbXBvbmVudAcwLjI0My4w');
+    const module1 = base64Compile('AGFzbQEAAAABgQEPYAN/fn8AYAR/f39/AGAOf39/f39/f39/f39/f38AYAJ/fwBgBX9/f39/AGAGf39/f39/AGAEf39/fwF/YAV/f39/fwF/YAR/f39/AGADf39/AGABfwBgBX9/f39/AGALf39/f39+f39+f38AYAd/f39/f39/AGAHf39/f39/fwADMzIAAAECAwEEBQYHBgYDAwgDAwMDCAkKCgMDAAADAwADAwEDCwwNAQEOAQMLAwoKCgoKCgQFAXABMjIH/AEzATAAAAExAAEBMgACATMAAwE0AAQBNQAFATYABgE3AAcBOAAIATkACQIxMAAKAjExAAsCMTIADAIxMwANAjE0AA4CMTUADwIxNgAQAjE3ABECMTgAEgIxOQATAjIwABQCMjEAFQIyMgAWAjIzABcCMjQAGAIyNQAZAjI2ABoCMjcAGwIyOAAcAjI5AB0CMzAAHgIzMQAfAjMyACACMzMAIQIzNAAiAjM1ACMCMzYAJAIzNwAlAjM4ACYCMzkAJwI0MAAoAjQxACkCNDIAKgI0MwArAjQ0ACwCNDUALQI0NgAuAjQ3AC8CNDgAMAI0OQAxCCRpbXBvcnRzAQAK3wUyDQAgACABIAJBABEAAAsNACAAIAEgAkEBEQAACw8AIAAgASACIANBAhEBAAsjACAAIAEgAiADIAQgBSAGIAcgCCAJIAogCyAMIA1BAxECAAsLACAAIAFBBBEDAAsPACAAIAEgAiADQQURAQALEQAgACABIAIgAyAEQQYRBAALEwAgACABIAIgAyAEIAVBBxEFAAsPACAAIAEgAiADQQgRBgALEQAgACABIAIgAyAEQQkRBwALDwAgACABIAIgA0EKEQYACw8AIAAgASACIANBCxEGAAsLACAAIAFBDBEDAAsLACAAIAFBDREDAAsPACAAIAEgAiADQQ4RCAALCwAgACABQQ8RAwALCwAgACABQRARAwALCwAgACABQRERAwALCwAgACABQRIRAwALDwAgACABIAIgA0ETEQgACw0AIAAgASACQRQRCQALCQAgAEEVEQoACwkAIABBFhEKAAsLACAAIAFBFxEDAAsLACAAIAFBGBEDAAsNACAAIAEgAkEZEQAACw0AIAAgASACQRoRAAALCwAgACABQRsRAwALCwAgACABQRwRAwALDQAgACABIAJBHREAAAsLACAAIAFBHhEDAAsLACAAIAFBHxEDAAsPACAAIAEgAiADQSARAQALCwAgACABQSERAwALEQAgACABIAIgAyAEQSIRCwALHQAgACABIAIgAyAEIAUgBiAHIAggCSAKQSMRDAALFQAgACABIAIgAyAEIAUgBkEkEQ0ACw8AIAAgASACIANBJREBAAsPACAAIAEgAiADQSYRAQALFQAgACABIAIgAyAEIAUgBkEnEQ4ACw8AIAAgASACIANBKBEBAAsLACAAIAFBKREDAAsRACAAIAEgAiADIARBKhELAAsLACAAIAFBKxEDAAsJACAAQSwRCgALCQAgAEEtEQoACwkAIABBLhEKAAsJACAAQS8RCgALCQAgAEEwEQoACwkAIABBMREKAAsALwlwcm9kdWNlcnMBDHByb2Nlc3NlZC1ieQENd2l0LWNvbXBvbmVudAcwLjI0My4w');
+    const module2 = base64Compile('AGFzbQEAAAABgQEPYAN/fn8AYAR/f39/AGAOf39/f39/f39/f39/f38AYAJ/fwBgBX9/f39/AGAGf39/f39/AGAEf39/fwF/YAV/f39/fwF/YAR/f39/AGADf39/AGABfwBgBX9/f39/AGALf39/f39+f39+f38AYAd/f39/f39/AGAHf39/f39/fwACsgIzAAEwAAAAATEAAAABMgABAAEzAAIAATQAAwABNQABAAE2AAQAATcABQABOAAGAAE5AAcAAjEwAAYAAjExAAYAAjEyAAMAAjEzAAMAAjE0AAgAAjE1AAMAAjE2AAMAAjE3AAMAAjE4AAMAAjE5AAgAAjIwAAkAAjIxAAoAAjIyAAoAAjIzAAMAAjI0AAMAAjI1AAAAAjI2AAAAAjI3AAMAAjI4AAMAAjI5AAAAAjMwAAMAAjMxAAMAAjMyAAEAAjMzAAMAAjM0AAsAAjM1AAwAAjM2AA0AAjM3AAEAAjM4AAEAAjM5AA4AAjQwAAEAAjQxAAMAAjQyAAsAAjQzAAMAAjQ0AAoAAjQ1AAoAAjQ2AAoAAjQ3AAoAAjQ4AAoAAjQ5AAoACCRpbXBvcnRzAXABMjIJOAEAQQALMgABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxAC8JcHJvZHVjZXJzAQxwcm9jZXNzZWQtYnkBDXdpdC1jb21wb25lbnQHMC4yNDMuMA');
     ({ exports: exports0 } = yield instantiateCore(yield module1));
     ({ exports: exports1 } = yield instantiateCore(yield module0, {
       'codex:tui/shell-exec@0.1.0': {
         exec: exports0['3'],
       },
+      'codex:tui/websocket@0.1.0': {
+        close: trampoline0,
+        connect: exports0['6'],
+        'is-closed': trampoline1,
+        recv: exports0['4'],
+        send: exports0['5'],
+      },
+      'host:browser/actions@0.1.0': {
+        'open-url': exports0['20'],
+      },
       'wasi:cli/environment@0.2.0': {
-        'get-environment': exports0['36'],
+        'get-environment': exports0['44'],
+      },
+      'wasi:cli/environment@0.2.9': {
+        'get-arguments': exports0['21'],
       },
       'wasi:cli/exit@0.2.0': {
-        exit: trampoline23,
+        exit: trampoline25,
       },
       'wasi:cli/stderr@0.2.0': {
-        'get-stderr': trampoline27,
+        'get-stderr': trampoline29,
       },
       'wasi:cli/stdin@0.2.0': {
-        'get-stdin': trampoline25,
+        'get-stdin': trampoline27,
       },
       'wasi:cli/stdout@0.2.0': {
-        'get-stdout': trampoline26,
+        'get-stdout': trampoline28,
       },
       'wasi:cli/terminal-input@0.2.0': {
-        '[resource-drop]terminal-input': trampoline19,
+        '[resource-drop]terminal-input': trampoline21,
       },
       'wasi:cli/terminal-output@0.2.0': {
-        '[resource-drop]terminal-output': trampoline20,
+        '[resource-drop]terminal-output': trampoline22,
       },
       'wasi:cli/terminal-stderr@0.2.0': {
-        'get-terminal-stderr': exports0['39'],
+        'get-terminal-stderr': exports0['47'],
       },
       'wasi:cli/terminal-stdin@0.2.0': {
-        'get-terminal-stdin': exports0['37'],
+        'get-terminal-stdin': exports0['45'],
       },
       'wasi:cli/terminal-stdout@0.2.0': {
-        'get-terminal-stdout': exports0['38'],
+        'get-terminal-stdout': exports0['46'],
       },
       'wasi:clocks/monotonic-clock@0.2.0': {
-        now: trampoline28,
-        'subscribe-duration': trampoline0,
-        'subscribe-instant': trampoline29,
+        now: trampoline30,
+        'subscribe-duration': trampoline2,
+        'subscribe-instant': trampoline31,
       },
       'wasi:clocks/monotonic-clock@0.2.9': {
-        'subscribe-duration': trampoline0,
+        'subscribe-duration': trampoline2,
       },
       'wasi:clocks/wall-clock@0.2.0': {
-        now: exports0['40'],
+        now: exports0['48'],
       },
       'wasi:filesystem/preopens@0.2.0': {
-        'get-directories': exports0['41'],
+        'get-directories': exports0['49'],
       },
       'wasi:filesystem/types@0.2.0': {
-        '[method]descriptor.append-via-stream': exports0['22'],
-        '[method]descriptor.create-directory-at': exports0['25'],
-        '[method]descriptor.get-flags': exports0['23'],
-        '[method]descriptor.metadata-hash': exports0['33'],
-        '[method]descriptor.metadata-hash-at': exports0['34'],
-        '[method]descriptor.open-at': exports0['28'],
-        '[method]descriptor.read-directory': exports0['24'],
-        '[method]descriptor.read-via-stream': exports0['20'],
-        '[method]descriptor.readlink-at': exports0['29'],
-        '[method]descriptor.remove-directory-at': exports0['30'],
-        '[method]descriptor.rename-at': exports0['31'],
-        '[method]descriptor.stat': exports0['26'],
-        '[method]descriptor.stat-at': exports0['27'],
-        '[method]descriptor.unlink-file-at': exports0['32'],
-        '[method]descriptor.write-via-stream': exports0['21'],
-        '[method]directory-entry-stream.read-directory-entry': exports0['35'],
-        '[resource-drop]descriptor': trampoline21,
-        '[resource-drop]directory-entry-stream': trampoline22,
+        '[method]descriptor.append-via-stream': exports0['27'],
+        '[method]descriptor.create-directory-at': exports0['32'],
+        '[method]descriptor.get-flags': exports0['28'],
+        '[method]descriptor.metadata-hash': exports0['41'],
+        '[method]descriptor.metadata-hash-at': exports0['42'],
+        '[method]descriptor.open-at': exports0['36'],
+        '[method]descriptor.read-directory': exports0['30'],
+        '[method]descriptor.read-via-stream': exports0['25'],
+        '[method]descriptor.readlink-at': exports0['37'],
+        '[method]descriptor.remove-directory-at': exports0['38'],
+        '[method]descriptor.rename-at': exports0['39'],
+        '[method]descriptor.set-size': exports0['29'],
+        '[method]descriptor.set-times-at': exports0['35'],
+        '[method]descriptor.stat': exports0['33'],
+        '[method]descriptor.stat-at': exports0['34'],
+        '[method]descriptor.sync': exports0['31'],
+        '[method]descriptor.unlink-file-at': exports0['40'],
+        '[method]descriptor.write-via-stream': exports0['26'],
+        '[method]directory-entry-stream.read-directory-entry': exports0['43'],
+        '[resource-drop]descriptor': trampoline23,
+        '[resource-drop]directory-entry-stream': trampoline24,
       },
       'wasi:http/outgoing-handler@0.2.9': {
-        handle: exports0['16'],
+        handle: exports0['19'],
       },
       'wasi:http/types@0.2.9': {
-        '[constructor]fields': trampoline1,
-        '[constructor]outgoing-request': trampoline2,
-        '[method]fields.append': exports0['4'],
-        '[method]fields.entries': exports0['13'],
-        '[method]future-incoming-response.get': exports0['12'],
-        '[method]future-incoming-response.subscribe': trampoline4,
-        '[method]incoming-body.stream': exports0['14'],
-        '[method]incoming-response.consume': exports0['15'],
-        '[method]incoming-response.headers': trampoline7,
-        '[method]incoming-response.status': trampoline6,
-        '[method]outgoing-body.write': exports0['10'],
-        '[method]outgoing-request.body': exports0['9'],
-        '[method]outgoing-request.set-authority': exports0['7'],
-        '[method]outgoing-request.set-method': exports0['5'],
-        '[method]outgoing-request.set-path-with-query': exports0['8'],
-        '[method]outgoing-request.set-scheme': exports0['6'],
-        '[resource-drop]fields': trampoline10,
-        '[resource-drop]future-incoming-response': trampoline5,
-        '[resource-drop]incoming-body': trampoline13,
-        '[resource-drop]incoming-response': trampoline17,
-        '[resource-drop]outgoing-body': trampoline14,
-        '[resource-drop]outgoing-request': trampoline16,
-        '[static]outgoing-body.finish': exports0['11'],
+        '[constructor]fields': trampoline3,
+        '[constructor]outgoing-request': trampoline4,
+        '[method]fields.append': exports0['7'],
+        '[method]fields.entries': exports0['16'],
+        '[method]future-incoming-response.get': exports0['15'],
+        '[method]future-incoming-response.subscribe': trampoline6,
+        '[method]incoming-body.stream': exports0['17'],
+        '[method]incoming-response.consume': exports0['18'],
+        '[method]incoming-response.headers': trampoline9,
+        '[method]incoming-response.status': trampoline8,
+        '[method]outgoing-body.write': exports0['13'],
+        '[method]outgoing-request.body': exports0['12'],
+        '[method]outgoing-request.set-authority': exports0['10'],
+        '[method]outgoing-request.set-method': exports0['8'],
+        '[method]outgoing-request.set-path-with-query': exports0['11'],
+        '[method]outgoing-request.set-scheme': exports0['9'],
+        '[resource-drop]fields': trampoline12,
+        '[resource-drop]future-incoming-response': trampoline7,
+        '[resource-drop]incoming-body': trampoline15,
+        '[resource-drop]incoming-response': trampoline19,
+        '[resource-drop]outgoing-body': trampoline16,
+        '[resource-drop]outgoing-request': trampoline18,
+        '[static]outgoing-body.finish': exports0['14'],
       },
       'wasi:io/error@0.2.0': {
-        '[resource-drop]error': trampoline12,
+        '[resource-drop]error': trampoline14,
       },
       'wasi:io/error@0.2.9': {
-        '[resource-drop]error': trampoline12,
+        '[resource-drop]error': trampoline14,
       },
       'wasi:io/poll@0.2.0': {
-        '[method]pollable.block': trampoline8,
-        '[resource-drop]pollable': trampoline9,
+        '[method]pollable.block': trampoline10,
+        '[resource-drop]pollable': trampoline11,
       },
       'wasi:io/poll@0.2.9': {
-        '[method]pollable.block': trampoline8,
-        '[resource-drop]pollable': trampoline9,
+        '[method]pollable.block': trampoline10,
+        '[resource-drop]pollable': trampoline11,
       },
       'wasi:io/streams@0.2.0': {
         '[method]input-stream.blocking-read': exports0['0'],
-        '[method]input-stream.subscribe': trampoline24,
-        '[method]output-stream.blocking-flush': exports0['19'],
-        '[method]output-stream.check-write': exports0['18'],
-        '[method]output-stream.subscribe': trampoline3,
+        '[method]input-stream.subscribe': trampoline26,
+        '[method]output-stream.blocking-flush': exports0['24'],
+        '[method]output-stream.check-write': exports0['23'],
+        '[method]output-stream.subscribe': trampoline5,
         '[method]output-stream.write': exports0['2'],
-        '[resource-drop]input-stream': trampoline11,
-        '[resource-drop]output-stream': trampoline15,
+        '[resource-drop]input-stream': trampoline13,
+        '[resource-drop]output-stream': trampoline17,
       },
       'wasi:io/streams@0.2.9': {
         '[method]input-stream.blocking-read': exports0['0'],
         '[method]input-stream.read': exports0['1'],
-        '[method]output-stream.subscribe': trampoline3,
+        '[method]output-stream.subscribe': trampoline5,
         '[method]output-stream.write': exports0['2'],
-        '[resource-drop]input-stream': trampoline11,
-        '[resource-drop]output-stream': trampoline15,
+        '[resource-drop]input-stream': trampoline13,
+        '[resource-drop]output-stream': trampoline17,
       },
       'wasi:random/insecure-seed@0.2.4': {
-        'insecure-seed': exports0['17'],
+        'insecure-seed': exports0['22'],
       },
       'wasi:random/random@0.2.9': {
-        'get-random-u64': trampoline18,
+        'get-random-u64': trampoline20,
       },
     }));
     memory0 = exports1.memory;
@@ -8062,48 +9004,56 @@ const $init = (() => {
     ({ exports: exports2 } = yield instantiateCore(yield module2, {
       '': {
         $imports: exports0.$imports,
-        '0': trampoline30,
-        '1': trampoline31,
-        '10': trampoline40,
-        '11': trampoline41,
-        '12': trampoline42,
-        '13': trampoline43,
-        '14': trampoline44,
-        '15': trampoline45,
-        '16': trampoline46,
-        '17': trampoline47,
-        '18': trampoline48,
-        '19': trampoline49,
-        '2': trampoline32,
-        '20': trampoline50,
-        '21': trampoline51,
-        '22': trampoline52,
-        '23': trampoline53,
-        '24': trampoline54,
-        '25': trampoline55,
-        '26': trampoline56,
-        '27': trampoline57,
-        '28': trampoline58,
-        '29': trampoline59,
-        '3': trampoline33,
-        '30': trampoline60,
-        '31': trampoline61,
-        '32': trampoline62,
-        '33': trampoline63,
-        '34': trampoline64,
-        '35': trampoline65,
-        '36': trampoline66,
-        '37': trampoline67,
-        '38': trampoline68,
-        '39': trampoline69,
-        '4': trampoline34,
-        '40': trampoline70,
-        '41': trampoline71,
-        '5': trampoline35,
-        '6': trampoline36,
-        '7': trampoline37,
-        '8': trampoline38,
-        '9': trampoline39,
+        '0': trampoline32,
+        '1': trampoline33,
+        '10': trampoline42,
+        '11': trampoline43,
+        '12': trampoline44,
+        '13': trampoline45,
+        '14': trampoline46,
+        '15': trampoline47,
+        '16': trampoline48,
+        '17': trampoline49,
+        '18': trampoline50,
+        '19': trampoline51,
+        '2': trampoline34,
+        '20': trampoline52,
+        '21': trampoline53,
+        '22': trampoline54,
+        '23': trampoline55,
+        '24': trampoline56,
+        '25': trampoline57,
+        '26': trampoline58,
+        '27': trampoline59,
+        '28': trampoline60,
+        '29': trampoline61,
+        '3': trampoline35,
+        '30': trampoline62,
+        '31': trampoline63,
+        '32': trampoline64,
+        '33': trampoline65,
+        '34': trampoline66,
+        '35': trampoline67,
+        '36': trampoline68,
+        '37': trampoline69,
+        '38': trampoline70,
+        '39': trampoline71,
+        '4': trampoline36,
+        '40': trampoline72,
+        '41': trampoline73,
+        '42': trampoline74,
+        '43': trampoline75,
+        '44': trampoline76,
+        '45': trampoline77,
+        '46': trampoline78,
+        '47': trampoline79,
+        '48': trampoline80,
+        '49': trampoline81,
+        '5': trampoline37,
+        '6': trampoline38,
+        '7': trampoline39,
+        '8': trampoline40,
+        '9': trampoline41,
       },
     }));
     exports1Run = WebAssembly.promising(exports1.run);

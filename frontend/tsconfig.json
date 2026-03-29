@@ -72,6 +72,12 @@
             ],
             "@tjfontaine/wasm-git/*": [
                 "../packages/wasm-git/src/*"
+            ],
+            "@tjfontaine/wasm-python": [
+                "../packages/wasm-python/src/index.ts"
+            ],
+            "@tjfontaine/wasm-python/*": [
+                "../packages/wasm-python/src/*"
             ]
         }
     },
@@ -95,6 +101,9 @@
         },
         {
             "path": "../packages/wasm-loader"
+        },
+        {
+            "path": "../packages/wasm-python"
         },
         {
             "path": "../packages/wasm-sqlite"
