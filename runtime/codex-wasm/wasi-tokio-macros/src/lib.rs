@@ -1,8 +1,11 @@
 //! Proc macro `select!` for wasi-tokio.
 //!
-//! Generates a custom `SelectFuture` struct that holds all branch futures
-//! and implements `Future` + `Unpin`. Guard expressions are evaluated
-//! safely because the struct's `Unpin` impl breaks the borrow chain.
+//! Matches real tokio::select! semantics:
+//! 1. Guards evaluated ONCE, BEFORE futures are created (no borrow conflicts)
+//! 2. Disabled branches tracked via bitmask
+//! 3. Futures stored in tuple, pinned via unsafe Pin::new_unchecked
+//! 4. Refutable patterns: if pattern doesn't match, branch is disabled
+//! 5. Result returned via enum variant, matched outside poll_fn
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
@@ -23,6 +26,7 @@ struct SelectInput {
 
 impl Parse for SelectInput {
     fn parse(input: ParseStream) -> Result<Self> {
+        // Skip optional `biased;`
         if input.peek(syn::Ident) && input.peek2(Token![;]) {
             let fork = input.fork();
             let ident: syn::Ident = fork.parse()?;
@@ -89,199 +93,128 @@ fn generate_select(input: SelectInput) -> TokenStream2 {
         }};
     }
 
-    // For 2+ branches: create futures eagerly, then poll via a custom
-    // async block that uses unsafe to break borrow conflicts.
-    //
-    // Generated structure:
-    //   let mut __fut_0 = Some(expr0);  // holds Option<impl Future>
-    //   let mut __fut_1 = Some(expr1);
-    //   ...
-    //   loop {
-    //       // Guards evaluated here — futures are in Options, borrows released
-    //       // by setting Options to None when guard fails
-    //       let __g0 = !done0 && guard0;
-    //       ...
-    //       // Poll: take future out of Option, poll it, put back if Pending
-    //       ...
-    //       tokio::__yield_once().await;  // yield to scheduler
-    //   }
+    // Generate enum for output variants (like tokio's __tokio_select_util::Out)
+    let variant_names: Vec<_> = (0..n).map(|i| format_ident!("_V{}", i)).collect();
+    let type_params: Vec<_> = (0..n).map(|i| format_ident!("_T{}", i)).collect();
 
-    let fut_vars: Vec<_> = (0..n).map(|i| format_ident!("__fut_{}", i)).collect();
-    let done_vars: Vec<_> = (0..n).map(|i| format_ident!("__done_{}", i)).collect();
-    let guard_vars: Vec<_> = (0..n).map(|i| format_ident!("__guard_{}", i)).collect();
-    let indices: Vec<u8> = (0..n).map(|i| (i + 1) as u8).collect();
-
-    let done_inits: Vec<_> = done_vars
+    let enum_variants: Vec<_> = variant_names
         .iter()
-        .map(|dv| quote! { let mut #dv = false; })
+        .zip(type_params.iter())
+        .map(|(v, t)| quote! { #v(#t) })
         .collect();
 
-    // Store future expressions in Options to handle move values.
-    // Each expression is evaluated ONCE (outside the loop), then .take()+recreate
-    // is used per iteration to avoid borrow-across-loop issues.
-    // For guarded branches, we store None initially.
-    let expr_vars: Vec<_> = (0..n).map(|i| format_ident!("__expr_{}", i)).collect();
-    let fut_inits: Vec<_> = input
-        .branches
-        .iter()
-        .enumerate()
-        .map(|(i, b)| {
-            let ev = &expr_vars[i];
-            if b.guard.is_some() {
-                // Guarded: future is recreated each iteration, no need to store
-                quote! {}
-            } else {
-                // Unguarded: wrap in Option to handle move values
-                let fut_expr = &b.future_expr;
-                quote! { let mut #ev = Some(#fut_expr); }
-            }
-        })
-        .collect();
+    let enum_def = quote! {
+        #[allow(dead_code)]
+        enum __Out<#(#type_params),*> {
+            #(#enum_variants,)*
+            _Disabled,
+        }
+    };
 
-    // Guard evaluation — futures are in Options. When guard fails, we drop
-    // the future by setting to None, releasing the borrow. On next iteration,
-    // the future is recreated if the guard passes again.
-    // NOTE: This means futures restart on each guard change. For WASM channels
-    // this is fine since they resolve within one poll cycle.
+    // Step 1: Evaluate preconditions BEFORE creating futures (matches tokio semantics)
+    // This is the key insight — guards run while no futures exist, so no borrow conflicts.
     let guard_evals: Vec<_> = input
         .branches
         .iter()
         .enumerate()
         .map(|(i, b)| {
-            let dv = &done_vars[i];
-            let gv = &guard_vars[i];
-            let _fv = &fut_vars[i];
-            let _fut_expr = &b.future_expr;
+            let mask = 1u64 << i;
             match &b.guard {
-                Some(guard) => quote! { let #gv = !#dv && { #guard }; },
-                None => quote! { let #gv = !#dv; },
+                Some(guard) => quote! {
+                    if !{ #guard } {
+                        __disabled |= #mask;
+                    }
+                },
+                None => quote! {},
             }
         })
         .collect();
 
+    // Step 2: Create futures tuple (after guards, so borrows don't conflict)
+    let fut_exprs: Vec<_> = input.branches.iter().map(|b| &b.future_expr).collect();
+
+    // Step 3: Inside poll_fn, poll each non-disabled future
+    let poll_branches: Vec<_> = (0..n)
+        .map(|i| {
+            let mask = 1u64 << i;
+            let vn = &variant_names[i];
+            let pat = &input.branches[i].pat;
+            // Generate tuple destructuring: let (_, _, fut, ..) = &mut *__futures;
+            let underscores: Vec<_> = (0..i).map(|_| quote! { _ }).collect();
+            quote! {
+                {
+                    let __mask: u64 = #mask;
+                    if __disabled & __mask == 0 {
+                        let ( #(#underscores,)* ref mut __fut, .. ) = *__futures;
+                        // SAFETY: futures are stored on the stack and never moved.
+                        // Single-threaded WASM — no concurrent access.
+                        let __fut = unsafe { std::pin::Pin::new_unchecked(__fut) };
+                        match std::future::Future::poll(__fut, __cx) {
+                            core::task::Poll::Ready(__out) => {
+                                __disabled |= __mask;
+                                // Check refutable pattern — if it doesn't match,
+                                // disable this branch and continue polling others
+                                #[allow(unused_variables, unused_mut)]
+                                if let #pat = &__out {
+                                    return core::task::Poll::Ready(__Out::#vn(__out));
+                                }
+                                // Pattern didn't match — branch stays disabled, continue polling
+                            }
+                            core::task::Poll::Pending => {
+                                __is_pending = true;
+                            }
+                        }
+                    }
+                }
+            }
+        })
+        .collect();
+
+    // Step 4: Match arms outside poll_fn
     let match_arms: Vec<_> = input
         .branches
         .iter()
         .enumerate()
         .map(|(i, b)| {
-            let idx = indices[i];
+            let vn = &variant_names[i];
             let pat = &b.pat;
             let body = &b.body;
-            let rv = format_ident!("__result_{}", i);
-            // Use if-let for refutable patterns (e.g. Some(x) = stream.next())
-            // If pattern doesn't match, continue the outer select loop
-            quote! { #idx => { if let #pat = #rv.unwrap() { #body } else { continue '__select_loop; } } }
-        })
-        .collect();
-
-    let result_vars: Vec<_> = (0..n).map(|i| format_ident!("__result_{}", i)).collect();
-    let result_inits: Vec<_> = result_vars
-        .iter()
-        .map(|rv| quote! { let mut #rv = None; })
-        .collect();
-
-    // Generate drops for unguarded branch futures
-    let drop_exprs: Vec<_> = input
-        .branches
-        .iter()
-        .enumerate()
-        .filter_map(|(i, b)| {
-            if b.guard.is_none() {
-                let ev = &expr_vars[i];
-                Some(quote! { drop(#ev); })
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    // Each branch: get-or-create future, poll once, put back or drop.
-    let poll_branches2: Vec<_> = (0..n)
-        .map(|i| {
-            let gv = &guard_vars[i];
-            let dv = &done_vars[i];
-            let rv = &result_vars[i];
-            let idx = indices[i];
-            let b = &input.branches[i];
-
-            if b.guard.is_some() {
-                // Guarded: create fresh each iteration (borrows released between iterations)
-                let fut_expr = &b.future_expr;
-                quote! {
-                    if #gv && !#dv {
-                        let mut __f = #fut_expr;
-                        let __pinned = unsafe { std::pin::Pin::new_unchecked(&mut __f) };
-                        match std::future::Future::poll(__pinned, &mut __cx) {
-                            core::task::Poll::Ready(__val) => {
-                                #dv = true;
-                                #rv = Some(__val);
-                                __which_branch = #idx;
-                                break;
-                            }
-                            core::task::Poll::Pending => {}
-                        }
-                        // __f dropped here — borrows released before next guard eval
-                    }
-                }
-            } else {
-                // Unguarded: take from Option, poll, put back if Pending
-                let ev = &expr_vars[i];
-                quote! {
-                    if #gv && !#dv {
-                        if let Some(mut __f) = #ev.take() {
-                            let __pinned = unsafe { std::pin::Pin::new_unchecked(&mut __f) };
-                            match std::future::Future::poll(__pinned, &mut __cx) {
-                                core::task::Poll::Ready(__val) => {
-                                    #dv = true;
-                                    #rv = Some(__val);
-                                    __which_branch = #idx;
-                                    break;
-                                }
-                                core::task::Poll::Pending => {
-                                    #ev = Some(__f); // Put back for next iteration
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            quote! { __Out::#vn(#pat) => { #body } }
         })
         .collect();
 
     quote! {{
-        #(#fut_inits)*
-        #(#done_inits)*
-        #(#result_inits)*
+        #enum_def
 
-        '__select_loop: loop {
-            // Poll spawned tasks
-            let __waker = tokio::__noop_waker();
-            let mut __cx = core::task::Context::from_waker(&__waker);
+        let mut __disabled: u64 = 0;
 
-            tokio::__poll_spawned_tasks(&mut __cx);
+        // Step 1: Evaluate guards BEFORE creating futures
+        #(#guard_evals)*
 
-            // Phase 1: Evaluate guards (no futures alive — no borrow conflicts)
-            #(#guard_evals)*
+        // Step 2+3: Create futures and poll — scoped so futures are dropped before match body
+        let __output = {
+            let mut __futures = ( #(#fut_exprs,)* );
+            let __futures = &mut __futures;
+            std::future::poll_fn(|__cx| {
+                tokio::__poll_spawned_tasks(__cx);
+                let mut __is_pending = false;
 
-            // Phase 2: Create+poll+drop each future in one scope
-            let mut __which_branch = 0u8;
-            loop {
-                #(#poll_branches2)*
-                break; // No branch was Ready — exit inner loop
-            }
-            if __which_branch > 0 {
-                // Drop stored futures to release borrows before match body
-                #(#drop_exprs)*
+                #(#poll_branches)*
 
-                #[allow(unreachable_patterns)]
-                break '__select_loop match __which_branch {
-                    #(#match_arms)*
-                    _ => unreachable!("select! branch index out of range")
+                if __is_pending {
+                    core::task::Poll::Pending
+                } else {
+                    // All branches disabled — shouldn't happen in normal use
+                    panic!("all select! branches disabled")
                 }
-            }
+            }).await
+        };
 
-            // Yield to WASM event loop
-            tokio::__yield_once_sync();
+        // Step 4: Execute the matching branch body
+        #[allow(unreachable_patterns)]
+        match __output {
+            #(#match_arms,)*
+            _ => unreachable!("select! branch did not match"),
         }
     }}
 }
