@@ -20,6 +20,6 @@ rust:
   targets:
     - "wasm32-wasip2"
   bins:
-    - "cargo-component"
+    - "cargo-component@0.20.0"
     - "wit-deps-cli"
     - "wasm-tools"

@@ -1,0 +1,7 @@
+# Pin to 1.93.0 — Rust 1.94+ introduced a wasm-component-ld linker
+# regression that rejects wasm-bindgen modules in wasip2 components.
+# Unpin once the issue is resolved upstream.
+[toolchain]
+channel = "1.93.0"
+components = ["rustfmt"]
+targets = ["wasm32-wasip2"]
