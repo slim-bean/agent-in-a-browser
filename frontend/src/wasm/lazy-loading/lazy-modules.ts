@@ -400,7 +400,7 @@ async function loadStripeModule(): Promise<CommandModule> {
  */
 function createDirectGoAdapter(
     loadGoWasip1Module: typeof import('./go-wasip1-loader.js')['loadGoWasip1Module'],
-    GoWasmExit: typeof import('./go-wasip1-loader.js')['GoWasmExit'],
+    _GoWasmExit: typeof import('./go-wasip1-loader.js')['GoWasmExit'],
     wasmUrl: string,
     httpBridge: {
         request: (method: string, url: string, headers: string, body: Uint8Array) => number | Promise<number>;
@@ -410,6 +410,17 @@ function createDirectGoAdapter(
         responseClose: (handle: number) => void;
     },
 ): CommandModule {
+    // Extract exit code using duck typing instead of instanceof.
+    // GoWasmExit has { exitError: true, code: number }. Using instanceof
+    // fails when Vite code-splits go-wasip1-loader into a separate chunk,
+    // creating a different class identity than the one thrown by proc_exit.
+    const extractExitCode = (err: unknown): number => {
+        if (err && typeof err === 'object' && 'exitError' in err) {
+            return (err as { code?: number }).code ?? 1;
+        }
+        return 1;
+    };
+
     return {
         spawn(name, args, env, _stdin, stdout, stderr) {
             console.log(`[GoDirectAdapter] spawn: name=${name}, args=`, args);
@@ -431,13 +442,12 @@ function createDirectGoAdapter(
                     exitCode = 0;
                     return 0;
                 } catch (err: unknown) {
-                    if (err instanceof GoWasmExit) {
-                        exitCode = err.code;
-                        return err.code;
+                    exitCode = extractExitCode(err);
+                    if (exitCode > 1) {
+                        // Only log unexpected errors, not normal proc_exit
+                        console.error('[GoDirectAdapter] run() error:', err);
                     }
-                    console.error('[GoDirectAdapter] run() error:', err);
-                    exitCode = 1;
-                    return 1;
+                    return exitCode;
                 }
             })();
 
