@@ -1,0 +1,19 @@
+[package]
+name = "codex-codemod"
+version = "0.1.0"
+edition = "2021"
+description = "Automated codemod tool for transforming Codex upstream code for wasip2 compatibility"
+
+[[bin]]
+name = "codex-codemod"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+syn = { version = "2", features = ["full", "visit", "visit-mut", "parsing", "printing"] }
+quote = "1"
+proc-macro2 = { version = "1", features = ["span-locations"] }
+toml_edit = "0.22"
+regex-lite = "0.1"
+walkdir = "2"
