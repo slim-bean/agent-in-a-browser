@@ -207,6 +207,13 @@ export function getAllModules(): ModuleRegistration[] {
 }
 
 /**
+ * Get a module registration by module name
+ */
+export function getModuleRegistration(moduleName: string): ModuleRegistration | undefined {
+    return moduleRegistry.get(moduleName);
+}
+
+/**
  * Load a module by command name
  */
 export async function loadModuleForCommand(command: string): Promise<CommandModule | undefined> {

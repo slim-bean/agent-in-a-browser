@@ -14,6 +14,7 @@ import { hasJSPI } from './async-mode.js';
 // Import and re-export from wasm-loader for unified API
 import {
     registerModule,
+    getModuleRegistration,
     isRegisteredCommand,
     isInteractiveCommand as isInteractiveCommandRegistry,
     getModuleForCommand as getModuleForCommandRegistry,
@@ -600,31 +601,13 @@ export async function loadLazyModule(moduleName: string): Promise<CommandModule>
         return existingPromise;
     }
 
-    // Start loading
-    let loadPromise: Promise<CommandModule>;
-
-    switch (moduleName) {
-        case 'tsx-engine':
-            loadPromise = loadTsxEngine();
-            break;
-        case 'sqlite-module':
-            loadPromise = loadSqliteModule();
-            break;
-        case 'edtui-module':
-            loadPromise = loadEdtuiModule();
-            break;
-        case 'brush-shell':
-            loadPromise = loadBrushShell();
-            break;
-        case 'stripe-module':
-            loadPromise = loadStripeModule();
-            break;
-        case 'codex-tui':
-            loadPromise = loadCodexTui();
-            break;
-        default:
-            throw new Error(`Unknown lazy module: ${moduleName}`);
+    // Look up the module's loader from the registry
+    const registration = getModuleRegistration(moduleName);
+    if (!registration) {
+        throw new Error(`Unknown lazy module: ${moduleName}`);
     }
+
+    const loadPromise = registration.loader();
 
     loadingPromises.set(moduleName, loadPromise);
 
