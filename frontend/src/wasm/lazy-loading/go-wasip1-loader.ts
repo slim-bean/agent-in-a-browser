@@ -908,19 +908,29 @@ export async function loadGoWasip1Module(
     // ========================================================================
     // HTTP Bridge (raw pointer ABI for wasip1)
     // ========================================================================
+    const requestFn = function (
+        methodPtr: number, methodLen: number,
+        urlPtr: number, urlLen: number,
+        headersPtr: number, headersLen: number,
+        bodyPtr: number, bodyLen: number,
+    ): number | Promise<number> {
+        const method = readString(methodPtr, methodLen);
+        const url = readString(urlPtr, urlLen);
+        const headers = readString(headersPtr, headersLen);
+        const body = readBytes(bodyPtr, bodyLen);
+        return config.httpBridge.request(method, url, headers, body);
+    };
+
+    // In JSPI mode, wrap request with WebAssembly.Suspending so the WASM
+    // stack properly suspends while the fetch Promise resolves. Without this,
+    // the Promise object gets coerced to 0 and subsequent response reads fail
+    // with "invalid handle 0".
+    const wrappedRequest = (hasJSPI && WA.Suspending)
+        ? new WA.Suspending(requestFn)
+        : requestFn;
+
     const bridge: Record<string, Function> = {
-        'request'(
-            methodPtr: number, methodLen: number,
-            urlPtr: number, urlLen: number,
-            headersPtr: number, headersLen: number,
-            bodyPtr: number, bodyLen: number,
-        ): number | Promise<number> {
-            const method = readString(methodPtr, methodLen);
-            const url = readString(urlPtr, urlLen);
-            const headers = readString(headersPtr, headersLen);
-            const body = readBytes(bodyPtr, bodyLen);
-            return config.httpBridge.request(method, url, headers, body);
-        },
+        'request': wrappedRequest,
 
         'response-status'(handle: number): number {
             return config.httpBridge.responseStatus(handle);
