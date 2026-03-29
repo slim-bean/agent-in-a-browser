@@ -1,6 +1,6 @@
 //! Hybrid module resolver for URL and local imports.
 
-use rquickjs::loader::Resolver;
+use rquickjs::loader::{ImportAttributes, Resolver};
 use rquickjs::{Ctx, Result};
 use serde_json::Value;
 use std::path::{Component, Path, PathBuf};
@@ -15,7 +15,13 @@ enum ResolveMode {
 pub struct HybridResolver;
 
 impl Resolver for HybridResolver {
-    fn resolve<'js>(&mut self, _ctx: &Ctx<'js>, base: &str, name: &str) -> Result<String> {
+    fn resolve<'js>(
+        &mut self,
+        _ctx: &Ctx<'js>,
+        base: &str,
+        name: &str,
+        _attributes: Option<ImportAttributes<'js>>,
+    ) -> Result<String> {
         Ok(resolve(base, name))
     }
 }

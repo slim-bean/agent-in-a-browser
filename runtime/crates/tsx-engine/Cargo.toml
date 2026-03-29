@@ -8,12 +8,13 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # QuickJS-NG engine
-# Pinned to specific commit for API stability (Loader trait signature with ImportAttributes)
-rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "1fe498e7", features = [
+# Pinned to specific commit for API stability (Loader + Resolver trait signatures with ImportAttributes)
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "3a86441", features = [
     "futures",
     "loader",
     "classes",
     "macro",
+    "bindgen",
 ] }
 
 

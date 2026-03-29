@@ -323,6 +323,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "bindgen"
+version = "0.72.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "993776b509cfb49c750f11b8f07a46fa23e0a1386ffc01fb1e7d343efc387895"
+dependencies = [
+ "bitflags 2.11.0",
+ "cexpr",
+ "clang-sys",
+ "itertools 0.13.0",
+ "log",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "rustc-hash",
+ "shlex",
+ "syn",
+]
+
+[[package]]
 name = "bit-set"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -643,6 +663,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cexpr"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6fac387a98bb7c37292057cffc56d62ecb629900026402633ae9160df93a8766"
+dependencies = [
+ "nom",
+]
+
+[[package]]
 name = "cfg-if"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -675,6 +704,17 @@ checksum = "773f3b9af64447d2ce9850330c473515014aa235e6a783b02db81ff39e4a3dad"
 dependencies = [
  "crypto-common",
  "inout",
+]
+
+[[package]]
+name = "clang-sys"
+version = "1.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b023947811758c97c59bf9d1c188fd619ad4718dcaa767947df1cadb14f39f4"
+dependencies = [
+ "glob",
+ "libc",
+ "libloading",
 ]
 
 [[package]]
@@ -2122,6 +2162,15 @@ checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
 
 [[package]]
 name = "itertools"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
@@ -3174,7 +3223,7 @@ dependencies = [
  "compact_str 0.9.0",
  "hashbrown 0.16.1",
  "indoc",
- "itertools",
+ "itertools 0.14.0",
  "kasuari",
  "lru",
  "strum 0.27.2",
@@ -3202,7 +3251,7 @@ dependencies = [
  "hashbrown 0.16.1",
  "indoc",
  "instability",
- "itertools",
+ "itertools 0.14.0",
  "line-clipping",
  "ratatui-core",
  "strum 0.27.2",
@@ -3439,7 +3488,7 @@ dependencies = [
 [[package]]
 name = "rquickjs"
 version = "0.11.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git?rev=1fe498e7#1fe498e73ba4144d333b7e0602bc379d6f9c5126"
+source = "git+https://github.com/DelSkayn/rquickjs.git?rev=3a86441#3a864414db5cc143170ed150f332e287983d3ee9"
 dependencies = [
  "rquickjs-core",
  "rquickjs-macro",
@@ -3448,7 +3497,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-core"
 version = "0.11.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git?rev=1fe498e7#1fe498e73ba4144d333b7e0602bc379d6f9c5126"
+source = "git+https://github.com/DelSkayn/rquickjs.git?rev=3a86441#3a864414db5cc143170ed150f332e287983d3ee9"
 dependencies = [
  "async-lock",
  "hashbrown 0.16.1",
@@ -3459,7 +3508,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-macro"
 version = "0.11.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git?rev=1fe498e7#1fe498e73ba4144d333b7e0602bc379d6f9c5126"
+source = "git+https://github.com/DelSkayn/rquickjs.git?rev=3a86441#3a864414db5cc143170ed150f332e287983d3ee9"
 dependencies = [
  "convert_case",
  "fnv",
@@ -3475,8 +3524,9 @@ dependencies = [
 [[package]]
 name = "rquickjs-sys"
 version = "0.11.0"
-source = "git+https://github.com/DelSkayn/rquickjs.git?rev=1fe498e7#1fe498e73ba4144d333b7e0602bc379d6f9c5126"
+source = "git+https://github.com/DelSkayn/rquickjs.git?rev=3a86441#3a864414db5cc143170ed150f332e287983d3ee9"
 dependencies = [
+ "bindgen",
  "cc",
 ]
 
@@ -4805,7 +4855,7 @@ dependencies = [
  "flate2",
  "futures",
  "futures-lite",
- "itertools",
+ "itertools 0.14.0",
  "js-sys",
  "lexopt",
  "mcp-server-core",
@@ -5012,7 +5062,7 @@ version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "16b380a1238663e5f8a691f9039c73e1cdae598a30e9855f541d29b08b53e9a5"
 dependencies = [
- "itertools",
+ "itertools 0.14.0",
  "unicode-segmentation",
  "unicode-width 0.2.2",
 ]
@@ -5545,7 +5595,7 @@ dependencies = [
  "cranelift-frontend",
  "cranelift-native",
  "gimli",
- "itertools",
+ "itertools 0.14.0",
  "log",
  "object",
  "pulley-interpreter",
