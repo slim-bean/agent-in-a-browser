@@ -35,8 +35,7 @@ tasks:
       - "wit/deps/random"
       - "wit/deps/sockets"
     options:
-      # WIT deps are committed — skip in CI to avoid GitHub archive hash instability
-      runInCI: false
+      runInCI: true
 
   build-wasm:
     script: "cargo component build --release --target wasm32-wasip2 -p ts-runtime-mcp -p tsx-engine -p sqlite-module -p ratatui-demo -p edtui-module -p stripe-module -p web-agent-tui -p web-headless-agent && cargo fmt --all"
@@ -68,6 +67,8 @@ tasks:
       - "/target/wasm32-wasip2/release/stripe_module.wasm"
       - "/target/wasm32-wasip2/release/web_agent_tui.wasm"
       - "/target/wasm32-wasip2/release/web_headless_agent.wasm"
+    deps:
+      - "~:wit-deps"
     options:
       runInCI: true
 
@@ -96,6 +97,8 @@ tasks:
       - "@group(rust-sources)"
       - "@group(cargo-configs)"
       - "@group(wit-files)"
+    deps:
+      - "~:wit-deps"
     options:
       runInCI: true
 
