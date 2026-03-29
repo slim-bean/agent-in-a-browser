@@ -11,11 +11,12 @@ members = [
     # Codex WASM fork — shim crates and tooling
     "runtime/codex-wasm/platform-traits",
     "runtime/codex-wasm/wasi-tokio",
+    "runtime/codex-wasm/wasi-tokio-macros",
     "runtime/codex-wasm/wasi-reqwest",
     "runtime/codex-wasm/wasi-tokio-util",
     "runtime/codex-wasm/wasi-crossterm",
     "runtime/codex-wasm/wasi-codex-otel",
-    "runtime/codex-wasm/wasi-codex-login",
+    # wasi-codex-login removed — upstream codex-login now compiles directly
     "runtime/codex-wasm/codex-codemod",
 ]
 exclude = [
@@ -27,6 +28,8 @@ exclude = [
     # not as a workspace member (its package name is "webbrowser" to match
     # the crate it replaces).
     "runtime/codex-wasm/wasi-webbrowser",
+    "runtime/codex-wasm/wasi-os-info",
+    "runtime/codex-wasm/wasi-tiny-http",
 ]
 resolver = "2"
 

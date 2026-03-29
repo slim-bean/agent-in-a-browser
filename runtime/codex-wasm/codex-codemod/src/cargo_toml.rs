@@ -16,8 +16,9 @@ const SHIM_REDIRECTS: &[(&str, &str)] = &[
     ("reqwest", "wasi-reqwest"),
     ("crossterm", "wasi-crossterm"),
     ("codex-otel", "wasi-codex-otel"),
-    ("codex-login", "wasi-codex-login"),
-    ("libc", "wasi-libc"),
+    // codex-login: use upstream (not redirected to stub)
+    // libc: use real crate (0.2.x has wasm32-wasip2 support)
+    ("os_info", "wasi-os-info"),
 ];
 
 /// Per-crate additional deps to strip (crate_dir_name → deps to strip).
@@ -36,7 +37,7 @@ const PER_CRATE_STRIP_DEPS: &[(&str, &[&str])] = &[
             "codex-utils-home-dir",
         ],
     ),
-    ("login", &["tiny_http"]),
+    // ("login", &["tiny_http"]),  // tiny_http now shimmed via wasi-tiny-http
     (
         "network-proxy",
         &[
@@ -83,15 +84,20 @@ const RESCUE_TARGET_DEPS: &[(&str, &str)] = &[("core", "codex-shell-escalation")
 
 /// Per-crate deps to inject (crate_dir_name → (dep_name, relative_path_from_crate)).
 /// These deps are used by the TUI source but aren't in its original Cargo.toml.
-const INJECT_DEPS: &[(&str, &[(&str, &str)])] = &[(
-    "tui",
-    &[
-        ("codex-feedback", "../../../codex-wasm/wasi-codex-feedback"),
-        ("codex-arg0", "../arg0"),
-        ("codex-utils-sleep-inhibitor", "../utils/sleep-inhibitor"),
-        ("arboard", "../../../codex-wasm/wasi-arboard"),
-    ],
-)];
+const INJECT_DEPS: &[(&str, &[(&str, &str)])] = &[
+    (
+        "tui",
+        &[
+            ("codex-feedback", "../../../codex-wasm/wasi-codex-feedback"),
+            ("codex-arg0", "../arg0"),
+            ("codex-utils-sleep-inhibitor", "../utils/sleep-inhibitor"),
+            ("arboard", "../../../codex-wasm/wasi-arboard"),
+        ],
+    ),
+    // state: sqlx is stripped globally but state's runtime.rs uses it;
+    // inject the wasi-sqlx shim path so it resolves via [patch.crates-io]
+    ("state", &[("sqlx", "../../../codex-wasm/wasi-sqlx")]),
+];
 
 /// Dependencies to strip entirely (platform-specific or from removed members).
 const STRIP_DEPS: &[&str] = &[

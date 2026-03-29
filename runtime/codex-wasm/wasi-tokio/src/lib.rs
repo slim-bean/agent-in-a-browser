@@ -359,10 +359,15 @@ pub mod time;
 pub mod websocket_backend;
 
 // ---------------------------------------------------------------------------
-// select! macro — polls all branches, returns first Ready
+// select! macro — proc macro that generates polling code with proper
+// borrow separation between guards and futures
 // ---------------------------------------------------------------------------
 
-mod select_impl;
+/// Re-export the proc macro as `tokio::select!`
+pub use wasi_tokio_macros::select;
+
+#[doc(hidden)]
+pub mod select_impl;
 
 /// Public helpers called by the select! macro. Must be `pub` for cross-crate access.
 #[doc(hidden)]
@@ -385,6 +390,16 @@ pub fn __yield_to_js() {
     if let Some(yield_fn) = YIELD_FN.load() {
         yield_fn();
     }
+}
+
+/// Synchronous yield — used by select! macro's loop to yield between iterations.
+/// Polls spawned tasks then yields to JS event loop.
+#[doc(hidden)]
+pub fn __yield_once_sync() {
+    let waker = __noop_waker();
+    let mut cx = Context::from_waker(&waker);
+    poll_spawned_tasks(&mut cx);
+    __yield_to_js();
 }
 
 /// Create a noop waker for manual polling contexts.

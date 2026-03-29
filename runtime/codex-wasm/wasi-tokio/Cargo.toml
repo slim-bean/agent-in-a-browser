@@ -1,6 +1,6 @@
 [package]
 name = "tokio"
-version = "1.0.0"
+version = "1.50.0"
 edition = "2021"
 description = "wasip2-compatible shim providing tokio's API surface backed by WASI primitives"
 
@@ -28,3 +28,4 @@ fs = []
 [dependencies]
 futures-core = { version = "0.3", default-features = false }
 pin-project-lite = "0.2"
+wasi-tokio-macros = { path = "../wasi-tokio-macros" }

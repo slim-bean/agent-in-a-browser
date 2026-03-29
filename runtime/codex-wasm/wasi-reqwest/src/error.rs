@@ -20,6 +20,18 @@ impl Error {
         false
     }
 
+    pub fn is_request(&self) -> bool {
+        false
+    }
+
+    pub fn url(&self) -> Option<&url::Url> {
+        None
+    }
+
+    pub fn url_mut(&mut self) -> Option<&mut url::Url> {
+        None
+    }
+
     pub fn is_status(&self) -> bool {
         self.message.starts_with("HTTP ")
     }

@@ -100,3 +100,72 @@ pub const WNOHANG: c_int = 1;
 pub unsafe fn waitpid(_pid: pid_t, _status: *mut c_int, _options: c_int) -> pid_t {
     -1
 }
+
+// Terminal detection (is-terminal crate)
+pub unsafe fn isatty(_fd: c_int) -> c_int {
+    1 // Pretend stdout is a terminal (for TUI rendering)
+}
+
+// pthread stubs (parking_lot_core)
+pub type pthread_mutex_t = c_int;
+pub type pthread_cond_t = c_int;
+pub type pthread_mutexattr_t = c_int;
+pub type pthread_condattr_t = c_int;
+
+pub const PTHREAD_MUTEX_INITIALIZER: pthread_mutex_t = 0;
+pub const PTHREAD_COND_INITIALIZER: pthread_cond_t = 0;
+
+pub unsafe fn pthread_mutex_init(_m: *mut pthread_mutex_t, _a: *const pthread_mutexattr_t) -> c_int { 0 }
+pub unsafe fn pthread_mutex_lock(_m: *mut pthread_mutex_t) -> c_int { 0 }
+pub unsafe fn pthread_mutex_unlock(_m: *mut pthread_mutex_t) -> c_int { 0 }
+pub unsafe fn pthread_mutex_destroy(_m: *mut pthread_mutex_t) -> c_int { 0 }
+pub unsafe fn pthread_cond_init(_c: *mut pthread_cond_t, _a: *const pthread_condattr_t) -> c_int { 0 }
+pub unsafe fn pthread_cond_wait(_c: *mut pthread_cond_t, _m: *mut pthread_mutex_t) -> c_int { 0 }
+pub unsafe fn pthread_cond_signal(_c: *mut pthread_cond_t) -> c_int { 0 }
+pub unsafe fn pthread_cond_broadcast(_c: *mut pthread_cond_t) -> c_int { 0 }
+pub unsafe fn pthread_cond_destroy(_c: *mut pthread_cond_t) -> c_int { 0 }
+pub unsafe fn pthread_cond_timedwait(
+    _c: *mut pthread_cond_t,
+    _m: *mut pthread_mutex_t,
+    _t: *const timespec,
+) -> c_int {
+    ETIMEDOUT // Always "timed out" since we can't actually wait
+}
+
+// Time types
+pub type time_t = i64;
+
+#[repr(C)]
+pub struct timespec {
+    pub tv_sec: time_t,
+    pub tv_nsec: c_long,
+}
+
+#[repr(C)]
+pub struct timeval {
+    pub tv_sec: time_t,
+    pub tv_usec: c_long,
+}
+
+pub unsafe fn gettimeofday(tp: *mut timeval, _tz: *mut c_void) -> c_int {
+    if !tp.is_null() {
+        (*tp).tv_sec = 0;
+        (*tp).tv_usec = 0;
+    }
+    0
+}
+
+// Error constants
+pub const ETIMEDOUT: c_int = 110;
+pub const EINVAL: c_int = 22;
+
+// sysctl (macOS)
+pub unsafe fn sysctlbyname(
+    _name: *const c_char,
+    _oldp: *mut c_void,
+    _oldlenp: *mut size_t,
+    _newp: *const c_void,
+    _newlen: size_t,
+) -> c_int {
+    -1 // Not available
+}

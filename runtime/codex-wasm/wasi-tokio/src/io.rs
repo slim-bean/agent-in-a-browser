@@ -460,3 +460,65 @@ impl<R: AsyncRead + Unpin> AsyncRead for Take<R> {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// split — splits an AsyncRead + AsyncWrite into read/write halves
+// ---------------------------------------------------------------------------
+
+/// Split an I/O object into a read half and a write half.
+pub fn split<T: AsyncRead + AsyncWrite>(io: T) -> (ReadHalf<T>, WriteHalf<T>) {
+    let inner = std::sync::Arc::new(std::sync::Mutex::new(io));
+    (
+        ReadHalf {
+            inner: inner.clone(),
+        },
+        WriteHalf { inner },
+    )
+}
+
+/// Read half of a split I/O object.
+pub struct ReadHalf<T> {
+    inner: std::sync::Arc<std::sync::Mutex<T>>,
+}
+
+impl<T: AsyncRead> AsyncRead for ReadHalf<T> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        // SAFETY: single-threaded WASM, inner value won't be moved while pinned
+        let pinned = unsafe { Pin::new_unchecked(&mut *inner) };
+        pinned.poll_read(cx, buf)
+    }
+}
+
+/// Write half of a split I/O object.
+pub struct WriteHalf<T> {
+    inner: std::sync::Arc<std::sync::Mutex<T>>,
+}
+
+impl<T: AsyncWrite> AsyncWrite for WriteHalf<T> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let pinned = unsafe { Pin::new_unchecked(&mut *inner) };
+        pinned.poll_write(cx, buf)
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let pinned = unsafe { Pin::new_unchecked(&mut *inner) };
+        pinned.poll_flush(cx)
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let pinned = unsafe { Pin::new_unchecked(&mut *inner) };
+        pinned.poll_shutdown(cx)
+    }
+}

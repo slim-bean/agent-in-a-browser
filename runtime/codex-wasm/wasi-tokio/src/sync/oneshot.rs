@@ -19,6 +19,12 @@ pub struct Sender<T> {
     inner: Arc<Mutex<Option<T>>>,
 }
 
+impl<T> std::fmt::Debug for Sender<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Sender").finish()
+    }
+}
+
 impl<T> Sender<T> {
     pub fn send(self, value: T) -> Result<(), T> {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
@@ -42,10 +48,7 @@ impl<T> std::fmt::Debug for Receiver<T> {
     }
 }
 
-impl<T> Future for Receiver<T>
-where
-    T: Unpin,
-{
+impl<T> Future for Receiver<T> {
     type Output = Result<T, RecvError>;
 
     fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {

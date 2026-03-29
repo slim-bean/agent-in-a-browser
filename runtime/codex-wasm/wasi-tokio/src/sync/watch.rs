@@ -203,3 +203,7 @@ impl std::fmt::Display for RecvError {
 }
 
 impl std::error::Error for RecvError {}
+
+pub mod error {
+    pub use super::RecvError;
+}

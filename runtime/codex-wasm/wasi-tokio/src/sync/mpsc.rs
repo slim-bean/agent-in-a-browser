@@ -93,6 +93,16 @@ impl<T> Sender<T> {
     pub fn is_closed(&self) -> bool {
         self.inner.lock().unwrap_or_else(|e| e.into_inner()).closed
     }
+
+    pub fn blocking_send(&self, value: T) -> Result<(), SendError<T>> {
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        if inner.closed {
+            return Err(SendError(value));
+        }
+        inner.queue.push_back(value);
+        inner.wake_all();
+        Ok(())
+    }
 }
 
 pub struct Receiver<T> {
@@ -131,6 +141,30 @@ impl<T> Receiver<T> {
     pub fn close(&mut self) {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         inner.closed = true;
+    }
+
+    pub fn is_closed(&self) -> bool {
+        self.inner.lock().unwrap_or_else(|e| e.into_inner()).closed
+    }
+
+    pub fn len(&self) -> usize {
+        self.inner
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .queue
+            .len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn capacity(&self) -> usize {
+        1024
+    }
+
+    pub fn max_capacity(&self) -> usize {
+        1024
     }
 }
 
@@ -205,6 +239,40 @@ impl<T> UnboundedReceiver<T> {
     pub fn close(&mut self) {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         inner.closed = true;
+    }
+
+    pub fn is_closed(&self) -> bool {
+        self.inner.lock().unwrap_or_else(|e| e.into_inner()).closed
+    }
+
+    pub fn len(&self) -> usize {
+        self.inner
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .queue
+            .len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn poll_recv(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Option<T>> {
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        match inner.queue.pop_front() {
+            Some(val) => Poll::Ready(Some(val)),
+            None if inner.closed => Poll::Ready(None),
+            None => {
+                inner.wakers.push(cx.waker().clone());
+                Poll::Pending
+            }
+        }
+    }
+}
+
+impl<T> std::fmt::Debug for UnboundedReceiver<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UnboundedReceiver").finish()
     }
 }
 

@@ -104,6 +104,14 @@ pub struct Sleep {
     started: bool,
 }
 
+impl std::fmt::Debug for Sleep {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Sleep")
+            .field("duration", &self.duration)
+            .finish()
+    }
+}
+
 impl Sleep {
     pub fn new(duration: Duration) -> Self {
         Self {
@@ -166,7 +174,26 @@ pub struct Interval {
     next: StdInstant,
 }
 
+impl std::fmt::Debug for Interval {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Interval")
+            .field("period", &self.period)
+            .finish()
+    }
+}
+
 impl Interval {
+    pub fn poll_tick(&mut self, _cx: &mut Context<'_>) -> Poll<Instant> {
+        let now = StdInstant::now();
+        if now >= self.next {
+            let tick_at = self.next;
+            self.next = now + self.period;
+            Poll::Ready(tick_at)
+        } else {
+            Poll::Pending
+        }
+    }
+
     pub async fn tick(&mut self) -> Instant {
         let now = StdInstant::now();
         if now < self.next {

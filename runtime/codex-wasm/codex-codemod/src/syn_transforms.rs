@@ -1907,6 +1907,43 @@ impl<T> FileRwLock<T> {
         // --- webbrowser::open is now handled by the wasi-webbrowser shim crate
         // (patched via [patch.crates-io] in codex-wasm-tui/Cargo.toml) ---
 
+        // --- login/src/server.rs: strip unused std::thread import ---
+        // (thread::sleep replaced by tokio::time::sleep in codemod, but import remains)
+        self.string_replace("login/src/server.rs", "use std::thread;\n", "");
+
+        // --- TelemetryAuthMode::from → from_display ---
+        // wasi-codex-otel can't depend on codex-login, so use string-based conversion
+        self.string_replace(
+            "core/src/codex.rs",
+            ".map(TelemetryAuthMode::from)",
+            ".map(|m| TelemetryAuthMode::from_display(&m))",
+        );
+
+        // --- tui/src/lib.rs: codex_login::ForcedLoginMethod → codex_protocol ---
+        // The upstream TUI maps between codex_protocol and codex_login ForcedLoginMethod,
+        // but they're the same type. Use codex_protocol directly.
+        self.string_replace(
+            "tui/src/lib.rs",
+            "codex_login::ForcedLoginMethod::Chatgpt",
+            "codex_protocol::config_types::ForcedLoginMethod::Chatgpt",
+        );
+        self.string_replace(
+            "tui/src/lib.rs",
+            "codex_login::ForcedLoginMethod::Api",
+            "codex_protocol::config_types::ForcedLoginMethod::Api",
+        );
+        self.string_replace(
+            "core/src/models_manager/manager.rs",
+            "TelemetryAuthMode::from(mode)",
+            "TelemetryAuthMode::from_display(&mode)",
+        );
+        // tui/src/app.rs also maps TelemetryAuthMode
+        self.string_replace(
+            "tui/src/app.rs",
+            ".map(TelemetryAuthMode::from)",
+            ".map(|m| TelemetryAuthMode::from_display(&m))",
+        );
+
         // --- tui/src/app.rs: replace InProcessClientStartArgs with bail ---
         self.string_replace(
             "tui/src/app.rs",
@@ -1934,32 +1971,13 @@ impl<T> FileRwLock<T> {
             "merge_plugin_apps_with_accessible(\n                        Vec::new(),\n                        snapshot.connectors,\n                    )",
         );
 
-        // --- tui/src/lib.rs: fix set_default_client_residency_requirement (appears twice) ---
-        // Use find_all approach since replacen only does first and string_replace uses find
-        {
-            let needle =
-                "set_default_client_residency_requirement(config.enforce_residency.value());";
-            let replacement = "set_default_client_residency_requirement(config.enforce_residency.value().map(|_| ()));";
-            if self.file_matches("tui/src/lib.rs") {
-                let mut search_start = 0;
-                while let Some(pos) = self.source[search_start..].find(needle) {
-                    let abs_pos = search_start + pos;
-                    self.edits.push(Edit {
-                        start: abs_pos,
-                        end: abs_pos + needle.len(),
-                        replacement: replacement.to_string(),
-                    });
-                    search_start = abs_pos + needle.len();
-                }
-            }
-        }
-
-        // --- tui/src/lib.rs: fix forced_login_method type ---
-        self.string_replace(
-            "tui/src/lib.rs",
-            "forced_login_method: config.forced_login_method,",
-            "forced_login_method: config.forced_login_method.map(|m| match m {\n            codex_protocol::config_types::ForcedLoginMethod::Chatgpt => codex_login::ForcedLoginMethod::Chatgpt,\n            codex_protocol::config_types::ForcedLoginMethod::Api => codex_login::ForcedLoginMethod::Api,\n        }),",
-        );
+        // set_default_client_residency_requirement: no transform needed —
+        // using real codex_login which has the correct ResidencyRequirement type.
+        //
+        // forced_login_method: no transform needed —
+        // codex_login::auth::AuthConfig uses codex_protocol::config_types::ForcedLoginMethod
+        // directly (same type the TUI passes). The identity mapping in the old code
+        // is replaced by fixing the TUI to use codex_protocol paths directly.
 
         // --- tui/src/lib.rs: fix Multiplexer::Zellij pattern ---
         self.string_replace(
@@ -2399,32 +2417,8 @@ impl<T> FileRwLock<T> {
             "merge_plugin_apps_with_accessible(\n                        Vec::new(),\n                        snapshot.connectors,\n                    )",
         );
 
-        // 9. set_default_client_residency_requirement type fix (tui/src/lib.rs)
-        // Appears twice — use find_all approach
-        if self.file_matches("tui/src/lib.rs") {
-            let needle =
-                "set_default_client_residency_requirement(config.enforce_residency.value());";
-            let replacement = "set_default_client_residency_requirement(config.enforce_residency.value().map(|_| ()));";
-            let mut search_start = 0;
-            while let Some(pos) = self.source[search_start..].find(needle) {
-                let abs_pos = search_start + pos;
-                if !self.source.contains(replacement) || self.source.contains(needle) {
-                    self.edits.push(Edit {
-                        start: abs_pos,
-                        end: abs_pos + needle.len(),
-                        replacement: replacement.to_string(),
-                    });
-                }
-                search_start = abs_pos + needle.len();
-            }
-        }
-
-        // 10. forced_login_method type mapping (tui/src/lib.rs)
-        self.replace_in_file(
-            "tui/src/lib.rs",
-            "forced_login_method: config.forced_login_method,",
-            "forced_login_method: config.forced_login_method.map(|m| match m {\n            codex_protocol::config_types::ForcedLoginMethod::Chatgpt => codex_login::ForcedLoginMethod::Chatgpt,\n            codex_protocol::config_types::ForcedLoginMethod::Api => codex_login::ForcedLoginMethod::Api,\n        }),",
-        );
+        // 9. set_default_client_residency_requirement: no transform needed — real type now available
+        // 10. forced_login_method: no transform needed — using codex_protocol paths directly
 
         // 11. Multiplexer::Zellij pattern fix (tui/src/lib.rs)
         self.replace_in_file(

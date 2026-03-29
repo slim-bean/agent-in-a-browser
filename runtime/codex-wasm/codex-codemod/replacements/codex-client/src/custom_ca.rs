@@ -13,6 +13,12 @@ pub enum BuildCustomCaTransportError {
     NotAvailable,
 }
 
+impl From<BuildCustomCaTransportError> for std::io::Error {
+    fn from(e: BuildCustomCaTransportError) -> Self {
+        std::io::Error::other(e)
+    }
+}
+
 pub fn build_reqwest_client_with_custom_ca(
     builder: reqwest::ClientBuilder,
 ) -> Result<reqwest::Client, BuildCustomCaTransportError> {

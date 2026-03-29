@@ -262,13 +262,13 @@ impl std::fmt::Display for TelemetryAuthMode {
     }
 }
 
-impl From<codex_login::AuthMode> for TelemetryAuthMode {
-    fn from(mode: codex_login::AuthMode) -> Self {
-        match mode {
-            codex_login::AuthMode::ApiKey => Self::ApiKey,
-            codex_login::AuthMode::Chatgpt | codex_login::AuthMode::ChatgptAuthTokens => {
-                Self::ChatGpt
-            }
+impl TelemetryAuthMode {
+    /// Convert from a Display-able auth mode (e.g. codex_login::AuthMode).
+    pub fn from_display(mode: &impl std::fmt::Display) -> Self {
+        match mode.to_string().as_str() {
+            "apikey" => Self::ApiKey,
+            "chatgpt" | "chatgptAuthTokens" => Self::ChatGpt,
+            _ => Self::None,
         }
     }
 }

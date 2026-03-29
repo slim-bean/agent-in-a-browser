@@ -381,6 +381,7 @@ struct PendingLoginInfo {
     code_verifier: String,
     client_id: String,
     redirect_uri: String,
+    issuer: String,
     codex_home: String,
     path: std::path::PathBuf,
 }
@@ -409,6 +410,10 @@ fn find_pending_login(state: &str) -> Option<PendingLoginInfo> {
                         code_verifier: v["code_verifier"].as_str().unwrap_or("").to_string(),
                         client_id: v["client_id"].as_str().unwrap_or("").to_string(),
                         redirect_uri: v["redirect_uri"].as_str().unwrap_or("").to_string(),
+                        issuer: v["issuer"]
+                            .as_str()
+                            .unwrap_or("https://auth.openai.com")
+                            .to_string(),
                         codex_home: dir.to_string_lossy().to_string(),
                         path: pending_path,
                     });
@@ -421,7 +426,7 @@ fn find_pending_login(state: &str) -> Option<PendingLoginInfo> {
 
 /// Exchange an OAuth authorization code for an access token and save credentials.
 fn exchange_code_for_token(pending: &PendingLoginInfo, code: &str) -> Result<(), String> {
-    let token_url = "https://auth.openai.com/oauth/token";
+    let token_url = format!("{}/oauth/token", pending.issuer);
 
     let body = serde_json::json!({
         "grant_type": "authorization_code",
@@ -435,7 +440,7 @@ fn exchange_code_for_token(pending: &PendingLoginInfo, code: &str) -> Result<(),
     let headers = serde_json::json!({"content-type": "application/json"});
     let headers_str = serde_json::to_string(&headers).map_err(|e| e.to_string())?;
 
-    let resp = http_client::fetch_request("POST", token_url, Some(&headers_str), Some(&body_str))
+    let resp = http_client::fetch_request("POST", &token_url, Some(&headers_str), Some(&body_str))
         .map_err(|e| format!("Token request failed: {}", e))?;
 
     if !resp.ok {

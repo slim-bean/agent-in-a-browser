@@ -68,12 +68,12 @@ impl<T: Clone> Sender<T> {
     }
 }
 
-pub struct Receiver<T: Clone> {
+pub struct Receiver<T> {
     inner: Arc<Mutex<BroadcastInner<T>>>,
     read_id: u64,
 }
 
-impl<T: Clone> std::fmt::Debug for Receiver<T> {
+impl<T> std::fmt::Debug for Receiver<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Receiver").finish()
     }

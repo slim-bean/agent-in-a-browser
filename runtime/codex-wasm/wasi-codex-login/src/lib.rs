@@ -12,7 +12,8 @@ use std::sync::Arc;
 pub const OPENAI_API_KEY_ENV_VAR: &str = "OPENAI_API_KEY";
 pub const CODEX_API_KEY_ENV_VAR: &str = "CODEX_API_KEY";
 pub const REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR: &str = "CODEX_REFRESH_TOKEN_URL_OVERRIDE";
-pub const CLIENT_ID: &str = "stub-client-id";
+pub const CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
+pub const DEFAULT_ISSUER: &str = "https://auth.openai.com";
 
 // ---------------------------------------------------------------------------
 // AuthMode (mirrors codex_app_server_protocol::AuthMode)
@@ -683,7 +684,7 @@ impl ServerOptions {
         Self {
             codex_home,
             client_id,
-            issuer: String::new(),
+            issuer: DEFAULT_ISSUER.to_string(),
             port: 0,
             open_browser: true,
             force_state: None,
@@ -756,6 +757,7 @@ impl ShutdownHandle {
 pub async fn request_device_code(_opts: &ServerOptions) -> std::io::Result<DeviceCode> {
     // Return NotFound to trigger fallback to run_login_server() which uses
     // the browser-based OAuth flow via the incoming HTTP handler.
+    eprintln!("[wasi-codex-login] request_device_code returning NotFound to trigger browser fallback");
     Err(std::io::Error::new(
         std::io::ErrorKind::NotFound,
         "device code not available — falling back to browser login",
@@ -785,23 +787,37 @@ pub fn run_login_server(options: ServerOptions) -> std::io::Result<LoginServer> 
     use base64::Engine;
     use sha2::Digest;
 
-    // Generate PKCE code_verifier (43-128 chars, base64url, no padding)
-    let random_bytes: Vec<u8> = (0..32).map(|_| rand_byte()).collect();
-    let code_verifier = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&random_bytes);
+    eprintln!(
+        "[wasi-codex-login] run_login_server called, codex_home={}, client_id={}",
+        options.codex_home.display(),
+        options.client_id
+    );
 
-    // code_challenge = BASE64URL(SHA256(code_verifier))
-    let mut hasher = sha2::Sha256::new();
-    hasher.update(code_verifier.as_bytes());
-    let code_challenge = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(hasher.finalize());
+    // Generate PKCE using cryptographic random (matches upstream pkce.rs)
+    let mut verifier_bytes = [0u8; 32];
+    rand::RngCore::fill_bytes(&mut rand::rng(), &mut verifier_bytes);
+    let code_verifier =
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(verifier_bytes);
+    let code_challenge = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .encode(sha2::Sha256::digest(code_verifier.as_bytes()));
 
-    // Generate state parameter for CSRF protection
-    let state_bytes: Vec<u8> = (0..16).map(|_| rand_byte()).collect();
-    let state = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&state_bytes);
+    // Generate state (matches upstream generate_state)
+    let mut state_bytes = [0u8; 32];
+    rand::RngCore::fill_bytes(&mut rand::rng(), &mut state_bytes);
+    let state =
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(state_bytes);
 
     let redirect_uri = format!(
         "{}/oauth/callback",
-        std::env::var("CODEX_ORIGIN").unwrap_or_else(|_| "https://agent.edge-agent.dev".into())
+        std::env::var("CODEX_ORIGIN")
+            .unwrap_or_else(|_| "https://agent.edge-agent.dev".into())
     );
+
+    let issuer = if options.issuer.is_empty() {
+        DEFAULT_ISSUER
+    } else {
+        options.issuer.trim_end_matches('/')
+    };
 
     // Write pending login info to OPFS so ts-runtime-mcp's /oauth/callback
     // handler can read it for the token exchange.
@@ -810,6 +826,7 @@ pub fn run_login_server(options: ServerOptions) -> std::io::Result<LoginServer> 
         "code_verifier": code_verifier,
         "client_id": options.client_id,
         "redirect_uri": redirect_uri,
+        "issuer": issuer,
     });
     let pending_path = options.codex_home.join(".login_pending.json");
     std::fs::create_dir_all(&options.codex_home)?;
@@ -818,21 +835,29 @@ pub fn run_login_server(options: ServerOptions) -> std::io::Result<LoginServer> 
         serde_json::to_string(&pending).map_err(|e| std::io::Error::other(e.to_string()))?,
     )?;
 
-    // Build the authorization URL
+    // Build the authorization URL (matches upstream build_authorize_url)
     let auth_url = format!(
-        "https://auth.openai.com/authorize?\
+        "{issuer}/oauth/authorize?\
          response_type=code\
          &client_id={}\
          &redirect_uri={}\
-         &scope=openid%20profile%20email%20offline_access\
-         &state={}\
+         &scope={}\
          &code_challenge={}\
-         &code_challenge_method=S256",
+         &code_challenge_method=S256\
+         &id_token_add_organizations=true\
+         &codex_cli_simplified_flow=true\
+         &state={}\
+         &originator=codex_cli_rs",
         urlencoded(&options.client_id),
         urlencoded(&redirect_uri),
-        urlencoded(&state),
+        urlencoded(
+            "openid profile email offline_access api.connectors.read api.connectors.invoke",
+        ),
         urlencoded(&code_challenge),
+        urlencoded(&state),
     );
+
+    eprintln!("[wasi-codex-login] auth_url={}", auth_url);
 
     Ok(LoginServer {
         auth_url,
@@ -858,13 +883,6 @@ fn urlencoded(s: &str) -> String {
     result
 }
 
-/// Best-effort random byte using system time jitter.
-fn rand_byte() -> u8 {
-    let t = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default();
-    (t.subsec_nanos() ^ (t.as_millis() as u32)) as u8
-}
 
 // ---------------------------------------------------------------------------
 // Default client module

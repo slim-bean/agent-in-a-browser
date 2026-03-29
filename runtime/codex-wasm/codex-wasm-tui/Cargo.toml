@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 codex-tui = { path = "../../codex-upstream/codex-rs/tui", default-features = false }
 codex-core = { path = "../../codex-upstream/codex-rs/core" }
 codex-protocol = { path = "../../codex-upstream/codex-rs/protocol" }
-codex-login = { path = "../wasi-codex-login" }
+codex-login = { path = "../../codex-upstream/codex-rs/login" }
 codex-arg0 = { path = "../../codex-upstream/codex-rs/arg0" }
 codex-feedback = { path = "../wasi-codex-feedback" }
 codex-utils-sleep-inhibitor = { path = "../../codex-upstream/codex-rs/utils/sleep-inhibitor" }
@@ -35,11 +35,13 @@ codegen-units = 1
 crossterm = { path = "../wasi-crossterm" }
 tokio = { path = "../wasi-tokio" }
 reqwest = { path = "../wasi-reqwest" }
-libc = { path = "../wasi-libc" }
+# libc: use real crate (0.2.x has wasm32-wasip2 support)
 tokio-util = { path = "../wasi-tokio-util" }
 arboard = { path = "../wasi-arboard" }
 webbrowser = { path = "../wasi-webbrowser" }
+os_info = { path = "../wasi-os-info" }
 sqlx = { path = "../wasi-sqlx" }
+tiny_http = { path = "../wasi-tiny-http" }
 
 [package.metadata.component]
 package = "codex:tui"

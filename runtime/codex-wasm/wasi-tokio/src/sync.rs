@@ -52,6 +52,14 @@ impl<T> RwLock<T> {
             .map_err(|_| TryLockError(()))
     }
 
+    /// Write lock returning an owned guard (requires Arc<RwLock<T>>).
+    pub async fn write_owned(self: std::sync::Arc<Self>) -> OwnedRwLockWriteGuard<T> {
+        let guard = self.inner.write().unwrap_or_else(|e| e.into_inner());
+        let ptr = &*guard as *const T as *mut T;
+        drop(guard);
+        OwnedRwLockWriteGuard { _lock: self, ptr }
+    }
+
     /// Try to acquire a write lock without blocking.
     pub fn try_write(&self) -> Result<RwLockWriteGuard<'_, T>, TryLockError> {
         self.inner
@@ -119,6 +127,28 @@ impl<T: ?Sized> std::ops::Deref for RwLockWriteGuard<'_, T> {
 impl<T: ?Sized> std::ops::DerefMut for RwLockWriteGuard<'_, T> {
     fn deref_mut(&mut self) -> &mut T {
         &mut *self.inner
+    }
+}
+
+/// OwnedRwLockWriteGuard — returned by RwLock::write_owned.
+pub struct OwnedRwLockWriteGuard<T> {
+    _lock: std::sync::Arc<RwLock<T>>,
+    ptr: *mut T,
+}
+
+unsafe impl<T: Send> Send for OwnedRwLockWriteGuard<T> {}
+unsafe impl<T: Send + Sync> Sync for OwnedRwLockWriteGuard<T> {}
+
+impl<T> std::ops::Deref for OwnedRwLockWriteGuard<T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        unsafe { &*self.ptr }
+    }
+}
+
+impl<T> std::ops::DerefMut for OwnedRwLockWriteGuard<T> {
+    fn deref_mut(&mut self) -> &mut T {
+        unsafe { &mut *self.ptr }
     }
 }
 
@@ -411,6 +441,19 @@ impl<T> OnceCell<T> {
         }
     }
 
+    pub fn new_with(value: Option<T>) -> Self {
+        OnceCell {
+            inner: std::sync::Mutex::new(value),
+        }
+    }
+
+    pub fn initialized(&self) -> bool {
+        self.inner
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some()
+    }
+
     pub fn get(&self) -> Option<&T> {
         // SAFETY: single-threaded WASM — no concurrent mutation after set.
         let guard = self.inner.lock().unwrap_or_else(|e| e.into_inner());
@@ -487,6 +530,15 @@ impl Semaphore {
         Self {
             permits: std::sync::atomic::AtomicUsize::new(permits),
         }
+    }
+
+    pub fn add_permits(&self, n: usize) {
+        self.permits
+            .fetch_add(n, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub fn available_permits(&self) -> usize {
+        self.permits.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     pub async fn acquire(&self) -> Result<SemaphorePermit<'_>, AcquireError> {

@@ -612,24 +612,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "codex-login"
-version = "0.0.0"
-dependencies = [
- "async-trait",
- "base64",
- "reqwest",
- "schemars",
- "serde",
- "serde_json",
- "sha2",
- "thiserror 2.0.18",
-]
-
-[[package]]
 name = "codex-otel"
 version = "0.0.0"
 dependencies = [
- "codex-login",
  "serde",
  "tracing",
  "tracing-subscriber",
@@ -639,7 +624,7 @@ dependencies = [
 name = "codex-platform"
 version = "0.1.0"
 dependencies = [
- "tokio 1.0.0",
+ "tokio 1.50.0",
 ]
 
 [[package]]
@@ -1081,12 +1066,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd8e701084c37e7ef62d3f9e453b618130cbc0ef3573847785952a3ac3f746bf"
 
 [[package]]
-name = "dyn-clone"
-version = "1.0.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
-
-[[package]]
 name = "edtui-module"
 version = "0.1.0"
 dependencies = [
@@ -1500,7 +1479,7 @@ dependencies = [
  "http",
  "indexmap",
  "slab",
- "tokio 1.50.0",
+ "tokio 1.50.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-util 0.7.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing",
 ]
@@ -1646,7 +1625,7 @@ dependencies = [
  "pin-project-lite",
  "pin-utils",
  "smallvec",
- "tokio 1.50.0",
+ "tokio 1.50.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "want",
 ]
 
@@ -2996,30 +2975,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "schemars"
-version = "0.8.22"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fbf2ae1b8bc8e02df939598064d22402220cd5bbcca1c76f7d6a310974d5615"
-dependencies = [
- "dyn-clone",
- "schemars_derive",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "schemars_derive"
-version = "0.8.22"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32e265784ad618884abaea0600a9adf15393368d840e0222d101a072f3f7534d"
-dependencies = [
- "proc-macro2",
- "quote",
- "serde_derive_internals",
- "syn",
-]
-
-[[package]]
 name = "scoped-tls"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3082,17 +3037,6 @@ name = "serde_derive"
 version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d540f220d3187173da220f885ab66608367b6574e925011a9353e4badda91d79"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "serde_derive_internals"
-version = "0.29.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18d26a20a969b9e3fdf2fc2d9f21eda6c40e2de84c9408bb5d3b05d499aae711"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3805,10 +3749,11 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.0.0"
+version = "1.50.0"
 dependencies = [
  "futures-core",
  "pin-project-lite",
+ "wasi-tokio-macros",
 ]
 
 [[package]]
@@ -3847,7 +3792,7 @@ checksum = "775e0c0f0adb3a2f22a00c4745d728b479985fc15ee7ca6a2608388c5569860f"
 dependencies = [
  "rustls",
  "rustls-pki-types",
- "tokio 1.50.0",
+ "tokio 1.50.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -3857,7 +3802,7 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-sink",
- "tokio 1.0.0",
+ "tokio 1.50.0",
 ]
 
 [[package]]
@@ -3870,7 +3815,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "pin-project-lite",
- "tokio 1.50.0",
+ "tokio 1.50.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -4243,6 +4188,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "883478de20367e224c0090af9cf5f9fa85bed63a95c1abf3afc5c083ebc06e8c"
 dependencies = [
  "wasip2",
+]
+
+[[package]]
+name = "wasi-tokio-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -4718,7 +4672,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "terminal_size",
- "tokio 1.50.0",
+ "tokio 1.50.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmtime",
  "wasmtime-wasi",
  "wasmtime-wasi-http",
@@ -4745,7 +4699,7 @@ dependencies = [
  "rustix 1.1.4",
  "system-interface",
  "thiserror 2.0.18",
- "tokio 1.50.0",
+ "tokio 1.50.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing",
  "url",
  "wasmtime",
@@ -4768,7 +4722,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "rustls",
- "tokio 1.50.0",
+ "tokio 1.50.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-rustls",
  "tracing",
  "wasmtime",

@@ -1,0 +1,9 @@
+[package]
+name = "tiny_http"
+version = "0.12.0"
+edition = "2021"
+description = "WASM shim for tiny_http — HTTP server types with no-op implementations"
+
+[lib]
+name = "tiny_http"
+path = "src/lib.rs"
