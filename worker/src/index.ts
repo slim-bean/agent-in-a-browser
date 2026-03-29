@@ -89,7 +89,7 @@ async function handleCorsProxy(request: Request): Promise<Response> {
             headers: {
                 'Access-Control-Allow-Origin': origin || '*',
                 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Agent-Proxy',
                 'Access-Control-Max-Age': '86400',
             },
         });
@@ -116,6 +116,7 @@ async function handleCorsProxy(request: Request): Promise<Response> {
     const headers = new Headers(request.headers);
     headers.delete('host');
     headers.delete('origin');
+    headers.delete('x-agent-proxy');
     headers.delete('cf-connecting-ip');
     headers.delete('cf-ipcountry');
     headers.delete('cf-ray');

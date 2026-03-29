@@ -93,7 +93,15 @@ async function requestAsync(
     const parsedHeaders: Record<string, string> = headers ? JSON.parse(headers) : {};
 
     // Route cross-origin requests through the CORS proxy
-    const fetchUrl = shouldProxyViaCors(url) ? getCorsProxyUrl(url) : url;
+    const proxied = shouldProxyViaCors(url);
+    const fetchUrl = proxied ? getCorsProxyUrl(url) : url;
+
+    // When proxying, add the marker header so the CORS proxy allows the
+    // request even when the browser omits Origin (e.g. same-origin GETs
+    // from a SharedWorker).
+    if (proxied) {
+        parsedHeaders['X-Agent-Proxy'] = 'web-agent';
+    }
 
     const fetchInit: RequestInit = {
         method,
@@ -147,11 +155,15 @@ function requestSync(
     // eslint-disable-next-line no-restricted-globals
     const xhr = new XMLHttpRequest();
     // Route cross-origin requests through the CORS proxy
-    const fetchUrl = shouldProxyViaCors(url) ? getCorsProxyUrl(url) : url;
+    const proxied = shouldProxyViaCors(url);
+    const fetchUrl = proxied ? getCorsProxyUrl(url) : url;
     xhr.open(method, fetchUrl, false); // synchronous
     xhr.responseType = 'arraybuffer';
 
     const parsedHeaders: Record<string, string> = headers ? JSON.parse(headers) : {};
+    if (proxied) {
+        parsedHeaders['X-Agent-Proxy'] = 'web-agent';
+    }
     for (const [key, value] of Object.entries(parsedHeaders)) {
         xhr.setRequestHeader(key, value);
     }
