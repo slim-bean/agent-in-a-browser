@@ -408,15 +408,8 @@ test.describe('Git Commands', () => {
         }, { timeout: 30000 });
     });
 
-    // TODO: git init/status hang indefinitely in WASM context
-    // - git help/version work fine
-    // - git init causes deadlock, never creates .git directory
-    // - Once hung, all subsequent commands hang until page refresh
-    // - Root cause is likely in isomorphic-git WASM initialization
-    // - Requires separate investigation of opfs-git-adapter.ts
-
     test('git init creates a repository', async ({ page }) => {
-        // First git operation triggers lazy loading of isomorphic-git, needs extra time
+        // First git operation triggers lazy loading of the Go WASM binary (~17MB)
         test.slow();
 
         // Create directory and init
@@ -434,7 +427,6 @@ test.describe('Git Commands', () => {
     });
 
     test('git status shows repository state', async ({ page }) => {
-        // Git operations trigger lazy loading of isomorphic-git, needs extra time
         test.slow();
 
         // Create and init repo

@@ -78,6 +78,12 @@
             ],
             "@tjfontaine/web-agent-core/*": [
                 "../packages/web-agent-core/src/*"
+            ],
+            "@tjfontaine/wasm-git": [
+                "../packages/wasm-git/src/index.ts"
+            ],
+            "@tjfontaine/wasm-git/*": [
+                "../packages/wasm-git/src/*"
             ]
         }
     },
@@ -95,6 +101,9 @@
         },
         {
             "path": "../packages/wasi-shims"
+        },
+        {
+            "path": "../packages/wasm-git"
         },
         {
             "path": "../packages/wasm-loader"

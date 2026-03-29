@@ -1,0 +1,3 @@
+*.wasm
+!adapters/*.wasm
+patches/go-git/.git/

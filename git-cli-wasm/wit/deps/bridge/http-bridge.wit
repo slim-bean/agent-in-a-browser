@@ -1,0 +1,18 @@
+package git:bridge@0.1.0;
+
+interface http-bridge {
+    /// Send an HTTP request and return a response handle.
+    request: func(method: string, url: string, headers: string, body: list<u8>) -> u32;
+
+    /// Get the HTTP status code from a response handle.
+    response-status: func(handle: u32) -> u32;
+
+    /// Get response headers as a JSON string.
+    response-headers: func(handle: u32) -> string;
+
+    /// Read response body data. Returns empty list on EOF.
+    response-body-read: func(handle: u32, max-bytes: u32) -> list<u8>;
+
+    /// Close a response handle and free associated resources.
+    response-close: func(handle: u32);
+}

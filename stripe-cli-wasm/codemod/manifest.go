@@ -57,10 +57,17 @@ type VarExtraction struct {
 	VarName string // Variable name to remove
 }
 
+// BuildTagRemoval describes a file that needs its `//go:build !wasip1` tag removed.
+// Used when a file was previously excluded but is now supported in wasip1 builds.
+type BuildTagRemoval struct {
+	File string
+}
+
 // Spec is the complete codemod specification.
 type Spec struct {
 	BuildTagExclusions  []BuildTagExclusion
 	BuildTagAmendments  []BuildTagAmendment
+	BuildTagRemovals    []BuildTagRemoval
 	FuncExtractions     []FuncExtraction
 	VarExtractions      []VarExtraction
 	InlineReplacements  []InlineReplacement
@@ -101,14 +108,15 @@ var Manifest = Spec{
 		// The Edit var (which imports pkg/git) is extracted to platform-split files.
 
 		// pkg/git/ — requires subprocess (git, editor)
+		// git.go and editor.go have wasip1 overlays that provide WASM-compatible implementations
 		{File: "pkg/git/editor.go"},
 		{File: "pkg/git/git.go"},
 
-		// pkg/samples/ — requires git/subprocess
-		{File: "pkg/samples/create.go"},
-		{File: "pkg/samples/list.go"},
-		{File: "pkg/samples/os.go"},
-		{File: "pkg/samples/samples.go"},
+		// NOTE: pkg/samples/ is NO LONGER excluded — real samples work in WASM.
+		// The pkg/git overlay provides WASM-compatible git operations,
+		// and pkg/samples/create.go has a wasip1 overlay without os.Signal handling.
+		// Only pkg/cmd/samples/ (the cobra command layer) remains excluded above,
+		// with wasip1 overlays that use flags instead of interactive promptui.
 
 		// pkg/terminal/ — hardware terminal interactions
 		{File: "pkg/terminal/p400/user_prompts.go"},
@@ -119,6 +127,15 @@ var Manifest = Spec{
 	BuildTagAmendments: []BuildTagAmendment{
 		// Existing !windows tag needs !wasip1 added
 		{File: "pkg/useragent/uname_unix.go"},
+	},
+
+	BuildTagRemovals: []BuildTagRemoval{
+		// pkg/samples/ — previously excluded, now supported via go-git wasip1 overlay
+		{File: "pkg/samples/list.go"},
+		{File: "pkg/samples/os.go"},
+		{File: "pkg/samples/samples.go"},
+		// NOTE: pkg/samples/create.go keeps its !wasip1 tag — the create_wasip1.go
+		// overlay provides a version without os.Signal handling
 	},
 
 	FuncExtractions: []FuncExtraction{
@@ -163,6 +180,16 @@ var Manifest = Spec{
 			Module:      "github.com/sirupsen/logrus",
 			Replacement: "../patches/logrus",
 			Comment:     "wasip1 WASM compatibility patches",
+		},
+		{
+			Module:      "github.com/go-git/go-git/v5",
+			Replacement: "../patches/go-git",
+			Comment:     "wasip1 WASM compatibility: adds worktree_wasip1.go",
+		},
+		{
+			Module:      "github.com/otiai10/copy",
+			Replacement: "../patches/otiai10-copy",
+			Comment:     "wasip1 WASM compatibility: adds stubs for named pipes and ltimes",
 		},
 	},
 }

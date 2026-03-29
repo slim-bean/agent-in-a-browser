@@ -1,0 +1,5 @@
+package git:cli@0.1.0;
+
+world git-cli {
+    import git:bridge/http-bridge@0.1.0;
+}
