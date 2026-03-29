@@ -31,8 +31,6 @@ tasks:
       - "patches/**/*.go"
     outputs:
       - "stripe.wasm"
-    deps:
-      - "~:apply-codemod"
 
   # Step 2: Embed WIT metadata for custom bridge imports, then adapt wasip1→wasip2
   # The embed step tells wasm-tools about the stripe:bridge imports.
