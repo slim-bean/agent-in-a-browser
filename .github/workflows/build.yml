@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 0
 
       - name: Checkout submodules
-        run: git submodule update --init stripe-cli-wasm/stripe-cli
+        run: git submodule update --init stripe-cli-wasm/stripe-cli git-cli-wasm/patches/go-git
 
       # Pin Rust toolchain — 1.94.0 introduced a wasm-component-ld linker
       # regression. Unpin once the issue is resolved upstream.
@@ -89,6 +89,9 @@ jobs:
             runtime:verify-wasm \
             runtime:check-native \
             runtime:test \
+            git-cli-wasm:build-go-wasm \
+            git-cli-wasm:adapt-component \
+            git-cli-wasm:copy-to-target \
             stripe-cli-wasm:build-go-wasm \
             stripe-cli-wasm:adapt-component \
             stripe-cli-wasm:copy-to-target \
