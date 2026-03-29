@@ -292,6 +292,194 @@ fn handle_mcp_request(request_str: &str) -> String {
     }
 }
 
+/// Handle OAuth callback — receives authorization code from browser redirect.
+/// Reads pending login state from `.login_pending.json` on OPFS (written by
+/// codex-tui's `run_login_server()`), exchanges the code for tokens, saves
+/// `auth.json`, and removes the pending file to signal completion.
+///
+/// Returns (body, content_type, status_code).
+fn handle_oauth_callback(path: &str) -> (String, &'static str, u16) {
+    // Parse query parameters from path
+    let query = path.splitn(2, '?').nth(1).unwrap_or("");
+    let params: std::collections::HashMap<&str, &str> = query
+        .split('&')
+        .filter_map(|pair| {
+            let mut kv = pair.splitn(2, '=');
+            Some((kv.next()?, kv.next().unwrap_or("")))
+        })
+        .collect();
+
+    let state = params.get("state").copied().unwrap_or("");
+    let code = params.get("code").copied();
+    let error = params.get("error").copied();
+
+    if state.is_empty() {
+        return (
+            html_page("Login Failed", "Missing state parameter."),
+            "text/html",
+            400,
+        );
+    }
+
+    // Find the pending login file by scanning known codex home locations
+    let pending = match find_pending_login(state) {
+        Some(p) => p,
+        None => {
+            return (
+                html_page("Login Failed", "Unknown or expired login session."),
+                "text/html",
+                400,
+            );
+        }
+    };
+
+    if let Some(err) = error {
+        let desc = params.get("error_description").copied().unwrap_or(err);
+        let _ = std::fs::remove_file(&pending.path);
+        return (
+            html_page("Login Failed", &format!("Authentication error: {}", desc)),
+            "text/html",
+            400,
+        );
+    }
+
+    match code {
+        Some(code) => {
+            match exchange_code_for_token(&pending, code) {
+                Ok(()) => {
+                    // Remove pending file to signal completion to block_until_done()
+                    let _ = std::fs::remove_file(&pending.path);
+                    (
+                        html_page(
+                            "Login Successful",
+                            "You can close this tab and return to the terminal.",
+                        ),
+                        "text/html",
+                        200,
+                    )
+                }
+                Err(e) => {
+                    let _ = std::fs::remove_file(&pending.path);
+                    (
+                        html_page("Login Failed", &format!("Token exchange failed: {}", e)),
+                        "text/html",
+                        500,
+                    )
+                }
+            }
+        }
+        None => (
+            html_page("Login Failed", "Missing authorization code."),
+            "text/html",
+            400,
+        ),
+    }
+}
+
+/// Pending login info read from `.login_pending.json`.
+struct PendingLoginInfo {
+    code_verifier: String,
+    client_id: String,
+    redirect_uri: String,
+    codex_home: String,
+    path: std::path::PathBuf,
+}
+
+/// Search known codex home locations for a pending login matching the state.
+fn find_pending_login(state: &str) -> Option<PendingLoginInfo> {
+    // Check common codex home locations on OPFS
+    let candidates = [
+        std::path::PathBuf::from("/home/user/.codex"),
+        std::path::PathBuf::from("/home/user/.config/codex"),
+    ];
+
+    // Also check CODEX_HOME env var if set
+    let mut search_paths: Vec<std::path::PathBuf> = Vec::new();
+    if let Ok(home) = std::env::var("CODEX_HOME") {
+        search_paths.push(std::path::PathBuf::from(home));
+    }
+    search_paths.extend(candidates);
+
+    for dir in &search_paths {
+        let pending_path = dir.join(".login_pending.json");
+        if let Ok(contents) = std::fs::read_to_string(&pending_path) {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&contents) {
+                if v["state"].as_str() == Some(state) {
+                    return Some(PendingLoginInfo {
+                        code_verifier: v["code_verifier"].as_str().unwrap_or("").to_string(),
+                        client_id: v["client_id"].as_str().unwrap_or("").to_string(),
+                        redirect_uri: v["redirect_uri"].as_str().unwrap_or("").to_string(),
+                        codex_home: dir.to_string_lossy().to_string(),
+                        path: pending_path,
+                    });
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Exchange an OAuth authorization code for an access token and save credentials.
+fn exchange_code_for_token(pending: &PendingLoginInfo, code: &str) -> Result<(), String> {
+    let token_url = "https://auth.openai.com/oauth/token";
+
+    let body = serde_json::json!({
+        "grant_type": "authorization_code",
+        "client_id": pending.client_id,
+        "code": code,
+        "redirect_uri": pending.redirect_uri,
+        "code_verifier": pending.code_verifier,
+    });
+
+    let body_str = serde_json::to_string(&body).map_err(|e| e.to_string())?;
+    let headers = serde_json::json!({"content-type": "application/json"});
+    let headers_str = serde_json::to_string(&headers).map_err(|e| e.to_string())?;
+
+    let resp = http_client::fetch_request("POST", token_url, Some(&headers_str), Some(&body_str))
+        .map_err(|e| format!("Token request failed: {}", e))?;
+
+    if !resp.ok {
+        return Err(format!(
+            "Token endpoint returned {}: {}",
+            resp.status,
+            resp.text_lossy()
+        ));
+    }
+
+    // Parse token response
+    let token_resp: serde_json::Value = serde_json::from_str(&resp.text_lossy())
+        .map_err(|e| format!("Parse token response: {}", e))?;
+
+    let access_token = token_resp["access_token"]
+        .as_str()
+        .ok_or("Missing access_token in response")?;
+
+    // Save auth.json
+    let home = std::path::Path::new(&pending.codex_home);
+    std::fs::create_dir_all(home).map_err(|e| e.to_string())?;
+
+    let auth_json = serde_json::json!({
+        "auth_mode": "apikey",
+        "openai_api_key": access_token,
+        "tokens": token_resp,
+    });
+    let json_str = serde_json::to_string_pretty(&auth_json).map_err(|e| e.to_string())?;
+    std::fs::write(home.join("auth.json"), json_str).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+/// Generate a simple HTML page for browser display.
+fn html_page(title: &str, message: &str) -> String {
+    format!(
+        r#"<!DOCTYPE html>
+<html><head><title>{title}</title>
+<style>body{{font-family:system-ui;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#1a1a2e;color:#e0e0e0}}
+.card{{background:#16213e;border-radius:12px;padding:2em 3em;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.3)}}</style>
+</head><body><div class="card"><h1>{title}</h1><p>{message}</p></div></body></html>"#,
+    )
+}
+
 /// HTTP Component
 struct Component;
 
@@ -324,19 +512,27 @@ impl HttpGuest for Component {
         });
 
         // Simple endpoint routing
-        let response_body = if path.starts_with("/sse") && accept_sse {
+        let (response_body, content_type, status_code) = if path.starts_with("/oauth/callback") {
+            // OAuth callback — extract code and state from query params
+            let result = handle_oauth_callback(&path);
+            (result.0, result.1, result.2)
+        } else if path.starts_with("/sse") && accept_sse {
             // SSE endpoint - establish connection
-            handle_sse_connection(&request_bytes)
+            (
+                handle_sse_connection(&request_bytes),
+                "text/event-stream",
+                200u16,
+            )
         } else {
             // JSON-RPC endpoint
             let request_str = String::from_utf8_lossy(&request_bytes);
-            handle_mcp_request(&request_str)
+            (handle_mcp_request(&request_str), "application/json", 200u16)
         };
 
         // Prepare response headers
         let hdrs = Fields::new();
 
-        if accept_sse && path.starts_with("/sse") {
+        if content_type == "text/event-stream" {
             hdrs.set(
                 &"content-type".to_string(),
                 &[b"text/event-stream".to_vec()],
@@ -347,8 +543,11 @@ impl HttpGuest for Component {
             hdrs.set(&"connection".to_string(), &[b"keep-alive".to_vec()])
                 .ok();
         } else {
-            hdrs.set(&"content-type".to_string(), &[b"application/json".to_vec()])
-                .ok();
+            hdrs.set(
+                &"content-type".to_string(),
+                &[content_type.as_bytes().to_vec()],
+            )
+            .ok();
         }
 
         hdrs.set(&"access-control-allow-origin".to_string(), &[b"*".to_vec()])
@@ -356,7 +555,7 @@ impl HttpGuest for Component {
 
         // Send response
         let resp = OutgoingResponse::new(hdrs);
-        resp.set_status_code(200).ok();
+        resp.set_status_code(status_code).ok();
 
         let body = resp.body().expect("response body");
         ResponseOutparam::set(outparam, Ok(resp));

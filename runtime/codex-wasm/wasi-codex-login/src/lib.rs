@@ -699,11 +699,36 @@ impl ServerOptions {
 pub struct LoginServer {
     pub auth_url: String,
     pub actual_port: u16,
+    codex_home: Option<std::path::PathBuf>,
 }
 
 impl LoginServer {
+    /// Block until the OAuth callback completes and auth.json is written.
+    /// Polls the filesystem for .login_pending.json removal (the callback
+    /// handler deletes it after successfully saving auth.json).
     pub async fn block_until_done(self) -> std::io::Result<()> {
-        Ok(())
+        let home = match &self.codex_home {
+            Some(h) => h.clone(),
+            None => return Ok(()),
+        };
+        let pending_path = home.join(".login_pending.json");
+
+        // Poll every 500ms for up to 5 minutes
+        for _ in 0..600 {
+            // Check if the pending file has been removed (callback completed)
+            if !pending_path.exists() {
+                // Verify auth.json exists
+                if home.join("auth.json").exists() {
+                    return Ok(());
+                }
+            }
+            // Sleep 500ms using WASI clocks
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+
+        // Timeout — clean up pending file
+        let _ = std::fs::remove_file(&pending_path);
+        Err(std::io::Error::other("Login timed out after 5 minutes"))
     }
 
     pub fn cancel_handle(&self) -> ShutdownHandle {
@@ -751,8 +776,89 @@ pub async fn run_device_code_login(
     ))
 }
 
-pub fn run_login_server(_options: ServerOptions) -> std::io::Result<LoginServer> {
-    Err(std::io::Error::other("login server not supported in WASM"))
+pub fn run_login_server(options: ServerOptions) -> std::io::Result<LoginServer> {
+    use base64::Engine;
+    use sha2::Digest;
+
+    // Generate PKCE code_verifier (43-128 chars, base64url, no padding)
+    let random_bytes: Vec<u8> = (0..32).map(|_| rand_byte()).collect();
+    let code_verifier = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&random_bytes);
+
+    // code_challenge = BASE64URL(SHA256(code_verifier))
+    let mut hasher = sha2::Sha256::new();
+    hasher.update(code_verifier.as_bytes());
+    let code_challenge = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(hasher.finalize());
+
+    // Generate state parameter for CSRF protection
+    let state_bytes: Vec<u8> = (0..16).map(|_| rand_byte()).collect();
+    let state = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&state_bytes);
+
+    let redirect_uri = format!(
+        "{}/oauth/callback",
+        std::env::var("CODEX_ORIGIN").unwrap_or_else(|_| "https://agent.edge-agent.dev".into())
+    );
+
+    // Write pending login info to OPFS so ts-runtime-mcp's /oauth/callback
+    // handler can read it for the token exchange.
+    let pending = serde_json::json!({
+        "state": state,
+        "code_verifier": code_verifier,
+        "client_id": options.client_id,
+        "redirect_uri": redirect_uri,
+    });
+    let pending_path = options.codex_home.join(".login_pending.json");
+    std::fs::create_dir_all(&options.codex_home)?;
+    std::fs::write(
+        &pending_path,
+        serde_json::to_string(&pending).map_err(|e| std::io::Error::other(e.to_string()))?,
+    )?;
+
+    // Build the authorization URL
+    let auth_url = format!(
+        "https://auth.openai.com/authorize?\
+         response_type=code\
+         &client_id={}\
+         &redirect_uri={}\
+         &scope=openid%20profile%20email%20offline_access\
+         &state={}\
+         &code_challenge={}\
+         &code_challenge_method=S256",
+        urlencoded(&options.client_id),
+        urlencoded(&redirect_uri),
+        urlencoded(&state),
+        urlencoded(&code_challenge),
+    );
+
+    Ok(LoginServer {
+        auth_url,
+        actual_port: 0,
+        codex_home: Some(options.codex_home),
+    })
+}
+
+/// Simple percent-encoding for URL query parameters.
+fn urlencoded(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    for b in s.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                result.push(b as char);
+            }
+            _ => {
+                result.push('%');
+                result.push_str(&format!("{:02X}", b));
+            }
+        }
+    }
+    result
+}
+
+/// Best-effort random byte using system time jitter.
+fn rand_byte() -> u8 {
+    let t = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    (t.subsec_nanos() ^ (t.as_millis() as u32)) as u8
 }
 
 // ---------------------------------------------------------------------------
