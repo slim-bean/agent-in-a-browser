@@ -31,17 +31,6 @@ swc_ecma_visit = "21.0"
 swc_sourcemap = "10.0"
 
 # WASI/WASM bindings
-wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4"
-js-sys = "0.3"
-web-sys = { version = "0.3", features = [
-    "console",
-    "Window",
-    "Response",
-    "Request",
-    "RequestInit",
-    "Headers",
-] }
 wit-bindgen-rt.workspace = true
 console-log = { path = "../console-log" }
 

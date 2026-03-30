@@ -4049,7 +4049,6 @@ dependencies = [
  "digest",
  "futures-lite",
  "hmac",
- "js-sys",
  "md-5",
  "proptest",
  "rquickjs",
@@ -4065,9 +4064,6 @@ dependencies = [
  "swc_ecma_transforms_typescript",
  "swc_ecma_visit",
  "swc_sourcemap",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
  "wit-bindgen-rt",
 ]
 
