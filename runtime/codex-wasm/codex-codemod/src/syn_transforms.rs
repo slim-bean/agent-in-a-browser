@@ -2209,6 +2209,7 @@ impl<T> FileRwLock<T> {
         self.replace_stream_idle_timeout_call_sites();
         self.replace_stream_idle_timeout_try_run_sampling();
         self.replace_residency_requirement_type_mismatch();
+        self.replace_tracing_subscriber_writer();
     }
 
     /// 1. zstd compression bypass (codex-client/src/transport.rs):
@@ -2433,6 +2434,19 @@ impl<T> FileRwLock<T> {
             });
             search_from = start + find.len();
         }
+    }
+
+    /// Replace tracing_subscriber's stderr writer with MakeConsoleWriter so tracing
+    /// events (ERROR, WARN, etc.) route to the browser console instead of WASM stderr.
+    fn replace_tracing_subscriber_writer(&mut self) {
+        if !self.file_matches("tui/src/lib.rs") {
+            return;
+        }
+        self.replace_in_file(
+            "tui/src/lib.rs",
+            ".with_writer(std::io::stderr)",
+            ".with_writer(console_log::MakeConsoleWriter)",
+        );
     }
 
     // -----------------------------------------------------------------------
