@@ -8,6 +8,8 @@
  * registered on globalThis FIRST, then all subclasses extend it.
  */
 
+import { resourceRegistry } from './resource-registry.js';
+
 // Key for the global Pollable singleton
 const POLLABLE_KEY = Symbol.for('wasi:io/poll.Pollable');
 
@@ -19,10 +21,13 @@ const POLLABLE_MARKER = Symbol.for('wasi:io/poll@0.2.9#Pollable');
  * Has Symbol marker for cross-bundle instanceof replacement.
  */
 class PollableImpl {
+    _registryId: number;
+
     constructor() {
         // Symbol marker for patched instanceof checks
         // Using Object.defineProperty to avoid TS index signature issues
         Object.defineProperty(this, POLLABLE_MARKER, { value: true, enumerable: false });
+        this._registryId = resourceRegistry.register('Pollable', 'PollableImpl', {});
     }
 
     ready(): boolean {
@@ -31,6 +36,10 @@ class PollableImpl {
 
     block(): void {
         // Override in subclasses
+    }
+
+    [Symbol.dispose](): void {
+        resourceRegistry.deregister(this._registryId);
     }
 }
 
@@ -50,6 +59,8 @@ type Pollable = InstanceType<typeof Pollable>;
 class ReadyPollable extends Pollable {
     constructor() {
         super();
+        resourceRegistry.deregister(this._registryId); // Deregister base registration
+        this._registryId = resourceRegistry.register('Pollable', 'ReadyPollable', {});
     }
 
     override ready(): boolean {
@@ -57,6 +68,7 @@ class ReadyPollable extends Pollable {
     }
 
     override block(): void {
+        resourceRegistry.activity(this._registryId);
         // Already ready, nothing to block on
     }
 }
@@ -69,6 +81,10 @@ class DurationPollable extends Pollable {
 
     constructor(durationNanos: bigint | number) {
         super();
+        resourceRegistry.deregister(this._registryId); // Deregister base registration
+        this._registryId = resourceRegistry.register('Pollable', 'DurationPollable', {
+            durationNanos: String(durationNanos),
+        });
         // performance.now() is in milliseconds, convert to nanoseconds
         const nowNanos = BigInt(Math.floor(performance.now() * 1e6));
         this.#targetTime = nowNanos + BigInt(durationNanos);
@@ -80,6 +96,7 @@ class DurationPollable extends Pollable {
     }
 
     override block(): Promise<void> {
+        resourceRegistry.activity(this._registryId);
         // Always return a Promise to trigger JSPI suspension — even if the
         // timer already expired. This yields to the JS event loop, allowing
         // console messages, DOM rendering, and input to be processed.
@@ -102,6 +119,10 @@ class InstantPollable extends Pollable {
 
     constructor(instantNanos: bigint | number) {
         super();
+        resourceRegistry.deregister(this._registryId); // Deregister base registration
+        this._registryId = resourceRegistry.register('Pollable', 'InstantPollable', {
+            instantNanos: String(instantNanos),
+        });
         this.#targetTime = BigInt(instantNanos);
     }
 
@@ -111,6 +132,7 @@ class InstantPollable extends Pollable {
     }
 
     override block(): void {
+        resourceRegistry.activity(this._registryId);
         while (!this.ready()) {
             // Busy wait
         }

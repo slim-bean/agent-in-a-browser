@@ -11,6 +11,7 @@
 
 // Import ReadyPollable from poll-impl.ts (consolidated Pollable hierarchy)
 import { ReadyPollable } from './poll-impl.js';
+import { resourceRegistry } from './resource-registry.js';
 
 // Re-export for consumers
 export { Pollable, ReadyPollable, DurationPollable, InstantPollable } from './poll-impl.js';
@@ -60,15 +61,18 @@ export interface OutputStreamHandler {
 export class InputStream {
     id: number;
     handler: InputStreamHandler;
+    _registryId: number;
 
     constructor(handler: InputStreamHandler) {
         this.id = ++id;
         this.handler = handler;
+        this._registryId = resourceRegistry.register('InputStream', 'InputStream', { streamId: String(this.id) });
         // Symbol marker for patched instanceof checks
         Object.defineProperty(this, INPUT_STREAM_MARKER, { value: true, enumerable: false });
     }
 
     read(len: bigint): Uint8Array {
+        resourceRegistry.activity(this._registryId);
         if (this.handler.read) {
             return this.handler.read(len);
         }
@@ -80,6 +84,7 @@ export class InputStream {
     }
 
     blockingRead(len: bigint): Uint8Array | Promise<Uint8Array> {
+        resourceRegistry.activity(this._registryId);
         return this.handler.blockingRead(len);
     }
 
@@ -115,6 +120,7 @@ export class InputStream {
     }
 
     [symbolDispose](): void {
+        resourceRegistry.deregister(this._registryId);
         if (this.handler.drop) {
             this.handler.drop();
         }
@@ -128,11 +134,13 @@ export class OutputStream {
     id: number;
     open: boolean;
     handler: OutputStreamHandler;
+    _registryId: number;
 
     constructor(handler: OutputStreamHandler) {
         this.id = ++id;
         this.open = true;
         this.handler = handler;
+        this._registryId = resourceRegistry.register('OutputStream', 'OutputStream', { streamId: String(this.id) });
         // Symbol marker for patched instanceof checks
         Object.defineProperty(this, OUTPUT_STREAM_MARKER, { value: true, enumerable: false });
     }
@@ -148,10 +156,12 @@ export class OutputStream {
     }
 
     write(buf: Uint8Array): bigint {
+        resourceRegistry.activity(this._registryId);
         return this.handler.write(buf);
     }
 
     blockingWriteAndFlush(buf: Uint8Array): void | Promise<void> {
+        resourceRegistry.activity(this._registryId);
         if (this.handler.blockingWriteAndFlush) {
             return this.handler.blockingWriteAndFlush(buf);
         } else {
@@ -211,6 +221,7 @@ export class OutputStream {
     }
 
     [symbolDispose](): void {
+        resourceRegistry.deregister(this._registryId);
         if (this.handler.drop) {
             this.handler.drop();
         }

@@ -2,6 +2,7 @@
 import { InputStream, OutputStream, ReadyPollable } from './streams';
 // Import JSPI detection for automatic sync mode
 import { hasJSPI } from './execution-mode';
+import { resourceRegistry } from './resource-registry.js';
 
 // Type for WASM Result-like return values
 type WasmResult<T> = { tag: 'ok'; val: T } | { tag: 'err'; val: unknown };
@@ -449,7 +450,7 @@ export function createStreamingInputStream(reader: ReadableStreamDefaultReader<U
                 return {
                     ready: () => readyState || done || buffer.length > 0,
                     block: () => pendingRead
-                } as ReadyPollable;
+                } as unknown as ReadyPollable;
             }
 
             return new ReadyPollable();
@@ -937,11 +938,17 @@ class AsyncPollable extends ReadyPollable {
 
     constructor(promise: Promise<void>) {
         super();
+        // Re-register with correct subtype (super() registered as ReadyPollable)
+        resourceRegistry.deregister(this._registryId);
+        this._registryId = resourceRegistry.register('Pollable', 'AsyncPollable', {});
         this._promise = promise;
+        const registryId = this._registryId;
         promise.then(() => {
             this._ready = true;
-        }).catch((err) => {
+            resourceRegistry.deregister(registryId);
+        }).catch((_err) => {
             this._ready = true; // Ready on error too
+            resourceRegistry.deregister(registryId);
         });
     }
 
@@ -1042,20 +1049,26 @@ export class FutureIncomingResponse {
     private _result: WasmResult<IncomingResponse> | null = null;
     private _promise: Promise<void> | null = null;
     private _pollable: AsyncPollable | ReadyPollable;
+    _registryId: number;
 
     constructor(resolvedDataOrPromise: ResolvedResponse | StreamingResponse | Promise<ResolvedResponse | StreamingResponse>) {
+        this._registryId = resourceRegistry.register('FutureIncomingResponse', 'FutureIncomingResponse', {});
         if (resolvedDataOrPromise instanceof Promise) {
             // Async case - resolve later
+            const registryId = this._registryId;
             this._promise = resolvedDataOrPromise.then((resolvedData) => {
                 this._setResult(resolvedData);
+                resourceRegistry.deregister(registryId);
             }).catch((err) => {
                 // ErrorCode is a variant - internal-error takes an optional string message
                 this._result = { tag: 'err', val: { tag: 'internal-error', val: String(err) } };
+                resourceRegistry.deregister(registryId);
             });
             this._pollable = new AsyncPollable(this._promise);
         } else {
             // Sync case - already resolved
             this._setResult(resolvedDataOrPromise);
+            resourceRegistry.deregister(this._registryId);
             this._pollable = new ReadyPollable();
         }
     }
@@ -1274,6 +1287,33 @@ export class RequestOptions {
  */
 export const outgoingHandler = {
     handle(request: OutgoingRequest, _options: RequestOptions | null): FutureIncomingResponse {
+        const result = outgoingHandler._handleInner(request, _options);
+        // Annotate the registry entry with URL and method metadata
+        const entry = resourceRegistry.entries.get(result._registryId);
+        if (entry) {
+            // Extract URL and method for diagnostics — best-effort from request
+            try {
+                const scheme = request.scheme();
+                let schemeTag = 'http';
+                if (scheme) {
+                    const tag = (typeof scheme === 'string' ? scheme : scheme.tag) || '';
+                    const tagLower = tag.toLowerCase();
+                    if (tagLower === 'https') schemeTag = 'https';
+                    else if (tagLower === 'http') schemeTag = 'http';
+                }
+                const authority = request.authority() || '';
+                const path = request.pathWithQuery() || '/';
+                const methodObj = request.method();
+                const method = methodObj.tag === 'other' ? (methodObj.val || 'GET') : methodObj.tag.toUpperCase();
+                entry.meta.url = `${schemeTag}://${authority}${path}`;
+                entry.meta.method = method;
+            } catch {
+                // Request methods may throw if already consumed; best-effort
+            }
+        }
+        return result;
+    },
+    _handleInner(request: OutgoingRequest, _options: RequestOptions | null): FutureIncomingResponse {
         // Build the URL
         const scheme = request.scheme();
         // DEBUG: Log raw scheme value

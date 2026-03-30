@@ -10,6 +10,7 @@
 
 // Import stream classes from our custom implementation that fixes preview2-shim bugs
 import { InputStream, OutputStream } from './streams';
+import { resourceRegistry } from './resource-registry.js';
 // Import OPFS utilities (no more in-memory tree!)
 import {
     getOpfsRoot, setOpfsRoot,
@@ -136,12 +137,17 @@ class OpfsDescriptor {
     private treeEntry: TreeEntry;
     private isRoot: boolean;
     private descriptorFlags: DescriptorFlags;
+    _registryId: number;
 
     constructor(path: string, entry: TreeEntry, flags?: DescriptorFlags) {
         this.path = path;
         this.treeEntry = entry;
         this.isRoot = path === '' || path === '/';
         this.descriptorFlags = flags ?? { read: true, write: true };
+        this._registryId = resourceRegistry.register('Descriptor', 'OpfsDescriptor', {
+            path: path || '/',
+            type: entry.dir !== undefined ? 'directory' : 'file',
+        });
         // Symbol marker for patched instanceof checks (cross-bundle validation)
         Object.defineProperty(this, DESCRIPTOR_MARKER, { value: true, enumerable: false });
     }
@@ -152,6 +158,7 @@ class OpfsDescriptor {
      * JCO uses `Symbol.dispose || Symbol.for('dispose')` — we implement both.
      */
     private _dispose(): void {
+        resourceRegistry.deregister(this._registryId);
         const normalizedPath = normalizePath(this.path);
         const handle = syncHandleCache.get(normalizedPath);
         if (handle) {
@@ -183,6 +190,7 @@ class OpfsDescriptor {
     }
 
     stat() {
+        resourceRegistry.activity(this._registryId);
         let type = 'unknown';
         let size = BigInt(0);
 
@@ -421,6 +429,7 @@ class OpfsDescriptor {
      * Falls back to syncFileOperation when no handle is cached
      */
     readViaStream(_offset: bigint): InputStream {
+        resourceRegistry.activity(this._registryId);
         const path = this.path;
         const normalizedPath = normalizePath(path);
         let offset = Number(_offset);
@@ -551,6 +560,7 @@ class OpfsDescriptor {
      * Falls back to syncFileOperation when no handle is cached
      */
     writeViaStream(_offset: bigint): OutputStream {
+        resourceRegistry.activity(this._registryId);
         const path = this.path;
         const normalizedPath = normalizePath(path);
         let offset = Number(_offset);
@@ -651,6 +661,7 @@ class OpfsDescriptor {
 
 
     async readDirectory(): Promise<DirectoryEntryStream> {
+        resourceRegistry.activity(this._registryId);
         if (!this.treeEntry.dir) {
             throw 'bad-descriptor';
         }

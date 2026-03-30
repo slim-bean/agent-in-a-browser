@@ -358,6 +358,10 @@ export interface WasmDebugAPI {
     wrapShims(): Promise<number>;
     /** Send a message to toggle tracing inside the Worker */
     workerTrace(enable: boolean): void;
+    /** Dump all live WASI resources from the Worker */
+    resources(): Promise<unknown>;
+    /** Show in-flight HTTP requests (FutureIncomingResponse resources) */
+    httpInFlight(): Promise<unknown>;
     /** Access raw state for scripting */
     _state: DebugState;
 }
@@ -509,6 +513,83 @@ export function createDebugAPI(): WasmDebugAPI {
             }
             state.worker.postMessage({ type: 'debug-trace', enable });
             console.log(`[WasmDebug] Sent trace ${enable ? 'enable' : 'disable'} to worker`);
+        },
+
+        async resources(): Promise<unknown> {
+            if (!state.worker) {
+                console.error('[WasmDebug] No worker reference set. Call from main-tui.ts context.');
+                return null;
+            }
+
+            return new Promise((resolve) => {
+                const timeout = setTimeout(() => {
+                    console.error('[WasmDebug] Resource dump timed out (5s). Worker may be blocked.');
+                    resolve({ error: 'timeout' });
+                }, 5000);
+
+                const handler = (e: MessageEvent) => {
+                    if (e.data?.type === 'debug-resource-dump-response') {
+                        clearTimeout(timeout);
+                        state.worker?.removeEventListener('message', handler);
+                        console.log('%c[WasmDebug] Live WASI Resources:', 'color: #4fc3f7; font-weight: bold');
+                        if (e.data.resources && e.data.resources.length > 0) {
+                            console.table(e.data.resources.map((r: Record<string, unknown>) => ({
+                                id: r.id,
+                                type: r.type,
+                                subtype: r.subtype,
+                                age: `${(((performance.now() - (r.createdAt as number)) / 1000)).toFixed(1)}s`,
+                                lastActivity: `${(((performance.now() - (r.lastActivity as number)) / 1000)).toFixed(1)}s ago`,
+                                meta: JSON.stringify(r.meta),
+                            })));
+                        } else {
+                            console.log('  (no live resources)');
+                        }
+                        resolve(e.data);
+                    }
+                };
+
+                state.worker!.addEventListener('message', handler);
+                state.worker!.postMessage({ type: 'debug-resource-dump' });
+            });
+        },
+
+        async httpInFlight(): Promise<unknown> {
+            if (!state.worker) {
+                console.error('[WasmDebug] No worker reference set. Call from main-tui.ts context.');
+                return null;
+            }
+
+            return new Promise((resolve) => {
+                const timeout = setTimeout(() => {
+                    console.error('[WasmDebug] HTTP in-flight dump timed out (5s). Worker may be blocked.');
+                    resolve({ error: 'timeout' });
+                }, 5000);
+
+                const handler = (e: MessageEvent) => {
+                    if (e.data?.type === 'debug-resource-dump-response') {
+                        clearTimeout(timeout);
+                        state.worker?.removeEventListener('message', handler);
+                        const httpResources = (e.data.resources || []).filter(
+                            (r: Record<string, unknown>) => r.type === 'FutureIncomingResponse'
+                        );
+                        console.log('%c[WasmDebug] In-Flight HTTP Requests:', 'color: #ff9800; font-weight: bold');
+                        if (httpResources.length > 0) {
+                            console.table(httpResources.map((r: Record<string, unknown>) => ({
+                                id: r.id,
+                                url: (r.meta as Record<string, string>)?.url || '(unknown)',
+                                method: (r.meta as Record<string, string>)?.method || '(unknown)',
+                                age: `${(((performance.now() - (r.createdAt as number)) / 1000)).toFixed(1)}s`,
+                            })));
+                        } else {
+                            console.log('  (no in-flight HTTP requests)');
+                        }
+                        resolve(httpResources);
+                    }
+                };
+
+                state.worker!.addEventListener('message', handler);
+                state.worker!.postMessage({ type: 'debug-resource-dump' });
+            });
         },
 
         _state: state,
@@ -702,6 +783,19 @@ export function buildProbeResponse(debugState: WorkerDebugState): Record<string,
         async: c.isAsync,
     }));
 
+    // Include resource registry snapshot if available
+    let resources: unknown[] = [];
+    try {
+        const registryKey = Symbol.for('wasi:debug/resource-registry');
+        const registry = (globalThis as Record<symbol, unknown>)[registryKey] as
+            { snapshot?: () => unknown[] } | undefined;
+        if (registry && typeof registry.snapshot === 'function') {
+            resources = registry.snapshot();
+        }
+    } catch {
+        // Registry may not be loaded yet
+    }
+
     return {
         type: 'debug-probe-response',
         timestamp: Date.now(),
@@ -711,6 +805,7 @@ export function buildProbeResponse(debugState: WorkerDebugState): Record<string,
         pendingImports: pending,
         recentHistory,
         traceEnabled: debugState.traceEnabled,
+        resources,
     };
 }
 
@@ -742,7 +837,9 @@ export function installDebugAPI(worker?: Worker): WasmDebugAPI {
         '  __wasmDebug.importHistory(20)   - Recent import calls\n' +
         '  __wasmDebug.hangDetector(5000)  - Configure hang threshold\n' +
         '  __wasmDebug.workerTrace(true)   - Enable tracing in Worker\n' +
-        '  __wasmDebug.wrapShims()         - Wrap main-thread shims',
+        '  __wasmDebug.wrapShims()         - Wrap main-thread shims\n' +
+        '  __wasmDebug.resources()         - Dump all live WASI resources\n' +
+        '  __wasmDebug.httpInFlight()      - Show in-flight HTTP requests',
         'color: #888',
     );
 

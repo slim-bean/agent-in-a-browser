@@ -740,11 +740,34 @@ async function runTuiJspi(msg: WorkerRunMessage): Promise<void> {
                 ? `\n  Pending JSPI imports: ${pendingList.join(', ')}`
                 : '\n  No pending JSPI imports (stuck in pure WASM or Mutex deadlock)';
 
+            // Collect live resource info from registry
+            let resourceInfo = '';
+            try {
+                const registryKey = Symbol.for('wasi:debug/resource-registry');
+                const registry = (globalThis as Record<symbol, unknown>)[registryKey] as
+                    { snapshot?: () => Array<{ type: string; subtype: string; meta: Record<string, string> }> } | undefined;
+                if (registry && typeof registry.snapshot === 'function') {
+                    const liveResources = registry.snapshot();
+                    if (liveResources.length > 0) {
+                        const summary = liveResources.map(r => {
+                            const metaStr = Object.entries(r.meta).map(([k, v]) => `${k}=${v}`).join(',');
+                            return `${r.type}:${r.subtype}${metaStr ? `(${metaStr})` : ''}`;
+                        }).join(', ');
+                        resourceInfo = `\n  Live resources (${liveResources.length}): ${summary}`;
+                    } else {
+                        resourceInfo = '\n  No live resources tracked';
+                    }
+                }
+            } catch {
+                // Registry not available
+            }
+
             console.warn(
                 `[WasmWorker WATCHDOG] STALL DETECTED ` +
                 `(uptime=${uptimeSec}s, sinceYield=${sinceYieldSec}s, ` +
                 `sinceStderr=${sinceStderrSec}s, sinceStdin=${sinceStdinSec}s)` +
-                pendingInfo
+                pendingInfo +
+                resourceInfo
             );
         } else {
             console.log(
@@ -945,6 +968,22 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
     if (msgAny.type === 'debug-trace') {
         workerDebugState.traceEnabled = !!msgAny.enable;
         console.log(`[WasmWorker] Import tracing ${workerDebugState.traceEnabled ? 'ENABLED' : 'DISABLED'}`);
+        return;
+    }
+    if (msgAny.type === 'debug-resource-dump') {
+        // Dynamically access the resource registry singleton
+        let resources: unknown[] = [];
+        try {
+            const registryKey = Symbol.for('wasi:debug/resource-registry');
+            const registry = (globalThis as Record<symbol, unknown>)[registryKey] as
+                { snapshot?: () => unknown[] } | undefined;
+            if (registry && typeof registry.snapshot === 'function') {
+                resources = registry.snapshot();
+            }
+        } catch {
+            // Registry may not be loaded yet
+        }
+        self.postMessage({ type: 'debug-resource-dump-response', resources });
         return;
     }
     if (msgAny.type === 'debug-wrap-shims') {
