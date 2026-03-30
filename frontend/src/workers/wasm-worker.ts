@@ -669,18 +669,21 @@ async function runTuiJspi(msg: WorkerRunMessage): Promise<void> {
     });
     console.log('[WasmWorker JSPI] Shell exec handler registered');
 
-    // Load the JSPI Codex TUI module
-    console.log('[WasmWorker JSPI] Loading JSPI codex-tui module...');
-    const tuiModule = await import('../wasm/codex-tui/codex-wasm-tui.js');
-    console.log('[WasmWorker JSPI] TUI module loaded');
-
-    // Auto-wrap shims with debug tracing (patches prototypes in-place)
+    // Auto-wrap shims with debug tracing BEFORE loading the TUI module.
+    // This ensures the JCO-transpiled module gets already-patched prototypes
+    // when it imports the shims. Wrapping after import doesn't work because
+    // Vite may bundle separate module instances.
     try {
         const wrappedCount = await initWorkerDebug(workerDebugState);
         console.log(`[WasmWorker JSPI] Debug instrumentation: ${wrappedCount} imports wrapped`);
     } catch (err) {
         console.warn('[WasmWorker JSPI] Debug instrumentation failed (non-fatal):', err);
     }
+
+    // Load the JSPI Codex TUI module (after shims are wrapped)
+    console.log('[WasmWorker JSPI] Loading JSPI codex-tui module...');
+    const tuiModule = await import('../wasm/codex-tui/codex-wasm-tui.js');
+    console.log('[WasmWorker JSPI] TUI module loaded');
 
     self.postMessage({ type: 'started', module: msg.module });
 
