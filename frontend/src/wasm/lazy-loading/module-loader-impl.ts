@@ -986,13 +986,13 @@ class WorkerProcess {
     }
 
     getStdinStream(): InstanceType<typeof CustomOutputStream> {
+        const self = this;
         return new CustomOutputStream({
             write: (buf: Uint8Array): bigint => {
-                this.stdinBuffer.push(new Uint8Array(buf));
-                return BigInt(buf.length);
+                return self.writeStdin(buf);
             },
             blockingWriteAndFlush: (buf: Uint8Array): void => {
-                this.stdinBuffer.push(new Uint8Array(buf));
+                self.writeStdin(buf);
             },
             checkWrite: (): bigint => BigInt(65536),
             blockingFlush: (): void => { },

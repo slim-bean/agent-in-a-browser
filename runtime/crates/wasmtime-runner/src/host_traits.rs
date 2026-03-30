@@ -145,6 +145,27 @@ impl HostLazyProcess for HostState {
         false
     }
 
+    fn get_stdin_stream(
+        &mut self,
+        _self_: Resource<LazyProcess>,
+    ) -> Resource<wasmtime_wasi::p2::bindings::io::streams::OutputStream> {
+        Resource::new_own(0)
+    }
+
+    fn get_stdout_stream(
+        &mut self,
+        _self_: Resource<LazyProcess>,
+    ) -> Resource<wasmtime_wasi::p2::bindings::io::streams::InputStream> {
+        Resource::new_own(0)
+    }
+
+    fn get_stderr_stream(
+        &mut self,
+        _self_: Resource<LazyProcess>,
+    ) -> Resource<wasmtime_wasi::p2::bindings::io::streams::InputStream> {
+        Resource::new_own(0)
+    }
+
     fn write_stdin(&mut self, _self_: Resource<LazyProcess>, _data: Vec<u8>) -> u64 {
         0
     }
