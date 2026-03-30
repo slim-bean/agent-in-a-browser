@@ -6,12 +6,42 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
 
-pub fn channel<T>(buffer: usize) -> (Sender<T>, Receiver<T>) {
+#[track_caller]
+pub fn channel<T: 'static>(buffer: usize) -> (Sender<T>, Receiver<T>) {
+    let loc = std::panic::Location::caller();
+    let id = crate::diagnostics::NEXT_CHANNEL_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let label = format!(
+        "{}:{}",
+        loc.file().rsplit('/').next().unwrap_or(loc.file()),
+        loc.line()
+    );
+
     let inner = Arc::new(Mutex::new(ChannelInner {
         queue: VecDeque::with_capacity(buffer),
         closed: false,
         wakers: Vec::new(),
     }));
+
+    // Register for diagnostics with a weak reference
+    let weak = Arc::downgrade(&inner);
+    let cap = Some(buffer);
+    let diag_label = label.clone();
+    crate::diagnostics::register_channel(Box::new(move || {
+        let inner = weak.upgrade()?;
+        let guard = inner.lock().ok()?;
+        Some(crate::diagnostics::ChannelSnapshot {
+            id,
+            kind: "mpsc",
+            label: diag_label.clone(),
+            queue_len: guard.queue.len(),
+            capacity: cap,
+            closed: guard.closed,
+            sender_count: Arc::strong_count(&weak.upgrade()?) - 1,
+            receiver_alive: !guard.closed,
+            pending_wakers: guard.wakers.len(),
+        })
+    }));
+
     (
         Sender {
             inner: inner.clone(),
@@ -20,12 +50,41 @@ pub fn channel<T>(buffer: usize) -> (Sender<T>, Receiver<T>) {
     )
 }
 
-pub fn unbounded_channel<T>() -> (UnboundedSender<T>, UnboundedReceiver<T>) {
+#[track_caller]
+pub fn unbounded_channel<T: 'static>() -> (UnboundedSender<T>, UnboundedReceiver<T>) {
+    let loc = std::panic::Location::caller();
+    let id = crate::diagnostics::NEXT_CHANNEL_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let label = format!(
+        "{}:{}",
+        loc.file().rsplit('/').next().unwrap_or(loc.file()),
+        loc.line()
+    );
+
     let inner = Arc::new(Mutex::new(ChannelInner {
         queue: VecDeque::new(),
         closed: false,
         wakers: Vec::new(),
     }));
+
+    // Register for diagnostics with a weak reference
+    let weak = Arc::downgrade(&inner);
+    let diag_label = label.clone();
+    crate::diagnostics::register_channel(Box::new(move || {
+        let inner = weak.upgrade()?;
+        let guard = inner.lock().ok()?;
+        Some(crate::diagnostics::ChannelSnapshot {
+            id,
+            kind: "mpsc-unbounded",
+            label: diag_label.clone(),
+            queue_len: guard.queue.len(),
+            capacity: None,
+            closed: guard.closed,
+            sender_count: Arc::strong_count(&weak.upgrade()?) - 1,
+            receiver_alive: !guard.closed,
+            pending_wakers: guard.wakers.len(),
+        })
+    }));
+
     (
         UnboundedSender {
             inner: inner.clone(),

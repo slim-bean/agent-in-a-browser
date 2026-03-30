@@ -53,6 +53,7 @@ impl Handle {
         let slot = std::sync::Arc::new(std::sync::Mutex::new(Some(result)));
         crate::JoinHandle {
             result_slot: Some(slot),
+            task_id: 0,
         }
     }
 

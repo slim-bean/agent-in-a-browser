@@ -26,6 +26,7 @@ where
     let slot = std::sync::Arc::new(std::sync::Mutex::new(Some(result)));
     super::JoinHandle {
         result_slot: Some(slot),
+        task_id: 0,
     }
 }
 

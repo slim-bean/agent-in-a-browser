@@ -12,20 +12,51 @@
 //! - Process spawning routes through WIT shell interfaces
 //! - Time operations route through `wasi:clocks`
 
+use std::cell::RefCell;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::pin::Pin;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
+use std::time::Instant;
 
 // ---------------------------------------------------------------------------
 // Global task queue for spawned futures
 // ---------------------------------------------------------------------------
+
+/// Monotonically increasing task ID counter.
+static NEXT_TASK_ID: AtomicU64 = AtomicU64::new(1);
+
+/// Status of a registered task.
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum TaskStatus {
+    Pending,
+    Polling,
+    Completed,
+}
+
+/// Entry in the task registry for diagnostics.
+pub(crate) struct TaskEntry {
+    pub id: u64,
+    pub file: &'static str,
+    pub line: u32,
+    pub status: TaskStatus,
+    pub spawned_at: Instant,
+    pub last_poll_start: Option<Instant>,
+    pub poll_count: u64,
+}
+
+thread_local! {
+    /// Registry of all spawned tasks for diagnostics.
+    pub(crate) static TASK_REGISTRY: RefCell<Vec<TaskEntry>> = RefCell::new(Vec::new());
+}
 
 /// Type-erased future stored in the global task queue, with spawn location metadata.
 struct SpawnedTask {
     future: Pin<Box<dyn Future<Output = ()> + Send + 'static>>,
     file: &'static str,
     line: u32,
+    task_id: u64,
 }
 
 /// Single-write log to avoid WASI stderr fragmentation.
@@ -43,7 +74,7 @@ const TASK_POLL_DEADLINE_MS: u64 = 5000;
 
 /// Drain all spawned tasks and poll each one. Tasks that return Pending are
 /// re-queued for the next iteration. Logs completions, slow polls, and
-/// periodic pending-task summaries.
+/// periodic pending-task summaries. Updates the task registry for diagnostics.
 fn poll_spawned_tasks(cx: &mut Context<'_>) {
     static LAST_PENDING_LOG: std::sync::Mutex<Option<std::time::Instant>> =
         std::sync::Mutex::new(None);
@@ -59,23 +90,68 @@ fn poll_spawned_tasks(cx: &mut Context<'_>) {
     for mut task in tasks.into_iter() {
         let file = task.file.rsplit('/').next().unwrap_or(task.file);
         let line = task.line;
+        let task_id = task.task_id;
         let before = std::time::Instant::now();
+
+        // Update task registry: mark as Polling
+        TASK_REGISTRY.with(|reg| {
+            if let Ok(mut entries) = reg.try_borrow_mut() {
+                if let Some(entry) = entries.iter_mut().find(|e| e.id == task_id) {
+                    entry.status = TaskStatus::Polling;
+                    entry.last_poll_start = Some(before);
+                    entry.poll_count += 1;
+                }
+            }
+        });
+
         match task.future.as_mut().poll(cx) {
             Poll::Pending => {
+                // Update task registry: mark as Pending
+                TASK_REGISTRY.with(|reg| {
+                    if let Ok(mut entries) = reg.try_borrow_mut() {
+                        if let Some(entry) = entries.iter_mut().find(|e| e.id == task_id) {
+                            entry.status = TaskStatus::Pending;
+                        }
+                    }
+                });
                 pending_names.push(format!("{file}:{line}"));
                 pending.push(task);
             }
             Poll::Ready(()) => {
-                log(format!("[poll_tasks] completed {file}:{line}"));
+                log(format!("[poll_tasks] completed #{task_id} {file}:{line}"));
+                // Update task registry: mark as Completed
+                TASK_REGISTRY.with(|reg| {
+                    if let Ok(mut entries) = reg.try_borrow_mut() {
+                        if let Some(entry) = entries.iter_mut().find(|e| e.id == task_id) {
+                            entry.status = TaskStatus::Completed;
+                        }
+                    }
+                });
+                // Update runtime state completion counter
+                diagnostics::RUNTIME_STATE.with(|state| {
+                    if let Ok(mut s) = state.try_borrow_mut() {
+                        s.completions_since_last_dump += 1;
+                        s.last_completion_time = Some(Instant::now());
+                    }
+                });
             }
         }
         let elapsed_ms = before.elapsed().as_millis();
         if elapsed_ms > 100 {
             log(format!(
-                "[poll_tasks] SLOW {file}:{line} took {elapsed_ms}ms"
+                "[poll_tasks] SLOW #{task_id} {file}:{line} took {elapsed_ms}ms"
             ));
         }
     }
+
+    // Prune completed tasks older than 30s from the registry
+    TASK_REGISTRY.with(|reg| {
+        if let Ok(mut entries) = reg.try_borrow_mut() {
+            entries.retain(|e| {
+                !(e.status == TaskStatus::Completed && e.spawned_at.elapsed().as_secs() >= 30)
+            });
+        }
+    });
 
     // Log pending task summary every 5 seconds
     if !pending_names.is_empty() {
@@ -125,6 +201,20 @@ where
     let loc = std::panic::Location::caller();
     let file = loc.file();
     let line = loc.line();
+    let task_id = NEXT_TASK_ID.fetch_add(1, Ordering::Relaxed);
+
+    // Register in the task registry for diagnostics
+    TASK_REGISTRY.with(|reg| {
+        reg.borrow_mut().push(TaskEntry {
+            id: task_id,
+            file,
+            line,
+            status: TaskStatus::Pending,
+            spawned_at: Instant::now(),
+            last_poll_start: None,
+            poll_count: 0,
+        });
+    });
 
     let result_slot: Arc<Mutex<Option<F::Output>>> = Arc::new(Mutex::new(None));
     let slot_clone = result_slot.clone();
@@ -140,16 +230,20 @@ where
         future: Box::pin(wrapped),
         file,
         line,
+        task_id,
     });
 
     JoinHandle {
         result_slot: Some(result_slot),
+        task_id,
     }
 }
 
 /// A handle to a spawned task's result.
 pub struct JoinHandle<T> {
     pub(crate) result_slot: Option<std::sync::Arc<std::sync::Mutex<Option<T>>>>,
+    /// Unique task ID for diagnostics.
+    pub task_id: u64,
 }
 
 impl<T> JoinHandle<T> {
@@ -286,9 +380,24 @@ pub fn block_on<F: Future>(future: F) -> F::Output {
     let mut last_heartbeat = std::time::Instant::now();
     let start = std::time::Instant::now();
 
+    // Initialize runtime state
+    diagnostics::RUNTIME_STATE.with(|state| {
+        let mut s = state.borrow_mut();
+        s.start_time = Some(start);
+        s.iteration = 0;
+        s.completions_since_last_dump = 0;
+    });
+
     let mut last_loop_log = std::time::Instant::now();
     loop {
         iteration += 1;
+
+        // Update runtime state iteration counter
+        diagnostics::RUNTIME_STATE.with(|state| {
+            if let Ok(mut s) = state.try_borrow_mut() {
+                s.iteration = iteration;
+            }
+        });
 
         // Log loop liveness every 5s so we can detect hangs
         let loop_now = std::time::Instant::now();
@@ -321,6 +430,30 @@ pub fn block_on<F: Future>(future: F) -> F::Output {
                         "[block_on] heartbeat: iter={iteration}, uptime={uptime}s, tasks={task_count}, main={}ms tasks={}ms",
                         main_elapsed.as_millis(), tasks_elapsed.as_millis()));
                     last_heartbeat = now;
+
+                    // Stall detection: if no completions in 30s and pending tasks > 0
+                    let should_dump = diagnostics::RUNTIME_STATE.with(|state| {
+                        if let Ok(s) = state.try_borrow() {
+                            let no_completions_30s = s
+                                .last_completion_time
+                                .map(|t| t.elapsed().as_secs() >= 30)
+                                .unwrap_or(uptime >= 30);
+                            no_completions_30s
+                                && s.completions_since_last_dump == 0
+                                && task_count > 0
+                        } else {
+                            false
+                        }
+                    });
+                    if should_dump {
+                        log("[block_on] STALL DETECTED: no task completions in 30s, dumping diagnostics".to_string());
+                        diagnostics::dump_runtime_state();
+                        diagnostics::RUNTIME_STATE.with(|state| {
+                            if let Ok(mut s) = state.try_borrow_mut() {
+                                s.completions_since_last_dump = 0;
+                            }
+                        });
+                    }
                 }
 
                 // Log slow iterations (>1s)
@@ -345,6 +478,7 @@ pub fn block_on<F: Future>(future: F) -> F::Output {
 // Submodules matching tokio's module structure
 // ---------------------------------------------------------------------------
 
+pub mod diagnostics;
 pub mod fs;
 pub mod io;
 pub mod net;
@@ -357,6 +491,8 @@ pub mod task;
 pub mod thread_spawn;
 pub mod time;
 pub mod websocket_backend;
+
+pub use diagnostics::dump_runtime_state;
 
 // ---------------------------------------------------------------------------
 // select! macro — proc macro that generates polling code with proper

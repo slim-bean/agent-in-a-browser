@@ -4,7 +4,16 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::task::Waker;
 
-pub fn channel<T: Clone>(capacity: usize) -> (Sender<T>, Receiver<T>) {
+#[track_caller]
+pub fn channel<T: Clone + 'static>(capacity: usize) -> (Sender<T>, Receiver<T>) {
+    let loc = std::panic::Location::caller();
+    let id = crate::diagnostics::NEXT_CHANNEL_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let label = format!(
+        "{}:{}",
+        loc.file().rsplit('/').next().unwrap_or(loc.file()),
+        loc.line()
+    );
+
     let inner = Arc::new(Mutex::new(BroadcastInner {
         buffer: VecDeque::with_capacity(capacity),
         capacity,
@@ -12,6 +21,27 @@ pub fn channel<T: Clone>(capacity: usize) -> (Sender<T>, Receiver<T>) {
         closed: false,
         wakers: Vec::new(),
     }));
+
+    // Register for diagnostics with a weak reference
+    let weak = Arc::downgrade(&inner);
+    let cap = capacity;
+    let diag_label = label.clone();
+    crate::diagnostics::register_channel(Box::new(move || {
+        let inner = weak.upgrade()?;
+        let guard = inner.lock().ok()?;
+        Some(crate::diagnostics::ChannelSnapshot {
+            id,
+            kind: "broadcast",
+            label: diag_label.clone(),
+            queue_len: guard.buffer.len(),
+            capacity: Some(cap),
+            closed: guard.closed,
+            sender_count: Arc::strong_count(&weak.upgrade()?) - 1,
+            receiver_alive: !guard.closed,
+            pending_wakers: guard.wakers.len(),
+        })
+    }));
+
     let sender = Sender {
         inner: inner.clone(),
     };

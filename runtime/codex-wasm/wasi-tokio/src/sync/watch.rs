@@ -3,13 +3,42 @@
 use std::sync::{Arc, Mutex};
 use std::task::Waker;
 
-pub fn channel<T>(init: T) -> (Sender<T>, Receiver<T>) {
+#[track_caller]
+pub fn channel<T: 'static>(init: T) -> (Sender<T>, Receiver<T>) {
+    let loc = std::panic::Location::caller();
+    let id = crate::diagnostics::NEXT_CHANNEL_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let label = format!(
+        "{}:{}",
+        loc.file().rsplit('/').next().unwrap_or(loc.file()),
+        loc.line()
+    );
+
     let inner = Arc::new(Mutex::new(WatchInner {
         value: init,
         version: 0,
         closed: false,
         wakers: Vec::new(),
     }));
+
+    // Register for diagnostics with a weak reference
+    let weak = Arc::downgrade(&inner);
+    let diag_label = label.clone();
+    crate::diagnostics::register_channel(Box::new(move || {
+        let inner = weak.upgrade()?;
+        let guard = inner.lock().ok()?;
+        Some(crate::diagnostics::ChannelSnapshot {
+            id,
+            kind: "watch",
+            label: diag_label.clone(),
+            queue_len: 1, // watch always holds one value
+            capacity: Some(1),
+            closed: guard.closed,
+            sender_count: Arc::strong_count(&weak.upgrade()?) - 1,
+            receiver_alive: !guard.closed,
+            pending_wakers: guard.wakers.len(),
+        })
+    }));
+
     (
         Sender {
             inner: inner.clone(),

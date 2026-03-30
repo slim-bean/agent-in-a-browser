@@ -5,8 +5,37 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 
-pub fn channel<T>() -> (Sender<T>, Receiver<T>) {
+#[track_caller]
+pub fn channel<T: 'static>() -> (Sender<T>, Receiver<T>) {
+    let loc = std::panic::Location::caller();
+    let id = crate::diagnostics::NEXT_CHANNEL_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let label = format!(
+        "{}:{}",
+        loc.file().rsplit('/').next().unwrap_or(loc.file()),
+        loc.line()
+    );
+
     let inner = Arc::new(Mutex::new(None));
+
+    // Register for diagnostics with a weak reference
+    let weak = Arc::downgrade(&inner);
+    let diag_label = label.clone();
+    crate::diagnostics::register_channel(Box::new(move || {
+        let inner = weak.upgrade()?;
+        let guard = inner.lock().ok()?;
+        Some(crate::diagnostics::ChannelSnapshot {
+            id,
+            kind: "oneshot",
+            label: diag_label.clone(),
+            queue_len: if guard.is_some() { 1 } else { 0 },
+            capacity: Some(1),
+            closed: false,
+            sender_count: Arc::strong_count(&weak.upgrade()?) - 1,
+            receiver_alive: true,
+            pending_wakers: 0,
+        })
+    }));
+
     (
         Sender {
             inner: inner.clone(),

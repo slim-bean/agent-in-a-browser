@@ -30,17 +30,39 @@ impl<T> RwLock<T> {
         self.blocking_write()
     }
 
-    /// Blocking read lock — for use outside async context.
+    /// Blocking read lock — with deadlock detection for single-threaded WASM.
     pub fn blocking_read(&self) -> RwLockReadGuard<'_, T> {
-        RwLockReadGuard {
-            inner: self.inner.read().unwrap_or_else(|e| e.into_inner()),
+        match self.inner.try_read() {
+            Ok(inner) => RwLockReadGuard { inner },
+            Err(std::sync::TryLockError::Poisoned(e)) => RwLockReadGuard {
+                inner: e.into_inner(),
+            },
+            Err(std::sync::TryLockError::WouldBlock) => {
+                crate::log(
+                    "[DEADLOCK] RwLock::read() called while write-locked in single-threaded WASM"
+                        .to_string(),
+                );
+                crate::diagnostics::dump_runtime_state();
+                panic!("deadlock: RwLock::read() on write-locked lock in single-threaded WASM");
+            }
         }
     }
 
-    /// Blocking write lock — for use outside async context.
+    /// Blocking write lock — with deadlock detection for single-threaded WASM.
     pub fn blocking_write(&self) -> RwLockWriteGuard<'_, T> {
-        RwLockWriteGuard {
-            inner: self.inner.write().unwrap_or_else(|e| e.into_inner()),
+        match self.inner.try_write() {
+            Ok(inner) => RwLockWriteGuard { inner },
+            Err(std::sync::TryLockError::Poisoned(e)) => RwLockWriteGuard {
+                inner: e.into_inner(),
+            },
+            Err(std::sync::TryLockError::WouldBlock) => {
+                crate::log(
+                    "[DEADLOCK] RwLock::write() called while already held in single-threaded WASM"
+                        .to_string(),
+                );
+                crate::diagnostics::dump_runtime_state();
+                panic!("deadlock: RwLock::write() on already-held lock in single-threaded WASM");
+            }
         }
     }
 
@@ -54,7 +76,20 @@ impl<T> RwLock<T> {
 
     /// Write lock returning an owned guard (requires Arc<RwLock<T>>).
     pub async fn write_owned(self: std::sync::Arc<Self>) -> OwnedRwLockWriteGuard<T> {
-        let guard = self.inner.write().unwrap_or_else(|e| e.into_inner());
+        let guard = match self.inner.try_write() {
+            Ok(g) => g,
+            Err(std::sync::TryLockError::Poisoned(e)) => e.into_inner(),
+            Err(std::sync::TryLockError::WouldBlock) => {
+                crate::log(
+                    "[DEADLOCK] RwLock::write_owned() called while already held in single-threaded WASM"
+                        .to_string(),
+                );
+                crate::diagnostics::dump_runtime_state();
+                panic!(
+                    "deadlock: RwLock::write_owned() on already-held lock in single-threaded WASM"
+                );
+            }
+        };
         let ptr = &*guard as *const T as *mut T;
         drop(guard);
         OwnedRwLockWriteGuard { _lock: self, ptr }
@@ -171,10 +206,21 @@ impl<T> Mutex<T> {
         self.blocking_lock()
     }
 
-    /// Blocking lock — for use outside async context.
+    /// Blocking lock — with deadlock detection for single-threaded WASM.
     pub fn blocking_lock(&self) -> MutexGuard<'_, T> {
-        MutexGuard {
-            guard: self.inner.lock().unwrap_or_else(|e| e.into_inner()),
+        match self.inner.try_lock() {
+            Ok(guard) => MutexGuard { guard },
+            Err(std::sync::TryLockError::Poisoned(e)) => MutexGuard {
+                guard: e.into_inner(),
+            },
+            Err(std::sync::TryLockError::WouldBlock) => {
+                crate::log(
+                    "[DEADLOCK] Mutex::lock() called while already held in single-threaded WASM"
+                        .to_string(),
+                );
+                crate::diagnostics::dump_runtime_state();
+                panic!("deadlock: Mutex::lock() on already-held lock in single-threaded WASM");
+            }
         }
     }
 
@@ -190,7 +236,20 @@ impl<T> Mutex<T> {
     /// SAFETY: Single-threaded WASM — we get a pointer to the inner data
     /// and keep the Arc alive to ensure the allocation persists.
     pub async fn lock_owned(self: std::sync::Arc<Self>) -> OwnedMutexGuard<T> {
-        let guard = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let guard = match self.inner.try_lock() {
+            Ok(g) => g,
+            Err(std::sync::TryLockError::Poisoned(e)) => e.into_inner(),
+            Err(std::sync::TryLockError::WouldBlock) => {
+                crate::log(
+                    "[DEADLOCK] Mutex::lock_owned() called while already held in single-threaded WASM"
+                        .to_string(),
+                );
+                crate::diagnostics::dump_runtime_state();
+                panic!(
+                    "deadlock: Mutex::lock_owned() on already-held lock in single-threaded WASM"
+                );
+            }
+        };
         let ptr = &*guard as *const T as *mut T;
         // Drop the std guard immediately — in single-threaded WASM there's
         // no contention, and we hold the Arc to keep the data alive.
