@@ -712,24 +712,41 @@ async function runTuiJspi(msg: WorkerRunMessage): Promise<void> {
     };
     // Track global activity markers that wasi-tokio yield sets
     (globalThis as any).__wasmWatchdogState = watchdogState;
+    // Wire the poll-impl yield hook to the watchdog
+    (globalThis as any).__wasmYieldActivity = () => {
+        watchdogState.lastYieldTime = Date.now();
+    };
 
     const watchdogInterval = setInterval(() => {
         const now = Date.now();
         const uptimeSec = ((now - watchdogState.startTime) / 1000).toFixed(1);
         const sinceStderrSec = ((now - watchdogState.lastStderrTime) / 1000).toFixed(1);
         const sinceStdinSec = ((now - watchdogState.lastStdinTime) / 1000).toFixed(1);
+        const sinceYieldSec = ((now - watchdogState.lastYieldTime) / 1000).toFixed(1);
+        const yieldStalled = now - watchdogState.lastYieldTime > 10000;
+        const stderrStalled = now - watchdogState.lastStderrTime > 30000;
 
-        // Only warn if no stderr activity for 30s (likely hung)
-        if (now - watchdogState.lastStderrTime > 30000) {
+        if (yieldStalled || stderrStalled) {
+            // Collect pending imports from debug state for diagnosis
+            const pendingList: string[] = [];
+            for (const [, call] of workerDebugState.pending) {
+                const elapsed = ((performance.now() - call.startTime) / 1000).toFixed(1);
+                pendingList.push(`${call.module}/${call.name} (${elapsed}s)`);
+            }
+            const pendingInfo = pendingList.length > 0
+                ? `\n  Pending JSPI imports: ${pendingList.join(', ')}`
+                : '\n  No pending JSPI imports (stuck in pure WASM or Mutex deadlock)';
+
             console.warn(
-                `[WasmWorker WATCHDOG] No stderr activity for ${sinceStderrSec}s ` +
-                `(uptime=${uptimeSec}s, sinceStdin=${sinceStdinSec}s). ` +
-                `Possible hang in session initialization.`
+                `[WasmWorker WATCHDOG] STALL DETECTED ` +
+                `(uptime=${uptimeSec}s, sinceYield=${sinceYieldSec}s, ` +
+                `sinceStderr=${sinceStderrSec}s, sinceStdin=${sinceStdinSec}s)` +
+                pendingInfo
             );
         } else {
             console.log(
                 `[WasmWorker WATCHDOG] alive: uptime=${uptimeSec}s, ` +
-                `sinceStderr=${sinceStderrSec}s, sinceStdin=${sinceStdinSec}s`
+                `sinceYield=${sinceYieldSec}s, sinceStderr=${sinceStderrSec}s, sinceStdin=${sinceStdinSec}s`
             );
         }
     }, 15000); // Check every 15s

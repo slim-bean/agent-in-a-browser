@@ -405,6 +405,12 @@ export function createDebugAPI(): WasmDebugAPI {
                     );
                 }
             }
+
+            // Auto-probe worker for its pending imports (the important ones)
+            if (state.worker) {
+                console.log('%c\nProbing Worker...', 'color: #4fc3f7');
+                api.probeWorker();
+            }
         },
 
         pendingImports(): ImportCall[] {
@@ -729,10 +735,10 @@ export function installDebugAPI(worker?: Worker): WasmDebugAPI {
     );
     console.log(
         '%cAvailable commands:\n' +
-        '  __wasmDebug.status()            - Overview of WASM state\n' +
-        '  __wasmDebug.pendingImports()    - List stuck imports\n' +
+        '  __wasmDebug.status()            - Overview + auto-probe Worker pending imports\n' +
+        '  __wasmDebug.pendingImports()    - List stuck imports (main thread)\n' +
+        '  __wasmDebug.probeWorker()       - Probe Worker for pending imports & history\n' +
         '  __wasmDebug.traceImports(true)  - Enable verbose tracing\n' +
-        '  __wasmDebug.probeWorker()       - Probe Worker for state\n' +
         '  __wasmDebug.importHistory(20)   - Recent import calls\n' +
         '  __wasmDebug.hangDetector(5000)  - Configure hang threshold\n' +
         '  __wasmDebug.workerTrace(true)   - Enable tracing in Worker\n' +
