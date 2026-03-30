@@ -2208,6 +2208,7 @@ impl<T> FileRwLock<T> {
         self.replace_stream_idle_timeout_map_response_stream();
         self.replace_stream_idle_timeout_call_sites();
         self.replace_stream_idle_timeout_try_run_sampling();
+        self.replace_residency_requirement_type_mismatch();
     }
 
     /// 1. zstd compression bypass (codex-client/src/transport.rs):
@@ -2411,6 +2412,26 @@ impl<T> FileRwLock<T> {
                 end,
                 replacement: replacement.to_string(),
             });
+        }
+    }
+
+    /// Fix type mismatch: set_default_client_residency_requirement expects
+    /// Option<ResidencyRequirement>, not Option<()>. Replaces all occurrences.
+    fn replace_residency_requirement_type_mismatch(&mut self) {
+        if !self.file_matches("tui/src/lib.rs") {
+            return;
+        }
+        let find = "set_default_client_residency_requirement(config.enforce_residency.value().map(|_| ()));";
+        let replace = "set_default_client_residency_requirement(config.enforce_residency.value());";
+        let mut search_from = 0;
+        while let Some(rel) = self.source[search_from..].find(find) {
+            let start = search_from + rel;
+            self.edits.push(Edit {
+                start,
+                end: start + find.len(),
+                replacement: replace.to_string(),
+            });
+            search_from = start + find.len();
         }
     }
 
