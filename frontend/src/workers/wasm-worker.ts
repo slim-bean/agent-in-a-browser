@@ -543,8 +543,8 @@ async function runTuiJspi(msg: WorkerRunMessage): Promise<void> {
 
     // Set environment variables (same as tui-loader.ts)
     cliShim.setEnvironment([
-        ['HOME', '/tmp/codex-home'],
-        ['CODEX_HOME', '/tmp/codex-home/.codex'],
+        ['HOME', '/'],
+        ['CODEX_HOME', '/.codex'],
         ['TERM', 'xterm-256color'],
         ['SHELL', '/bin/sh'],
         ['RUST_BACKTRACE', '1'],
@@ -556,15 +556,13 @@ async function runTuiJspi(msg: WorkerRunMessage): Promise<void> {
     await initFilesystem();
     console.log('[WasmWorker JSPI] OPFS filesystem ready');
 
-    // Pre-create the codex home directory in OPFS
+    // Pre-create /.codex in OPFS
     try {
         const root = await navigator.storage.getDirectory();
-        const tmp = await root.getDirectoryHandle('tmp', { create: true });
-        const codexHome = await tmp.getDirectoryHandle('codex-home', { create: true });
-        await codexHome.getDirectoryHandle('.codex', { create: true });
-        console.log('[WasmWorker JSPI] Pre-created /tmp/codex-home/.codex in OPFS');
+        await root.getDirectoryHandle('.codex', { create: true });
+        console.log('[WasmWorker JSPI] Pre-created /.codex in OPFS');
     } catch (e) {
-        console.warn('[WasmWorker JSPI] Failed to pre-create codex home in OPFS:', e);
+        console.warn('[WasmWorker JSPI] Failed to pre-create .codex in OPFS:', e);
     }
 
     // Set up async transport handler — direct fetch() in Worker for API calls,
@@ -765,8 +763,8 @@ async function runShellJspi(msg: WorkerRunMessage): Promise<void> {
     jspiSetTerminalSize = cliShim.setTerminalSize;
 
     cliShim.setEnvironment([
-        ['HOME', '/tmp/codex-home'],
-        ['CODEX_HOME', '/tmp/codex-home/.codex'],
+        ['HOME', '/'],
+        ['CODEX_HOME', '/.codex'],
         ['TERM', 'xterm-256color'],
         ['SHELL', '/bin/sh'],
         ['PATH', '/usr/local/bin:/usr/bin:/bin'],
@@ -778,13 +776,11 @@ async function runShellJspi(msg: WorkerRunMessage): Promise<void> {
     await initFilesystem();
     console.log('[WasmWorker Shell] OPFS filesystem ready');
 
-    // Pre-create home directory
+    // Pre-create home directories at OPFS root
     try {
         const root = await navigator.storage.getDirectory();
-        const tmp = await root.getDirectoryHandle('tmp', { create: true });
-        const codexHome = await tmp.getDirectoryHandle('codex-home', { create: true });
-        await codexHome.getDirectoryHandle('.codex', { create: true });
-        await codexHome.getDirectoryHandle('.config', { create: true });
+        await root.getDirectoryHandle('.codex', { create: true });
+        await root.getDirectoryHandle('.config', { create: true });
     } catch (e) {
         console.warn('[WasmWorker Shell] Failed to pre-create directories:', e);
     }

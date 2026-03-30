@@ -275,25 +275,21 @@ export async function launchTui(options: TuiLoaderOptions): Promise<{
     };
 
     // Set environment variables for the Codex TUI.
-    // HOME is required for find_codex_home() to locate ~/.codex/ config.
-    // In WASM, /tmp/codex-home maps to OPFS via the filesystem shim.
+    // HOME=/ so find_codex_home() resolves to /.codex at the OPFS root.
     setEnvironment([
-        ['HOME', '/tmp/codex-home'],
-        ['CODEX_HOME', '/tmp/codex-home/.codex'],
+        ['HOME', '/'],
+        ['CODEX_HOME', '/.codex'],
         ['TERM', 'xterm-256color'],
         ['RUST_BACKTRACE', '1'],
     ]);
 
-    // Pre-create the codex home directory in OPFS so find_codex_home() succeeds.
-    // The OPFS filesystem shim maps /tmp/ to the browser's Origin Private File System.
+    // Pre-create /.codex in OPFS so find_codex_home() succeeds.
     try {
         const root = await navigator.storage.getDirectory();
-        const tmp = await root.getDirectoryHandle('tmp', { create: true });
-        const codexHome = await tmp.getDirectoryHandle('codex-home', { create: true });
-        await codexHome.getDirectoryHandle('.codex', { create: true });
-        console.log('[TUI Loader] Pre-created /tmp/codex-home/.codex in OPFS');
+        await root.getDirectoryHandle('.codex', { create: true });
+        console.log('[TUI Loader] Pre-created /.codex in OPFS');
     } catch (e) {
-        console.warn('[TUI Loader] Failed to pre-create codex home in OPFS:', e);
+        console.warn('[TUI Loader] Failed to pre-create .codex in OPFS:', e);
     }
 
     // Show loading indicator while WASM initializes
