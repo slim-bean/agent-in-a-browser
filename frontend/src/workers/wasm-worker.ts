@@ -527,6 +527,93 @@ async function runTuiSync(msg: WorkerRunMessage): Promise<void> {
     }
 }
 
+// ============================================================
+// SHARED WATCHDOG — detects WASM hangs across all module paths
+// ============================================================
+
+/**
+ * Start the WASM watchdog timer. Tracks yield activity, stderr output,
+ * and stdin reads. When a stall is detected (no yields for 10s or no
+ * stderr for 30s), dumps pending imports and live resources.
+ *
+ * Returns a cleanup function to call when the module exits.
+ */
+function startWasmWatchdog(debugState: { pending: Map<number, { module: string; name: string; startTime: number }> }): () => void {
+    const watchdogState = {
+        lastStderrTime: Date.now(),
+        lastStdinTime: Date.now(),
+        lastYieldTime: Date.now(),
+        startTime: Date.now(),
+    };
+
+    // Hook postMessage to track stderr activity
+    const origPostMessage = self.postMessage.bind(self);
+    self.postMessage = function(msg: unknown, ...args: unknown[]) {
+        if ((msg as { type?: string })?.type === 'terminal-output') {
+            watchdogState.lastStderrTime = Date.now();
+        }
+        return (origPostMessage as (...a: unknown[]) => void)(msg, ...args);
+    };
+
+    // Wire yield hook for DurationPollable.block()
+    (globalThis as Record<string, unknown>).__wasmWatchdogState = watchdogState;
+    (globalThis as Record<string, unknown>).__wasmYieldActivity = () => {
+        watchdogState.lastYieldTime = Date.now();
+    };
+
+    const interval = setInterval(() => {
+        const now = Date.now();
+        const uptimeSec = ((now - watchdogState.startTime) / 1000).toFixed(1);
+        const sinceStderrSec = ((now - watchdogState.lastStderrTime) / 1000).toFixed(1);
+        const sinceStdinSec = ((now - watchdogState.lastStdinTime) / 1000).toFixed(1);
+        const sinceYieldSec = ((now - watchdogState.lastYieldTime) / 1000).toFixed(1);
+        const yieldStalled = now - watchdogState.lastYieldTime > 10000;
+        const stderrStalled = now - watchdogState.lastStderrTime > 30000;
+
+        if (yieldStalled || stderrStalled) {
+            const pendingList: string[] = [];
+            for (const [, call] of debugState.pending) {
+                const elapsed = ((performance.now() - call.startTime) / 1000).toFixed(1);
+                pendingList.push(`${call.module}/${call.name} (${elapsed}s)`);
+            }
+            const pendingInfo = pendingList.length > 0
+                ? `\n  Pending JSPI imports: ${pendingList.join(', ')}`
+                : '\n  No pending JSPI imports (stuck in pure WASM or Mutex deadlock)';
+
+            let resourceInfo = '';
+            try {
+                const registryKey = Symbol.for('wasi:debug/resource-registry');
+                const registry = (globalThis as Record<symbol, unknown>)[registryKey] as
+                    { snapshot?: () => Array<{ type: string; subtype: string; meta: Record<string, string> }> } | undefined;
+                if (registry?.snapshot) {
+                    const resources = registry.snapshot();
+                    if (resources.length > 0) {
+                        const summary = resources.map(r => {
+                            const meta = Object.entries(r.meta).map(([k, v]) => `${k}=${v}`).join(',');
+                            return `${r.type}:${r.subtype}${meta ? `(${meta})` : ''}`;
+                        }).join(', ');
+                        resourceInfo = `\n  Live resources (${resources.length}): ${summary}`;
+                    }
+                }
+            } catch { /* registry not available */ }
+
+            console.warn(
+                `[WasmWorker WATCHDOG] STALL DETECTED ` +
+                `(uptime=${uptimeSec}s, sinceYield=${sinceYieldSec}s, ` +
+                `sinceStderr=${sinceStderrSec}s, sinceStdin=${sinceStdinSec}s)` +
+                pendingInfo + resourceInfo
+            );
+        } else {
+            console.log(
+                `[WasmWorker WATCHDOG] alive: uptime=${uptimeSec}s, ` +
+                `sinceYield=${sinceYieldSec}s, sinceStderr=${sinceStderrSec}s, sinceStdin=${sinceStdinSec}s`
+            );
+        }
+    }, 15000);
+
+    return () => clearInterval(interval);
+}
+
 /**
  * Run TUI in JSPI mode (Chrome/Firefox).
  * Uses JSPI async suspension for blocking I/O.
@@ -697,96 +784,19 @@ async function runTuiJspi(msg: WorkerRunMessage): Promise<void> {
     const { registerCodexTui } = await import('../wasm/lazy-loading/lazy-modules.js');
     registerCodexTui();
 
-    // --- Watchdog timer: detect hangs in session initialization ---
-    const watchdogState = {
-        lastStderrTime: Date.now(),
-        lastStdinTime: Date.now(),
-        lastYieldTime: Date.now(),
-        startTime: Date.now(),
-    };
-    // Hook into globalThis to track activity from WASM stderr/stdin/yield
-    const _origPostMessage = self.postMessage.bind(self);
-    const origPostMessage = self.postMessage.bind(self);
-    self.postMessage = function(msg: any, ...args: any[]) {
-        if (msg?.type === 'terminal-output') {
-            watchdogState.lastStderrTime = Date.now();
-        }
-        return (origPostMessage as any)(msg, ...args);
-    };
-    // Track global activity markers that wasi-tokio yield sets
-    (globalThis as any).__wasmWatchdogState = watchdogState;
-    // Wire the poll-impl yield hook to the watchdog
-    (globalThis as any).__wasmYieldActivity = () => {
-        watchdogState.lastYieldTime = Date.now();
-    };
-
-    const watchdogInterval = setInterval(() => {
-        const now = Date.now();
-        const uptimeSec = ((now - watchdogState.startTime) / 1000).toFixed(1);
-        const sinceStderrSec = ((now - watchdogState.lastStderrTime) / 1000).toFixed(1);
-        const sinceStdinSec = ((now - watchdogState.lastStdinTime) / 1000).toFixed(1);
-        const sinceYieldSec = ((now - watchdogState.lastYieldTime) / 1000).toFixed(1);
-        const yieldStalled = now - watchdogState.lastYieldTime > 10000;
-        const stderrStalled = now - watchdogState.lastStderrTime > 30000;
-
-        if (yieldStalled || stderrStalled) {
-            // Collect pending imports from debug state for diagnosis
-            const pendingList: string[] = [];
-            for (const [, call] of workerDebugState.pending) {
-                const elapsed = ((performance.now() - call.startTime) / 1000).toFixed(1);
-                pendingList.push(`${call.module}/${call.name} (${elapsed}s)`);
-            }
-            const pendingInfo = pendingList.length > 0
-                ? `\n  Pending JSPI imports: ${pendingList.join(', ')}`
-                : '\n  No pending JSPI imports (stuck in pure WASM or Mutex deadlock)';
-
-            // Collect live resource info from registry
-            let resourceInfo = '';
-            try {
-                const registryKey = Symbol.for('wasi:debug/resource-registry');
-                const registry = (globalThis as Record<symbol, unknown>)[registryKey] as
-                    { snapshot?: () => Array<{ type: string; subtype: string; meta: Record<string, string> }> } | undefined;
-                if (registry && typeof registry.snapshot === 'function') {
-                    const liveResources = registry.snapshot();
-                    if (liveResources.length > 0) {
-                        const summary = liveResources.map(r => {
-                            const metaStr = Object.entries(r.meta).map(([k, v]) => `${k}=${v}`).join(',');
-                            return `${r.type}:${r.subtype}${metaStr ? `(${metaStr})` : ''}`;
-                        }).join(', ');
-                        resourceInfo = `\n  Live resources (${liveResources.length}): ${summary}`;
-                    } else {
-                        resourceInfo = '\n  No live resources tracked';
-                    }
-                }
-            } catch {
-                // Registry not available
-            }
-
-            console.warn(
-                `[WasmWorker WATCHDOG] STALL DETECTED ` +
-                `(uptime=${uptimeSec}s, sinceYield=${sinceYieldSec}s, ` +
-                `sinceStderr=${sinceStderrSec}s, sinceStdin=${sinceStdinSec}s)` +
-                pendingInfo +
-                resourceInfo
-            );
-        } else {
-            console.log(
-                `[WasmWorker WATCHDOG] alive: uptime=${uptimeSec}s, ` +
-                `sinceYield=${sinceYieldSec}s, sinceStderr=${sinceStderrSec}s, sinceStdin=${sinceStdinSec}s`
-            );
-        }
-    }, 15000); // Check every 15s
+    // Start watchdog for hang detection (shared with shell path)
+    const watchdogCleanup = startWasmWatchdog(workerDebugState);
 
     // Run the TUI (async via JSPI - returns a Promise)
     try {
         console.log('[WasmWorker JSPI] Calling run()...');
         const exitCode = await tuiModule.run();
         console.log('[WasmWorker JSPI] TUI exited with code:', exitCode);
-        clearInterval(watchdogInterval);
+        watchdogCleanup();
         self.postMessage({ type: 'exit', code: exitCode });
     } catch (err) {
         console.error('[WasmWorker JSPI] TUI execution error:', err);
-        clearInterval(watchdogInterval);
+        watchdogCleanup();
         self.postMessage({ type: 'error', message: String(err) });
     }
 }
@@ -933,6 +943,9 @@ async function runShellJspi(msg: WorkerRunMessage): Promise<void> {
 
     self.postMessage({ type: 'started', module: msg.module });
 
+    // Start watchdog for hang detection (shared with TUI path)
+    const watchdogCleanup = startWasmWatchdog(workerDebugState);
+
     // Run the shell REPL
     try {
         console.log('[WasmWorker Shell] Starting brush shell REPL...');
@@ -945,9 +958,11 @@ async function runShellJspi(msg: WorkerRunMessage): Promise<void> {
             cliShim.stderr.getStderr(),
         );
         console.log('[WasmWorker Shell] Shell exited with code:', exitCode);
+        watchdogCleanup();
         self.postMessage({ type: 'exit', code: exitCode });
     } catch (err) {
         console.error('[WasmWorker Shell] Shell execution error:', err);
+        watchdogCleanup();
         self.postMessage({ type: 'error', message: String(err) });
     }
 }
