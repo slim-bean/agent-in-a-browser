@@ -7,7 +7,7 @@ edition.workspace = true
 crate-type = ["cdylib"]
 
 [features]
-# Enable performance metrics logging via eprintln!
+# Enable performance metrics logging via console_log!
 perf_metrics = []
 
 [dependencies]
@@ -28,6 +28,7 @@ anstyle-parse = "1.0"
 # WASI bindings for component model
 wasm-bindgen = "0.2"
 wit-bindgen-rt.workspace = true
+console-log = { path = "../console-log" }
 
 
 [package.metadata.component]
@@ -45,3 +46,4 @@ world = "edtui-module"
 "wasi:sockets" = { path = "../../wit/deps/sockets" }
 "wasi:random" = { path = "../../wit/deps/random" }
 "terminal:info" = { path = "../../wit/deps/terminal-info" }
+"host:console" = { path = "../../wit/deps/console" }

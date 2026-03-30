@@ -68,7 +68,7 @@ pub fn install(ctx: &Ctx<'_>) -> Result<()> {
                     })
                     .to_string(),
                     Err(e) => {
-                        eprintln!("[__syncFetch__] Error: {}", e);
+                        console_log::console_error!("[__syncFetch__] Error: {}", e);
                         serde_json::json!({
                             "ok": false,
                             "status": 0,

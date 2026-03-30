@@ -1,6 +1,7 @@
 import { openUrl } from '@tjfontaine/wasi-shims/browser-impl.js';
 import { monotonicClock, wallClock } from '@tjfontaine/wasi-shims/clocks-impl.js';
-import { error } from '@tjfontaine/wasi-shims/error.js';
+import { error, log } from '@tjfontaine/wasi-shims/console-logging-impl.js';
+import { error as error$1 } from '@tjfontaine/wasi-shims/error.js';
 import { environment, exit as exit$1, stderr, stdin, stdout, terminalInput, terminalOutput, terminalStderr, terminalStdin, terminalStdout } from '@tjfontaine/wasi-shims/ghostty-cli-shim.js';
 import { preopens, types } from '@tjfontaine/wasi-shims/opfs-filesystem-impl.js';
 import { Pollable } from '@tjfontaine/wasi-shims/poll-impl.js';
@@ -13,7 +14,7 @@ const { now,
   subscribeDuration,
   subscribeInstant } = monotonicClock;
 const { now: now$1 } = wallClock;
-const { Error: Error$1 } = error;
+const { Error: Error$1 } = error$1;
 const { getArguments,
   getEnvironment } = environment;
 const { exit } = exit$1;
@@ -3948,7 +3949,43 @@ const trampoline52 = new WebAssembly.Suspending(async function(arg0, arg1, arg2)
 }
 );
 
-function trampoline53(arg0) {
+function trampoline53(arg0, arg1) {
+  var ptr0 = arg0;
+  var len0 = arg1;
+  var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+  _debugLog('[iface="host:console/logging@0.1.0", function="log"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'log');
+  log(result0);
+  _debugLog('[iface="host:console/logging@0.1.0", function="log"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  _debugLog('[iface="host:console/logging@0.1.0", function="log"][Instruction::Return]', {
+    funcName: 'log',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+
+
+function trampoline54(arg0, arg1) {
+  var ptr0 = arg0;
+  var len0 = arg1;
+  var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+  _debugLog('[iface="host:console/logging@0.1.0", function="error"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'error');
+  error(result0);
+  _debugLog('[iface="host:console/logging@0.1.0", function="error"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  _debugLog('[iface="host:console/logging@0.1.0", function="error"][Instruction::Return]', {
+    funcName: 'error',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+
+
+function trampoline55(arg0) {
   _debugLog('[iface="wasi:cli/environment@0.2.9", function="get-arguments"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-arguments');
   const ret = getArguments();
@@ -3975,7 +4012,7 @@ function trampoline53(arg0) {
 }
 
 
-function trampoline54(arg0) {
+function trampoline56(arg0) {
   _debugLog('[iface="wasi:random/insecure-seed@0.2.9", function="insecure-seed"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'insecure-seed');
   const ret = insecureSeed();
@@ -3993,7 +4030,7 @@ function trampoline54(arg0) {
 }
 
 
-function trampoline55(arg0, arg1) {
+function trampoline57(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable3[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable3.get(rep2);
@@ -4068,7 +4105,7 @@ function trampoline55(arg0, arg1) {
 }
 
 
-function trampoline56(arg0, arg1) {
+function trampoline58(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable3[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable3.get(rep2);
@@ -4146,7 +4183,7 @@ const captureTable13= new Map();
 let captureCnt13 = 0;
 handleTables[13] = handleTable13;
 
-function trampoline57(arg0, arg1, arg2) {
+function trampoline59(arg0, arg1, arg2) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -4362,7 +4399,7 @@ function trampoline57(arg0, arg1, arg2) {
 }
 
 
-function trampoline58(arg0, arg1, arg2) {
+function trampoline60(arg0, arg1, arg2) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -4578,7 +4615,7 @@ function trampoline58(arg0, arg1, arg2) {
 }
 
 
-function trampoline59(arg0, arg1) {
+function trampoline61(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -4794,7 +4831,7 @@ function trampoline59(arg0, arg1) {
 }
 
 
-function trampoline60(arg0, arg1) {
+function trampoline62(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -5007,7 +5044,7 @@ function trampoline60(arg0, arg1) {
 }
 
 
-function trampoline61(arg0, arg1, arg2) {
+function trampoline63(arg0, arg1, arg2) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -5217,7 +5254,7 @@ const captureTable14= new Map();
 let captureCnt14 = 0;
 handleTables[14] = handleTable14;
 
-const trampoline62 = new WebAssembly.Suspending(async function(arg0, arg1) {
+const trampoline64 = new WebAssembly.Suspending(async function(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -5433,7 +5470,7 @@ const trampoline62 = new WebAssembly.Suspending(async function(arg0, arg1) {
 }
 );
 
-function trampoline63(arg0, arg1) {
+function trampoline65(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -5639,7 +5676,7 @@ function trampoline63(arg0, arg1) {
 }
 
 
-const trampoline64 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
+const trampoline66 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -5848,7 +5885,7 @@ const trampoline64 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-const trampoline65 = new WebAssembly.Suspending(async function(arg0, arg1) {
+const trampoline67 = new WebAssembly.Suspending(async function(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -6128,7 +6165,7 @@ const trampoline65 = new WebAssembly.Suspending(async function(arg0, arg1) {
 }
 );
 
-const trampoline66 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4) {
+const trampoline68 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -6414,7 +6451,7 @@ const trampoline66 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-function trampoline67(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10) {
+function trampoline69(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -6676,7 +6713,7 @@ function trampoline67(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9
 }
 
 
-const trampoline68 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
+const trampoline70 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -6912,7 +6949,7 @@ const trampoline68 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-function trampoline69(arg0, arg1, arg2, arg3) {
+function trampoline71(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -7125,7 +7162,7 @@ function trampoline69(arg0, arg1, arg2, arg3) {
 }
 
 
-const trampoline70 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
+const trampoline72 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -7334,7 +7371,7 @@ const trampoline70 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-const trampoline71 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
+const trampoline73 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -7555,7 +7592,7 @@ const trampoline71 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-const trampoline72 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
+const trampoline74 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -7764,7 +7801,7 @@ const trampoline72 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-function trampoline73(arg0, arg1) {
+function trampoline75(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -7973,7 +8010,7 @@ function trampoline73(arg0, arg1) {
 }
 
 
-function trampoline74(arg0, arg1, arg2, arg3, arg4) {
+function trampoline76(arg0, arg1, arg2, arg3, arg4) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -8188,7 +8225,7 @@ function trampoline74(arg0, arg1, arg2, arg3, arg4) {
 }
 
 
-function trampoline75(arg0, arg1) {
+function trampoline77(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable14[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable14.get(rep2);
@@ -8447,7 +8484,7 @@ function trampoline75(arg0, arg1) {
 }
 
 
-function trampoline76(arg0) {
+function trampoline78(arg0) {
   _debugLog('[iface="wasi:cli/environment@0.2.9", function="get-environment"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-environment');
   const ret = getEnvironment();
@@ -8483,7 +8520,7 @@ const captureTable4= new Map();
 let captureCnt4 = 0;
 handleTables[4] = handleTable4;
 
-function trampoline77(arg0) {
+function trampoline79(arg0) {
   _debugLog('[iface="wasi:cli/terminal-stdin@0.2.9", function="get-terminal-stdin"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-terminal-stdin');
   const ret = getTerminalStdin();
@@ -8519,7 +8556,7 @@ const captureTable5= new Map();
 let captureCnt5 = 0;
 handleTables[5] = handleTable5;
 
-function trampoline78(arg0) {
+function trampoline80(arg0) {
   _debugLog('[iface="wasi:cli/terminal-stdout@0.2.9", function="get-terminal-stdout"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-terminal-stdout');
   const ret = getTerminalStdout();
@@ -8551,7 +8588,7 @@ function trampoline78(arg0) {
 }
 
 
-function trampoline79(arg0) {
+function trampoline81(arg0) {
   _debugLog('[iface="wasi:cli/terminal-stderr@0.2.9", function="get-terminal-stderr"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-terminal-stderr');
   const ret = getTerminalStderr();
@@ -8583,7 +8620,7 @@ function trampoline79(arg0) {
 }
 
 
-function trampoline80(arg0) {
+function trampoline82(arg0) {
   _debugLog('[iface="wasi:clocks/wall-clock@0.2.9", function="now"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'now');
   const ret = now$1();
@@ -8601,7 +8638,7 @@ function trampoline80(arg0) {
 }
 
 
-function trampoline81(arg0) {
+function trampoline83(arg0) {
   _debugLog('[iface="wasi:filesystem/preopens@0.2.9", function="get-directories"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-directories');
   const ret = getDirectories();
@@ -8845,8 +8882,8 @@ async function run() {
 const $init = (() => {
   let gen = (function* _initGenerator () {
     const module0 = fetchCompile(new URL('./codex-wasm-tui.core.wasm', import.meta.url));
-    const module1 = base64Compile('AGFzbQEAAAABgQEPYAN/fn8AYAR/f39/AGAOf39/f39/f39/f39/f38AYAJ/fwBgBX9/f39/AGAGf39/f39/AGAEf39/fwF/YAV/f39/fwF/YAR/f39/AGADf39/AGABfwBgBX9/f39/AGALf39/f39+f39+f38AYAd/f39/f39/AGAHf39/f39/fwADMzIAAAECAwEEBQYHBgYDAwgDAwMDCAkKCgMDAAADAwADAwEDCwwNAQEOAQMLAwoKCgoKCgQFAXABMjIH/AEzATAAAAExAAEBMgACATMAAwE0AAQBNQAFATYABgE3AAcBOAAIATkACQIxMAAKAjExAAsCMTIADAIxMwANAjE0AA4CMTUADwIxNgAQAjE3ABECMTgAEgIxOQATAjIwABQCMjEAFQIyMgAWAjIzABcCMjQAGAIyNQAZAjI2ABoCMjcAGwIyOAAcAjI5AB0CMzAAHgIzMQAfAjMyACACMzMAIQIzNAAiAjM1ACMCMzYAJAIzNwAlAjM4ACYCMzkAJwI0MAAoAjQxACkCNDIAKgI0MwArAjQ0ACwCNDUALQI0NgAuAjQ3AC8CNDgAMAI0OQAxCCRpbXBvcnRzAQAK3wUyDQAgACABIAJBABEAAAsNACAAIAEgAkEBEQAACw8AIAAgASACIANBAhEBAAsjACAAIAEgAiADIAQgBSAGIAcgCCAJIAogCyAMIA1BAxECAAsLACAAIAFBBBEDAAsPACAAIAEgAiADQQURAQALEQAgACABIAIgAyAEQQYRBAALEwAgACABIAIgAyAEIAVBBxEFAAsPACAAIAEgAiADQQgRBgALEQAgACABIAIgAyAEQQkRBwALDwAgACABIAIgA0EKEQYACw8AIAAgASACIANBCxEGAAsLACAAIAFBDBEDAAsLACAAIAFBDREDAAsPACAAIAEgAiADQQ4RCAALCwAgACABQQ8RAwALCwAgACABQRARAwALCwAgACABQRERAwALCwAgACABQRIRAwALDwAgACABIAIgA0ETEQgACw0AIAAgASACQRQRCQALCQAgAEEVEQoACwkAIABBFhEKAAsLACAAIAFBFxEDAAsLACAAIAFBGBEDAAsNACAAIAEgAkEZEQAACw0AIAAgASACQRoRAAALCwAgACABQRsRAwALCwAgACABQRwRAwALDQAgACABIAJBHREAAAsLACAAIAFBHhEDAAsLACAAIAFBHxEDAAsPACAAIAEgAiADQSARAQALCwAgACABQSERAwALEQAgACABIAIgAyAEQSIRCwALHQAgACABIAIgAyAEIAUgBiAHIAggCSAKQSMRDAALFQAgACABIAIgAyAEIAUgBkEkEQ0ACw8AIAAgASACIANBJREBAAsPACAAIAEgAiADQSYRAQALFQAgACABIAIgAyAEIAUgBkEnEQ4ACw8AIAAgASACIANBKBEBAAsLACAAIAFBKREDAAsRACAAIAEgAiADIARBKhELAAsLACAAIAFBKxEDAAsJACAAQSwRCgALCQAgAEEtEQoACwkAIABBLhEKAAsJACAAQS8RCgALCQAgAEEwEQoACwkAIABBMREKAAsALwlwcm9kdWNlcnMBDHByb2Nlc3NlZC1ieQENd2l0LWNvbXBvbmVudAcwLjI0My4w');
-    const module2 = base64Compile('AGFzbQEAAAABgQEPYAN/fn8AYAR/f39/AGAOf39/f39/f39/f39/f38AYAJ/fwBgBX9/f39/AGAGf39/f39/AGAEf39/fwF/YAV/f39/fwF/YAR/f39/AGADf39/AGABfwBgBX9/f39/AGALf39/f39+f39+f38AYAd/f39/f39/AGAHf39/f39/fwACsgIzAAEwAAAAATEAAAABMgABAAEzAAIAATQAAwABNQABAAE2AAQAATcABQABOAAGAAE5AAcAAjEwAAYAAjExAAYAAjEyAAMAAjEzAAMAAjE0AAgAAjE1AAMAAjE2AAMAAjE3AAMAAjE4AAMAAjE5AAgAAjIwAAkAAjIxAAoAAjIyAAoAAjIzAAMAAjI0AAMAAjI1AAAAAjI2AAAAAjI3AAMAAjI4AAMAAjI5AAAAAjMwAAMAAjMxAAMAAjMyAAEAAjMzAAMAAjM0AAsAAjM1AAwAAjM2AA0AAjM3AAEAAjM4AAEAAjM5AA4AAjQwAAEAAjQxAAMAAjQyAAsAAjQzAAMAAjQ0AAoAAjQ1AAoAAjQ2AAoAAjQ3AAoAAjQ4AAoAAjQ5AAoACCRpbXBvcnRzAXABMjIJOAEAQQALMgABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxAC8JcHJvZHVjZXJzAQxwcm9jZXNzZWQtYnkBDXdpdC1jb21wb25lbnQHMC4yNDMuMA');
+    const module1 = base64Compile('AGFzbQEAAAABhgEQYAN/fn8AYAR/f39/AGAOf39/f39/f39/f39/f38AYAJ/fwBgBX9/f39/AGAGf39/f39/AGAEf39/fwF/YAV/f39/fwF/YAR/f39/AGADf39/AGACf38AYAF/AGAFf39/f38AYAt/f39/f35/f35/fwBgB39/f39/f38AYAd/f39/f39/AAM1NAAAAQIDAQQFBgcGBgMDCAMDAwMICQoKCwsDAwAAAwMAAwMBAwwNDgEBDwEDDAMLCwsLCwsEBQFwATQ0B4YCNQEwAAABMQABATIAAgEzAAMBNAAEATUABQE2AAYBNwAHATgACAE5AAkCMTAACgIxMQALAjEyAAwCMTMADQIxNAAOAjE1AA8CMTYAEAIxNwARAjE4ABICMTkAEwIyMAAUAjIxABUCMjIAFgIyMwAXAjI0ABgCMjUAGQIyNgAaAjI3ABsCMjgAHAIyOQAdAjMwAB4CMzEAHwIzMgAgAjMzACECMzQAIgIzNQAjAjM2ACQCMzcAJQIzOAAmAjM5ACcCNDAAKAI0MQApAjQyACoCNDMAKwI0NAAsAjQ1AC0CNDYALgI0NwAvAjQ4ADACNDkAMQI1MAAyAjUxADMIJGltcG9ydHMBAAr3BTQNACAAIAEgAkEAEQAACw0AIAAgASACQQERAAALDwAgACABIAIgA0ECEQEACyMAIAAgASACIAMgBCAFIAYgByAIIAkgCiALIAwgDUEDEQIACwsAIAAgAUEEEQMACw8AIAAgASACIANBBREBAAsRACAAIAEgAiADIARBBhEEAAsTACAAIAEgAiADIAQgBUEHEQUACw8AIAAgASACIANBCBEGAAsRACAAIAEgAiADIARBCREHAAsPACAAIAEgAiADQQoRBgALDwAgACABIAIgA0ELEQYACwsAIAAgAUEMEQMACwsAIAAgAUENEQMACw8AIAAgASACIANBDhEIAAsLACAAIAFBDxEDAAsLACAAIAFBEBEDAAsLACAAIAFBEREDAAsLACAAIAFBEhEDAAsPACAAIAEgAiADQRMRCAALDQAgACABIAJBFBEJAAsLACAAIAFBFREKAAsLACAAIAFBFhEKAAsJACAAQRcRCwALCQAgAEEYEQsACwsAIAAgAUEZEQMACwsAIAAgAUEaEQMACw0AIAAgASACQRsRAAALDQAgACABIAJBHBEAAAsLACAAIAFBHREDAAsLACAAIAFBHhEDAAsNACAAIAEgAkEfEQAACwsAIAAgAUEgEQMACwsAIAAgAUEhEQMACw8AIAAgASACIANBIhEBAAsLACAAIAFBIxEDAAsRACAAIAEgAiADIARBJBEMAAsdACAAIAEgAiADIAQgBSAGIAcgCCAJIApBJRENAAsVACAAIAEgAiADIAQgBSAGQSYRDgALDwAgACABIAIgA0EnEQEACw8AIAAgASACIANBKBEBAAsVACAAIAEgAiADIAQgBSAGQSkRDwALDwAgACABIAIgA0EqEQEACwsAIAAgAUErEQMACxEAIAAgASACIAMgBEEsEQwACwsAIAAgAUEtEQMACwkAIABBLhELAAsJACAAQS8RCwALCQAgAEEwEQsACwkAIABBMRELAAsJACAAQTIRCwALCQAgAEEzEQsACwAvCXByb2R1Y2VycwEMcHJvY2Vzc2VkLWJ5AQ13aXQtY29tcG9uZW50BzAuMjQzLjA');
+    const module2 = base64Compile('AGFzbQEAAAABhgEQYAN/fn8AYAR/f39/AGAOf39/f39/f39/f39/f38AYAJ/fwBgBX9/f39/AGAGf39/f39/AGAEf39/fwF/YAV/f39/fwF/YAR/f39/AGADf39/AGACf38AYAF/AGAFf39/f38AYAt/f39/f35/f35/fwBgB39/f39/f38AYAd/f39/f39/AAK+AjUAATAAAAABMQAAAAEyAAEAATMAAgABNAADAAE1AAEAATYABAABNwAFAAE4AAYAATkABwACMTAABgACMTEABgACMTIAAwACMTMAAwACMTQACAACMTUAAwACMTYAAwACMTcAAwACMTgAAwACMTkACAACMjAACQACMjEACgACMjIACgACMjMACwACMjQACwACMjUAAwACMjYAAwACMjcAAAACMjgAAAACMjkAAwACMzAAAwACMzEAAAACMzIAAwACMzMAAwACMzQAAQACMzUAAwACMzYADAACMzcADQACMzgADgACMzkAAQACNDAAAQACNDEADwACNDIAAQACNDMAAwACNDQADAACNDUAAwACNDYACwACNDcACwACNDgACwACNDkACwACNTAACwACNTEACwAIJGltcG9ydHMBcAE0NAk6AQBBAAs0AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMwAvCXByb2R1Y2VycwEMcHJvY2Vzc2VkLWJ5AQ13aXQtY29tcG9uZW50BzAuMjQzLjA');
     ({ exports: exports0 } = yield instantiateCore(yield module1));
     ({ exports: exports1 } = yield instantiateCore(yield module0, {
       'codex:tui/shell-exec@0.1.0': {
@@ -8862,11 +8899,15 @@ const $init = (() => {
       'host:browser/actions@0.1.0': {
         'open-url': exports0['20'],
       },
+      'host:console/logging@0.1.0': {
+        error: exports0['22'],
+        log: exports0['21'],
+      },
       'wasi:cli/environment@0.2.0': {
-        'get-environment': exports0['44'],
+        'get-environment': exports0['46'],
       },
       'wasi:cli/environment@0.2.9': {
-        'get-arguments': exports0['21'],
+        'get-arguments': exports0['23'],
       },
       'wasi:cli/exit@0.2.0': {
         exit: trampoline25,
@@ -8887,13 +8928,13 @@ const $init = (() => {
         '[resource-drop]terminal-output': trampoline22,
       },
       'wasi:cli/terminal-stderr@0.2.0': {
-        'get-terminal-stderr': exports0['47'],
+        'get-terminal-stderr': exports0['49'],
       },
       'wasi:cli/terminal-stdin@0.2.0': {
-        'get-terminal-stdin': exports0['45'],
+        'get-terminal-stdin': exports0['47'],
       },
       'wasi:cli/terminal-stdout@0.2.0': {
-        'get-terminal-stdout': exports0['46'],
+        'get-terminal-stdout': exports0['48'],
       },
       'wasi:clocks/monotonic-clock@0.2.0': {
         now: trampoline30,
@@ -8904,31 +8945,31 @@ const $init = (() => {
         'subscribe-duration': trampoline2,
       },
       'wasi:clocks/wall-clock@0.2.0': {
-        now: exports0['48'],
+        now: exports0['50'],
       },
       'wasi:filesystem/preopens@0.2.0': {
-        'get-directories': exports0['49'],
+        'get-directories': exports0['51'],
       },
       'wasi:filesystem/types@0.2.0': {
-        '[method]descriptor.append-via-stream': exports0['27'],
-        '[method]descriptor.create-directory-at': exports0['32'],
-        '[method]descriptor.get-flags': exports0['28'],
-        '[method]descriptor.metadata-hash': exports0['41'],
-        '[method]descriptor.metadata-hash-at': exports0['42'],
-        '[method]descriptor.open-at': exports0['36'],
-        '[method]descriptor.read-directory': exports0['30'],
-        '[method]descriptor.read-via-stream': exports0['25'],
-        '[method]descriptor.readlink-at': exports0['37'],
-        '[method]descriptor.remove-directory-at': exports0['38'],
-        '[method]descriptor.rename-at': exports0['39'],
-        '[method]descriptor.set-size': exports0['29'],
-        '[method]descriptor.set-times-at': exports0['35'],
-        '[method]descriptor.stat': exports0['33'],
-        '[method]descriptor.stat-at': exports0['34'],
-        '[method]descriptor.sync': exports0['31'],
-        '[method]descriptor.unlink-file-at': exports0['40'],
-        '[method]descriptor.write-via-stream': exports0['26'],
-        '[method]directory-entry-stream.read-directory-entry': exports0['43'],
+        '[method]descriptor.append-via-stream': exports0['29'],
+        '[method]descriptor.create-directory-at': exports0['34'],
+        '[method]descriptor.get-flags': exports0['30'],
+        '[method]descriptor.metadata-hash': exports0['43'],
+        '[method]descriptor.metadata-hash-at': exports0['44'],
+        '[method]descriptor.open-at': exports0['38'],
+        '[method]descriptor.read-directory': exports0['32'],
+        '[method]descriptor.read-via-stream': exports0['27'],
+        '[method]descriptor.readlink-at': exports0['39'],
+        '[method]descriptor.remove-directory-at': exports0['40'],
+        '[method]descriptor.rename-at': exports0['41'],
+        '[method]descriptor.set-size': exports0['31'],
+        '[method]descriptor.set-times-at': exports0['37'],
+        '[method]descriptor.stat': exports0['35'],
+        '[method]descriptor.stat-at': exports0['36'],
+        '[method]descriptor.sync': exports0['33'],
+        '[method]descriptor.unlink-file-at': exports0['42'],
+        '[method]descriptor.write-via-stream': exports0['28'],
+        '[method]directory-entry-stream.read-directory-entry': exports0['45'],
         '[resource-drop]descriptor': trampoline23,
         '[resource-drop]directory-entry-stream': trampoline24,
       },
@@ -8977,8 +9018,8 @@ const $init = (() => {
       'wasi:io/streams@0.2.0': {
         '[method]input-stream.blocking-read': exports0['0'],
         '[method]input-stream.subscribe': trampoline26,
-        '[method]output-stream.blocking-flush': exports0['24'],
-        '[method]output-stream.check-write': exports0['23'],
+        '[method]output-stream.blocking-flush': exports0['26'],
+        '[method]output-stream.check-write': exports0['25'],
         '[method]output-stream.subscribe': trampoline5,
         '[method]output-stream.write': exports0['2'],
         '[resource-drop]input-stream': trampoline13,
@@ -8993,7 +9034,7 @@ const $init = (() => {
         '[resource-drop]output-stream': trampoline17,
       },
       'wasi:random/insecure-seed@0.2.4': {
-        'insecure-seed': exports0['22'],
+        'insecure-seed': exports0['24'],
       },
       'wasi:random/random@0.2.9': {
         'get-random-u64': trampoline20,
@@ -9050,6 +9091,8 @@ const $init = (() => {
         '48': trampoline80,
         '49': trampoline81,
         '5': trampoline37,
+        '50': trampoline82,
+        '51': trampoline83,
         '6': trampoline38,
         '7': trampoline39,
         '8': trampoline40,

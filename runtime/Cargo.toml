@@ -103,6 +103,7 @@ base64 = "0.22" # Base64 encoding/decoding
 # WASI bindings for http handler
 wasi = "0.14.7"
 wit-bindgen-rt.workspace = true
+console-log = { path = "crates/console-log" }
 brush-parser = "0.3.0"
 regex = "1"
 itertools = "0.14"
@@ -142,5 +143,6 @@ world = "ts-runtime-mcp"
 "mcp:module-loader" = { path = "wit/deps/module-loader" }
 "shell:unix" = { path = "wit/deps/shell-unix" }
 "host:browser" = { path = "wit/deps/browser" }
+"host:console" = { path = "wit/deps/console" }
 
 [package.metadata.component.dependencies]

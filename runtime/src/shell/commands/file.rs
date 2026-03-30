@@ -404,7 +404,7 @@ impl FileCommands {
             }
 
             if files.is_empty() {
-                eprintln!("[debug] rm: no files after parsing, force={}", force);
+                console_log::console_log!("[debug] rm: no files after parsing, force={}", force);
                 if !force {
                     let _ = stderr.write_all(b"rm: missing operand\n").await;
                 }

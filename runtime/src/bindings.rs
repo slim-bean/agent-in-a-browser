@@ -74,6 +74,76 @@ pub mod host {
             }
         }
     }
+    pub mod console {
+        /// Console logging — routes to browser console.log/warn/error
+        /// instead of polluting wasi:cli/stderr.
+        #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
+        pub mod logging {
+            #[used]
+            #[doc(hidden)]
+            static __FORCE_SECTION_REF: fn() = super::super::super::__link_custom_section_describing_imports;
+            #[allow(unused_unsafe, clippy::all)]
+            /// Log a message (maps to console.log).
+            pub fn log(msg: &str) -> () {
+                unsafe {
+                    let vec0 = msg;
+                    let ptr0 = vec0.as_ptr().cast::<u8>();
+                    let len0 = vec0.len();
+                    #[cfg(target_arch = "wasm32")]
+                    #[link(wasm_import_module = "host:console/logging@0.1.0")]
+                    unsafe extern "C" {
+                        #[link_name = "log"]
+                        fn wit_import1(_: *mut u8, _: usize);
+                    }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    unsafe extern "C" fn wit_import1(_: *mut u8, _: usize) {
+                        unreachable!()
+                    }
+                    unsafe { wit_import1(ptr0.cast_mut(), len0) };
+                }
+            }
+            #[allow(unused_unsafe, clippy::all)]
+            /// Log a warning (maps to console.warn).
+            pub fn warn(msg: &str) -> () {
+                unsafe {
+                    let vec0 = msg;
+                    let ptr0 = vec0.as_ptr().cast::<u8>();
+                    let len0 = vec0.len();
+                    #[cfg(target_arch = "wasm32")]
+                    #[link(wasm_import_module = "host:console/logging@0.1.0")]
+                    unsafe extern "C" {
+                        #[link_name = "warn"]
+                        fn wit_import1(_: *mut u8, _: usize);
+                    }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    unsafe extern "C" fn wit_import1(_: *mut u8, _: usize) {
+                        unreachable!()
+                    }
+                    unsafe { wit_import1(ptr0.cast_mut(), len0) };
+                }
+            }
+            #[allow(unused_unsafe, clippy::all)]
+            /// Log an error (maps to console.error).
+            pub fn error(msg: &str) -> () {
+                unsafe {
+                    let vec0 = msg;
+                    let ptr0 = vec0.as_ptr().cast::<u8>();
+                    let len0 = vec0.len();
+                    #[cfg(target_arch = "wasm32")]
+                    #[link(wasm_import_module = "host:console/logging@0.1.0")]
+                    unsafe extern "C" {
+                        #[link_name = "error"]
+                        fn wit_import1(_: *mut u8, _: usize);
+                    }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    unsafe extern "C" fn wit_import1(_: *mut u8, _: usize) {
+                        unreachable!()
+                    }
+                    unsafe { wit_import1(ptr0.cast_mut(), len0) };
+                }
+            }
+        }
+    }
 }
 #[rustfmt::skip]
 #[allow(dead_code, clippy::all)]
@@ -18146,9 +18216,9 @@ pub(crate) use __export_ts_runtime_mcp_impl as export;
 #[unsafe(link_section = "component-type:wit-bindgen:0.41.0:mcp:ts-runtime@0.2.0:ts-runtime-mcp:encoded world")]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 16840] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xc2\x82\x01\x01A\x02\
-\x01AQ\x01B\x04\x04\0\x05error\x03\x01\x01h\0\x01@\x01\x04self\x01\0s\x04\0\x1d[\
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 16911] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\x89\x83\x01\x01A\x02\
+\x01AS\x01B\x04\x04\0\x05error\x03\x01\x01h\0\x01@\x01\x04self\x01\0s\x04\0\x1d[\
 method]error.to-debug-string\x01\x02\x03\0\x13wasi:io/error@0.2.9\x05\0\x01B\x0a\
 \x04\0\x08pollable\x03\x01\x01h\0\x01@\x01\x04self\x01\0\x7f\x04\0\x16[method]po\
 llable.ready\x01\x02\x01@\x01\x04self\x01\x01\0\x04\0\x16[method]pollable.block\x01\
@@ -18470,18 +18540,20 @@ ize\x0b\0\"\x04\0\x11spawn-interactive\x01$\x01@\x01\x07commands\0\x7f\x04\0\x16
 is-interactive-command\x01%\x01@\0\0\x7f\x04\0\x08has-jspi\x01&\x01@\x03\x07comm\
 ands\x04args!\x03env\x09\0\"\x04\0\x14spawn-worker-command\x01'\x03\0\x1emcp:mod\
 ule-loader/loader@0.1.0\x05-\x01B\x03\x01j\0\x01s\x01@\x01\x03urls\0\0\x04\0\x08\
-open-url\x01\x01\x03\0\x1ahost:browser/actions@0.1.0\x05.\x02\x03\0\x0a\x10incom\
-ing-request\x02\x03\0\x0a\x11response-outparam\x01B\x08\x02\x03\x02\x01/\x04\0\x10\
-incoming-request\x03\0\0\x02\x03\x02\x010\x04\0\x11response-outparam\x03\0\x02\x01\
-i\x01\x01i\x03\x01@\x02\x07request\x04\x0cresponse-out\x05\x01\0\x04\0\x06handle\
-\x01\x06\x04\0\x20wasi:http/incoming-handler@0.2.9\x051\x01B\x0f\x02\x03\x02\x01\
-\x06\x04\0\x0cinput-stream\x03\0\0\x02\x03\x02\x01\x07\x04\0\x0doutput-stream\x03\
-\0\x02\x01o\x02ss\x01p\x04\x01r\x02\x03cwds\x04vars\x05\x04\0\x08exec-env\x03\0\x06\
-\x01ps\x01i\x01\x01i\x03\x01@\x06\x04names\x04args\x08\x03env\x07\x05stdin\x09\x06\
-stdout\x0a\x06stderr\x0a\0z\x04\0\x03run\x01\x0b\x01@\0\0\x08\x04\0\x0dlist-comm\
-ands\x01\x0c\x04\0\x18shell:unix/command@0.1.0\x052\x04\0#mcp:ts-runtime/ts-runt\
-ime-mcp@0.2.0\x04\0\x0b\x14\x01\0\x0ets-runtime-mcp\x03\0\0\0G\x09producers\x01\x0c\
-processed-by\x02\x0dwit-component\x070.227.1\x10wit-bindgen-rust\x060.41.0";
+open-url\x01\x01\x03\0\x1ahost:browser/actions@0.1.0\x05.\x01B\x04\x01@\x01\x03m\
+sgs\x01\0\x04\0\x03log\x01\0\x04\0\x04warn\x01\0\x04\0\x05error\x01\0\x03\0\x1ah\
+ost:console/logging@0.1.0\x05/\x02\x03\0\x0a\x10incoming-request\x02\x03\0\x0a\x11\
+response-outparam\x01B\x08\x02\x03\x02\x010\x04\0\x10incoming-request\x03\0\0\x02\
+\x03\x02\x011\x04\0\x11response-outparam\x03\0\x02\x01i\x01\x01i\x03\x01@\x02\x07\
+request\x04\x0cresponse-out\x05\x01\0\x04\0\x06handle\x01\x06\x04\0\x20wasi:http\
+/incoming-handler@0.2.9\x052\x01B\x0f\x02\x03\x02\x01\x06\x04\0\x0cinput-stream\x03\
+\0\0\x02\x03\x02\x01\x07\x04\0\x0doutput-stream\x03\0\x02\x01o\x02ss\x01p\x04\x01\
+r\x02\x03cwds\x04vars\x05\x04\0\x08exec-env\x03\0\x06\x01ps\x01i\x01\x01i\x03\x01\
+@\x06\x04names\x04args\x08\x03env\x07\x05stdin\x09\x06stdout\x0a\x06stderr\x0a\0\
+z\x04\0\x03run\x01\x0b\x01@\0\0\x08\x04\0\x0dlist-commands\x01\x0c\x04\0\x18shel\
+l:unix/command@0.1.0\x053\x04\0#mcp:ts-runtime/ts-runtime-mcp@0.2.0\x04\0\x0b\x14\
+\x01\0\x0ets-runtime-mcp\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-\
+component\x070.227.1\x10wit-bindgen-rust\x060.41.0";
 #[inline(never)]
 #[doc(hidden)]
 pub fn __link_custom_section_describing_imports() {

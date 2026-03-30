@@ -53,7 +53,7 @@ where
                 *result_clone.lock().unwrap_or_else(|e| e.into_inner()) = Some(val);
             }
             Err(e) => {
-                eprintln!(
+                console_log::console_error!(
                     "[wasm_thread::spawn] closure panicked: {:?}",
                     e.downcast_ref::<&str>().unwrap_or(&"unknown")
                 );

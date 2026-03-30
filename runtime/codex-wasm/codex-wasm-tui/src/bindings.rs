@@ -678,6 +678,76 @@ pub mod host {
             }
         }
     }
+    pub mod console {
+        /// Console logging — routes to browser console.log/warn/error
+        /// instead of polluting wasi:cli/stderr.
+        #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
+        pub mod logging {
+            #[used]
+            #[doc(hidden)]
+            static __FORCE_SECTION_REF: fn() = super::super::super::__link_custom_section_describing_imports;
+            #[allow(unused_unsafe, clippy::all)]
+            /// Log a message (maps to console.log).
+            pub fn log(msg: &str) -> () {
+                unsafe {
+                    let vec0 = msg;
+                    let ptr0 = vec0.as_ptr().cast::<u8>();
+                    let len0 = vec0.len();
+                    #[cfg(target_arch = "wasm32")]
+                    #[link(wasm_import_module = "host:console/logging@0.1.0")]
+                    unsafe extern "C" {
+                        #[link_name = "log"]
+                        fn wit_import1(_: *mut u8, _: usize);
+                    }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    unsafe extern "C" fn wit_import1(_: *mut u8, _: usize) {
+                        unreachable!()
+                    }
+                    unsafe { wit_import1(ptr0.cast_mut(), len0) };
+                }
+            }
+            #[allow(unused_unsafe, clippy::all)]
+            /// Log a warning (maps to console.warn).
+            pub fn warn(msg: &str) -> () {
+                unsafe {
+                    let vec0 = msg;
+                    let ptr0 = vec0.as_ptr().cast::<u8>();
+                    let len0 = vec0.len();
+                    #[cfg(target_arch = "wasm32")]
+                    #[link(wasm_import_module = "host:console/logging@0.1.0")]
+                    unsafe extern "C" {
+                        #[link_name = "warn"]
+                        fn wit_import1(_: *mut u8, _: usize);
+                    }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    unsafe extern "C" fn wit_import1(_: *mut u8, _: usize) {
+                        unreachable!()
+                    }
+                    unsafe { wit_import1(ptr0.cast_mut(), len0) };
+                }
+            }
+            #[allow(unused_unsafe, clippy::all)]
+            /// Log an error (maps to console.error).
+            pub fn error(msg: &str) -> () {
+                unsafe {
+                    let vec0 = msg;
+                    let ptr0 = vec0.as_ptr().cast::<u8>();
+                    let len0 = vec0.len();
+                    #[cfg(target_arch = "wasm32")]
+                    #[link(wasm_import_module = "host:console/logging@0.1.0")]
+                    unsafe extern "C" {
+                        #[link_name = "error"]
+                        fn wit_import1(_: *mut u8, _: usize);
+                    }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    unsafe extern "C" fn wit_import1(_: *mut u8, _: usize) {
+                        unreachable!()
+                    }
+                    unsafe { wit_import1(ptr0.cast_mut(), len0) };
+                }
+            }
+        }
+    }
 }
 #[rustfmt::skip]
 #[allow(dead_code, clippy::all)]
@@ -13009,8 +13079,8 @@ pub(crate) use __export_codex_tui_impl as export;
 )]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 11329] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xc1W\x01A\x02\x01AB\x01\
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 11400] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\x88X\x01A\x02\x01AD\x01\
 B\x04\x04\0\x05error\x03\x01\x01h\0\x01@\x01\x04self\x01\0s\x04\0\x1d[method]err\
 or.to-debug-string\x01\x02\x03\0\x13wasi:io/error@0.2.9\x05\0\x01B\x0a\x04\0\x08\
 pollable\x03\x01\x01h\0\x01@\x01\x04self\x01\0\x7f\x04\0\x16[method]pollable.rea\
@@ -13234,9 +13304,11 @@ losed\x01\x09\x03\0\x19codex:tui/websocket@0.1.0\x05$\x01B\x04\x01r\x02\x04colsy
 \x04rowsy\x04\0\x13terminal-dimensions\x03\0\0\x01@\0\0\x01\x04\0\x11get-termina\
 l-size\x01\x02\x03\0\x18terminal:info/size@0.1.0\x05%\x01B\x03\x01j\0\x01s\x01@\x01\
 \x03urls\0\0\x04\0\x08open-url\x01\x01\x03\0\x1ahost:browser/actions@0.1.0\x05&\x01\
-@\0\0z\x04\0\x03run\x01'\x04\0\x19codex:tui/codex-tui@0.1.0\x04\0\x0b\x0f\x01\0\x09\
-codex-tui\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.\
-227.1\x10wit-bindgen-rust\x060.41.0";
+B\x04\x01@\x01\x03msgs\x01\0\x04\0\x03log\x01\0\x04\0\x04warn\x01\0\x04\0\x05err\
+or\x01\0\x03\0\x1ahost:console/logging@0.1.0\x05'\x01@\0\0z\x04\0\x03run\x01(\x04\
+\0\x19codex:tui/codex-tui@0.1.0\x04\0\x0b\x0f\x01\0\x09codex-tui\x03\0\0\0G\x09p\
+roducers\x01\x0cprocessed-by\x02\x0dwit-component\x070.227.1\x10wit-bindgen-rust\
+\x060.41.0";
 #[inline(never)]
 #[doc(hidden)]
 pub fn __link_custom_section_describing_imports() {

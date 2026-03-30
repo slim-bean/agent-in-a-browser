@@ -57,6 +57,8 @@ export default defineConfig(({ mode }) => ({
             '@tjfontaine/wasi-shims/websocket-impl.js',
             // Browser actions shim (open URLs)
             '@tjfontaine/wasi-shims/browser-impl.js',
+            // Console logging shim
+            '@tjfontaine/wasi-shims/console-logging-impl.js',
         ],
     },
     server: {
@@ -240,6 +242,7 @@ export default defineConfig(({ mode }) => ({
                     '@tjfontaine/wasi-shims/shell-exec-impl.js': '/wasi-shims/shell-exec-impl.js',
                     '@tjfontaine/wasi-shims/websocket-impl.js': '/wasi-shims/websocket-impl.js',
                     '@tjfontaine/wasi-shims/browser-impl.js': '/wasi-shims/browser-impl.js',
+                    '@tjfontaine/wasi-shims/console-logging-impl.js': '/wasi-shims/console-logging-impl.js',
                     '@tjfontaine/wasm-loader': '/wasm-loader/index.js',
                 },
             },
@@ -324,6 +327,7 @@ export default defineConfig(({ mode }) => ({
                     '@tjfontaine/wasi-shims/shell-exec-impl.js': '/wasi-shims/shell-exec-impl.js',
                     '@tjfontaine/wasi-shims/websocket-impl.js': '/wasi-shims/websocket-impl.js',
                     '@tjfontaine/wasi-shims/browser-impl.js': '/wasi-shims/browser-impl.js',
+                    '@tjfontaine/wasi-shims/console-logging-impl.js': '/wasi-shims/console-logging-impl.js',
                 },
             },
         },

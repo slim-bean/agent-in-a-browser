@@ -92,7 +92,12 @@ const INJECT_DEPS: &[(&str, &[(&str, &str)])] = &[
             ("codex-arg0", "../arg0"),
             ("codex-utils-sleep-inhibitor", "../utils/sleep-inhibitor"),
             ("arboard", "../../../codex-wasm/wasi-arboard"),
+            ("console-log", "../../../crates/console-log"),
         ],
+    ),
+    (
+        "core",
+        &[("console-log", "../../../crates/console-log")],
     ),
     // state: sqlx is stripped globally but state's runtime.rs uses it;
     // inject the wasi-sqlx shim path so it resolves via [patch.crates-io]

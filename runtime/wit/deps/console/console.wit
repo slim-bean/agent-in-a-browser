@@ -1,0 +1,14 @@
+package host:console@0.1.0;
+
+/// Console logging — routes to browser console.log/warn/error
+/// instead of polluting wasi:cli/stderr.
+interface logging {
+    /// Log a message (maps to console.log).
+    log: func(msg: string);
+
+    /// Log a warning (maps to console.warn).
+    warn: func(msg: string);
+
+    /// Log an error (maps to console.error).
+    error: func(msg: string);
+}

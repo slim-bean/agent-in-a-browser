@@ -21,6 +21,7 @@ clap = { version = "4", features = ["derive"] }
 webbrowser = { path = "../wasi-webbrowser" }
 wit-bindgen = "0.36"
 wit-bindgen-rt = "0.36"
+console-log = { path = "../../crates/console-log" }
 
 [profile.release]
 opt-level = "z"
@@ -60,3 +61,4 @@ world = "codex-tui"
 "wasi:sockets" = { path = "../../wit/deps/sockets" }
 "terminal:info" = { path = "../../wit/deps/terminal-info" }
 "host:browser" = { path = "../../wit/deps/browser" }
+"host:console" = { path = "../../wit/deps/console" }

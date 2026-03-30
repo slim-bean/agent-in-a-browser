@@ -30,7 +30,7 @@ struct SpawnedTask {
 
 /// Single-write log to avoid WASI stderr fragmentation.
 fn log(msg: String) {
-    eprintln!("{msg}");
+    console_log::console_log!("{msg}");
 }
 
 /// Global queue of spawned tasks. `block_on` drains this each iteration.

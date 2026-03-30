@@ -43,6 +43,7 @@ web-sys = { version = "0.3", features = [
     "Headers",
 ] }
 wit-bindgen-rt.workspace = true
+console-log = { path = "../console-log" }
 
 # Base64 encoding/decoding
 base64 = "0.22"
@@ -82,3 +83,4 @@ world = "tsx-engine"
 "wasi:random" = { path = "../../wit/deps/random" }
 "wasi:cli" = { path = "../../wit/deps/cli" }
 "ios:bridge" = { path = "../../wit/deps/ios-bridge" }
+"host:console" = { path = "../../wit/deps/console" }

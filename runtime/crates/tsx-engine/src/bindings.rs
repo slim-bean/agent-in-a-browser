@@ -3,6 +3,80 @@
 //   * runtime_path: "wit_bindgen_rt"
 #[rustfmt::skip]
 #[allow(dead_code, clippy::all)]
+pub mod host {
+    pub mod console {
+        /// Console logging — routes to browser console.log/warn/error
+        /// instead of polluting wasi:cli/stderr.
+        #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
+        pub mod logging {
+            #[used]
+            #[doc(hidden)]
+            static __FORCE_SECTION_REF: fn() = super::super::super::__link_custom_section_describing_imports;
+            #[allow(unused_unsafe, clippy::all)]
+            /// Log a message (maps to console.log).
+            pub fn log(msg: &str) -> () {
+                unsafe {
+                    let vec0 = msg;
+                    let ptr0 = vec0.as_ptr().cast::<u8>();
+                    let len0 = vec0.len();
+                    #[cfg(target_arch = "wasm32")]
+                    #[link(wasm_import_module = "host:console/logging@0.1.0")]
+                    unsafe extern "C" {
+                        #[link_name = "log"]
+                        fn wit_import1(_: *mut u8, _: usize);
+                    }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    unsafe extern "C" fn wit_import1(_: *mut u8, _: usize) {
+                        unreachable!()
+                    }
+                    unsafe { wit_import1(ptr0.cast_mut(), len0) };
+                }
+            }
+            #[allow(unused_unsafe, clippy::all)]
+            /// Log a warning (maps to console.warn).
+            pub fn warn(msg: &str) -> () {
+                unsafe {
+                    let vec0 = msg;
+                    let ptr0 = vec0.as_ptr().cast::<u8>();
+                    let len0 = vec0.len();
+                    #[cfg(target_arch = "wasm32")]
+                    #[link(wasm_import_module = "host:console/logging@0.1.0")]
+                    unsafe extern "C" {
+                        #[link_name = "warn"]
+                        fn wit_import1(_: *mut u8, _: usize);
+                    }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    unsafe extern "C" fn wit_import1(_: *mut u8, _: usize) {
+                        unreachable!()
+                    }
+                    unsafe { wit_import1(ptr0.cast_mut(), len0) };
+                }
+            }
+            #[allow(unused_unsafe, clippy::all)]
+            /// Log an error (maps to console.error).
+            pub fn error(msg: &str) -> () {
+                unsafe {
+                    let vec0 = msg;
+                    let ptr0 = vec0.as_ptr().cast::<u8>();
+                    let len0 = vec0.len();
+                    #[cfg(target_arch = "wasm32")]
+                    #[link(wasm_import_module = "host:console/logging@0.1.0")]
+                    unsafe extern "C" {
+                        #[link_name = "error"]
+                        fn wit_import1(_: *mut u8, _: usize);
+                    }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    unsafe extern "C" fn wit_import1(_: *mut u8, _: usize) {
+                        unreachable!()
+                    }
+                    unsafe { wit_import1(ptr0.cast_mut(), len0) };
+                }
+            }
+        }
+    }
+}
+#[rustfmt::skip]
+#[allow(dead_code, clippy::all)]
 pub mod ios {
     pub mod bridge {
         /// Key-value storage backed by the host (UserDefaults on iOS).
@@ -18987,9 +19061,9 @@ pub(crate) use __export_tsx_engine_impl as export;
 #[unsafe(link_section = "component-type:wit-bindgen:0.41.0:shell:unix@0.1.0:tsx-engine:encoded world")]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 16901] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\x83\x83\x01\x01A\x02\
-\x01Ac\x01B\x04\x04\0\x05error\x03\x01\x01h\0\x01@\x01\x04self\x01\0s\x04\0\x1d[\
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 16972] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xca\x83\x01\x01A\x02\
+\x01Ae\x01B\x04\x04\0\x05error\x03\x01\x01h\0\x01@\x01\x04self\x01\0s\x04\0\x1d[\
 method]error.to-debug-string\x01\x02\x03\0\x13wasi:io/error@0.2.9\x05\0\x01B\x0a\
 \x04\0\x08pollable\x03\x01\x01h\0\x01@\x01\x04self\x01\0\x7f\x04\0\x16[method]po\
 llable.ready\x01\x02\x01@\x01\x04self\x01\x01\0\x04\0\x16[method]pollable.block\x01\
@@ -19285,48 +19359,49 @@ ress\x03\0\x06\x04\0\x16resolve-address-stream\x03\x01\x01h\x08\x01k\x07\x01j\x0
 olve-next-address\x01\x0c\x01i\x01\x01@\x01\x04self\x09\0\x0d\x04\0([method]reso\
 lve-address-stream.subscribe\x01\x0e\x01h\x03\x01i\x08\x01j\x01\x10\x01\x05\x01@\
 \x02\x07network\x0f\x04names\0\x11\x04\0\x11resolve-addresses\x01\x12\x03\0!wasi\
-:sockets/ip-name-lookup@0.2.9\x05,\x01B\x0a\x01ks\x01@\x01\x03keys\0\0\x04\0\x03\
-get\x01\x01\x01@\x02\x03keys\x05values\x01\0\x04\0\x03set\x01\x02\x01@\x01\x03ke\
-ys\0\x7f\x04\0\x06remove\x01\x03\x01ps\x01@\x01\x06prefix\0\0\x04\x04\0\x04keys\x01\
-\x05\x03\0\x18ios:bridge/storage@0.1.0\x05-\x01B\x04\x01@\0\0s\x04\0\x04info\x01\
-\0\x04\0\x0cconnectivity\x01\0\x04\0\x06locale\x01\0\x03\0\x17ios:bridge/device@\
-0.1.0\x05.\x01B\x04\x01@\x01\x0blayout-jsons\0s\x04\0\x04show\x01\0\x01@\x01\x0c\
-patches-jsons\0s\x04\0\x05patch\x01\x01\x03\0\x17ios:bridge/render@0.1.0\x05/\x01\
-B\x04\x01@\x01\x0acapabilitys\0\x7f\x04\0\x07request\x01\0\x04\0\x06revoke\x01\0\
-\x04\0\x05check\x01\0\x03\0\x1cios:bridge/permissions@0.1.0\x050\x01B\x08\x01ky\x01\
-@\x02\x05querys\x05limit\0\0s\x04\0\x06search\x01\x01\x01ks\x01@\x01\x0aidentifi\
-ers\0\x02\x04\0\x03get\x01\x03\x01@\0\0s\x04\0\x14authorization-status\x01\x04\x03\
-\0\x19ios:bridge/contacts@0.1.0\x051\x01B\x0a\x01@\0\0s\x04\0\x09calendars\x01\0\
-\x01ks\x01@\x03\x09start-isos\x07end-isos\x0bcalendar-id\x01\0s\x04\0\x06events\x01\
-\x02\x01@\x01\x0aevent-jsons\0s\x04\0\x0ccreate-event\x01\x03\x01@\x01\x0bcalend\
-ar-id\x01\0s\x04\0\x09reminders\x01\x04\x04\0\x14authorization-status\x01\0\x03\0\
-\x19ios:bridge/calendar@0.1.0\x052\x01B\x07\x01ks\x01@\x03\x05titles\x04bodys\x0c\
-trigger-json\0\0s\x04\0\x08schedule\x01\x01\x01@\x01\x0aidentifiers\x01\0\x04\0\x06\
-cancel\x01\x02\x01@\0\0s\x04\0\x07pending\x01\x03\x03\0\x1eios:bridge/notificati\
-ons@0.1.0\x053\x01B\x05\x01ks\x01@\0\0\0\x04\0\x0aget-string\x01\x01\x01@\x01\x05\
-values\x01\0\x04\0\x0aset-string\x01\x02\x03\0\x1aios:bridge/clipboard@0.1.0\x05\
-4\x01B\x06\x01@\0\0s\x04\0\x07current\x01\0\x01@\x01\x07addresss\0s\x04\0\x07geo\
-code\x01\x01\x01@\x02\x03latu\x03lngu\0s\x04\0\x0freverse-geocode\x01\x02\x03\0\x19\
-ios:bridge/location@0.1.0\x055\x01B\x07\x01ky\x01@\x04\x07type-ids\x09start-isos\
-\x07end-isos\x05limit\0\0s\x04\0\x05query\x01\x01\x01@\x03\x07type-ids\x09start-\
-isos\x07end-isos\0s\x04\0\x0astatistics\x01\x02\x01@\x01\x07type-ids\0s\x04\0\x14\
-authorization-status\x01\x03\x03\0\x17ios:bridge/health@0.1.0\x056\x01B\x07\x01k\
-s\x01@\x02\x07services\x07accounts\0\0\x04\0\x03get\x01\x01\x01@\x03\x07services\
-\x07accounts\x05values\0\x7f\x04\0\x03set\x01\x02\x01@\x02\x07services\x07accoun\
-ts\0\x7f\x04\0\x06remove\x01\x03\x03\0\x19ios:bridge/keychain@0.1.0\x057\x01B\x07\
-\x01@\x01\x0coptions-jsons\0s\x04\0\x06search\x01\0\x01ks\x01@\x01\x0aidentifier\
-s\0\x01\x04\0\x05asset\x01\x02\x01@\0\0s\x04\0\x06albums\x01\x03\x03\0\x17ios:br\
-idge/photos@0.1.0\x058\x01B\x0f\x02\x03\x02\x01\x06\x04\0\x0cinput-stream\x03\0\0\
-\x02\x03\x02\x01\x07\x04\0\x0doutput-stream\x03\0\x02\x01o\x02ss\x01p\x04\x01r\x02\
-\x03cwds\x04vars\x05\x04\0\x08exec-env\x03\0\x06\x01ps\x01i\x01\x01i\x03\x01@\x06\
-\x04names\x04args\x08\x03env\x07\x05stdin\x09\x06stdout\x0a\x06stderr\x0a\0z\x04\
-\0\x03run\x01\x0b\x01@\0\0\x08\x04\0\x0dlist-commands\x01\x0c\x04\0\x18shell:uni\
-x/command@0.1.0\x059\x01B\x07\x01ks\x01j\x01s\x01s\x01@\x02\x04codes\x0bsource-n\
-ame\0\0\x01\x04\0\x08evaluate\x01\x02\x01ps\x01@\x02\x04paths\x04args\x03\0\x01\x04\
-\0\x0devaluate-file\x01\x04\x04\0\x1cshell:unix/script-eval@0.1.0\x05:\x04\0\x1b\
-shell:unix/tsx-engine@0.1.0\x04\0\x0b\x10\x01\0\x0atsx-engine\x03\0\0\0G\x09prod\
-ucers\x01\x0cprocessed-by\x02\x0dwit-component\x070.227.1\x10wit-bindgen-rust\x06\
-0.41.0";
+:sockets/ip-name-lookup@0.2.9\x05,\x01B\x04\x01@\x01\x03msgs\x01\0\x04\0\x03log\x01\
+\0\x04\0\x04warn\x01\0\x04\0\x05error\x01\0\x03\0\x1ahost:console/logging@0.1.0\x05\
+-\x01B\x0a\x01ks\x01@\x01\x03keys\0\0\x04\0\x03get\x01\x01\x01@\x02\x03keys\x05v\
+alues\x01\0\x04\0\x03set\x01\x02\x01@\x01\x03keys\0\x7f\x04\0\x06remove\x01\x03\x01\
+ps\x01@\x01\x06prefix\0\0\x04\x04\0\x04keys\x01\x05\x03\0\x18ios:bridge/storage@\
+0.1.0\x05.\x01B\x04\x01@\0\0s\x04\0\x04info\x01\0\x04\0\x0cconnectivity\x01\0\x04\
+\0\x06locale\x01\0\x03\0\x17ios:bridge/device@0.1.0\x05/\x01B\x04\x01@\x01\x0bla\
+yout-jsons\0s\x04\0\x04show\x01\0\x01@\x01\x0cpatches-jsons\0s\x04\0\x05patch\x01\
+\x01\x03\0\x17ios:bridge/render@0.1.0\x050\x01B\x04\x01@\x01\x0acapabilitys\0\x7f\
+\x04\0\x07request\x01\0\x04\0\x06revoke\x01\0\x04\0\x05check\x01\0\x03\0\x1cios:\
+bridge/permissions@0.1.0\x051\x01B\x08\x01ky\x01@\x02\x05querys\x05limit\0\0s\x04\
+\0\x06search\x01\x01\x01ks\x01@\x01\x0aidentifiers\0\x02\x04\0\x03get\x01\x03\x01\
+@\0\0s\x04\0\x14authorization-status\x01\x04\x03\0\x19ios:bridge/contacts@0.1.0\x05\
+2\x01B\x0a\x01@\0\0s\x04\0\x09calendars\x01\0\x01ks\x01@\x03\x09start-isos\x07en\
+d-isos\x0bcalendar-id\x01\0s\x04\0\x06events\x01\x02\x01@\x01\x0aevent-jsons\0s\x04\
+\0\x0ccreate-event\x01\x03\x01@\x01\x0bcalendar-id\x01\0s\x04\0\x09reminders\x01\
+\x04\x04\0\x14authorization-status\x01\0\x03\0\x19ios:bridge/calendar@0.1.0\x053\
+\x01B\x07\x01ks\x01@\x03\x05titles\x04bodys\x0ctrigger-json\0\0s\x04\0\x08schedu\
+le\x01\x01\x01@\x01\x0aidentifiers\x01\0\x04\0\x06cancel\x01\x02\x01@\0\0s\x04\0\
+\x07pending\x01\x03\x03\0\x1eios:bridge/notifications@0.1.0\x054\x01B\x05\x01ks\x01\
+@\0\0\0\x04\0\x0aget-string\x01\x01\x01@\x01\x05values\x01\0\x04\0\x0aset-string\
+\x01\x02\x03\0\x1aios:bridge/clipboard@0.1.0\x055\x01B\x06\x01@\0\0s\x04\0\x07cu\
+rrent\x01\0\x01@\x01\x07addresss\0s\x04\0\x07geocode\x01\x01\x01@\x02\x03latu\x03\
+lngu\0s\x04\0\x0freverse-geocode\x01\x02\x03\0\x19ios:bridge/location@0.1.0\x056\
+\x01B\x07\x01ky\x01@\x04\x07type-ids\x09start-isos\x07end-isos\x05limit\0\0s\x04\
+\0\x05query\x01\x01\x01@\x03\x07type-ids\x09start-isos\x07end-isos\0s\x04\0\x0as\
+tatistics\x01\x02\x01@\x01\x07type-ids\0s\x04\0\x14authorization-status\x01\x03\x03\
+\0\x17ios:bridge/health@0.1.0\x057\x01B\x07\x01ks\x01@\x02\x07services\x07accoun\
+ts\0\0\x04\0\x03get\x01\x01\x01@\x03\x07services\x07accounts\x05values\0\x7f\x04\
+\0\x03set\x01\x02\x01@\x02\x07services\x07accounts\0\x7f\x04\0\x06remove\x01\x03\
+\x03\0\x19ios:bridge/keychain@0.1.0\x058\x01B\x07\x01@\x01\x0coptions-jsons\0s\x04\
+\0\x06search\x01\0\x01ks\x01@\x01\x0aidentifiers\0\x01\x04\0\x05asset\x01\x02\x01\
+@\0\0s\x04\0\x06albums\x01\x03\x03\0\x17ios:bridge/photos@0.1.0\x059\x01B\x0f\x02\
+\x03\x02\x01\x06\x04\0\x0cinput-stream\x03\0\0\x02\x03\x02\x01\x07\x04\0\x0doutp\
+ut-stream\x03\0\x02\x01o\x02ss\x01p\x04\x01r\x02\x03cwds\x04vars\x05\x04\0\x08ex\
+ec-env\x03\0\x06\x01ps\x01i\x01\x01i\x03\x01@\x06\x04names\x04args\x08\x03env\x07\
+\x05stdin\x09\x06stdout\x0a\x06stderr\x0a\0z\x04\0\x03run\x01\x0b\x01@\0\0\x08\x04\
+\0\x0dlist-commands\x01\x0c\x04\0\x18shell:unix/command@0.1.0\x05:\x01B\x07\x01k\
+s\x01j\x01s\x01s\x01@\x02\x04codes\x0bsource-name\0\0\x01\x04\0\x08evaluate\x01\x02\
+\x01ps\x01@\x02\x04paths\x04args\x03\0\x01\x04\0\x0devaluate-file\x01\x04\x04\0\x1c\
+shell:unix/script-eval@0.1.0\x05;\x04\0\x1bshell:unix/tsx-engine@0.1.0\x04\0\x0b\
+\x10\x01\0\x0atsx-engine\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-\
+component\x070.227.1\x10wit-bindgen-rust\x060.41.0";
 #[inline(never)]
 #[doc(hidden)]
 pub fn __link_custom_section_describing_imports() {

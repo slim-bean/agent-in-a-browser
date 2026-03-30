@@ -27,3 +27,4 @@ world = "sqlite-module"
 "wasi:cli" = { path = "../../wit/deps/cli" }
 "wasi:sockets" = { path = "../../wit/deps/sockets" }
 "wasi:random" = { path = "../../wit/deps/random" }
+"host:console" = { path = "../../wit/deps/console" }

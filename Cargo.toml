@@ -6,6 +6,7 @@ members = [
     "runtime/crates/sqlite-module",
     "runtime/crates/mcp-server-core",
     "runtime/crates/edtui-module",
+    "runtime/crates/console-log",
     "runtime/crates/stripe-module",
     "runtime/crates/wasmtime-runner",
     # Codex WASM fork — shim crates and tooling

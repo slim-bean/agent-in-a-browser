@@ -84,7 +84,7 @@ pub fn apply_transforms(codex_rs: &Path, transforms: &[Transform]) -> Result<Tra
                 TransformResult::NotMatched => {
                     let desc = t.description();
                     stats.transforms_not_matched.push(desc.clone());
-                    eprintln!("  [WARN] {desc}");
+                    console_log::console_warn!("  [WARN] {desc}");
                 }
                 TransformResult::PathNotMatched => {} // shouldn't happen after matches_path
             }

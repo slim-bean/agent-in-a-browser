@@ -1778,7 +1778,7 @@ fn diff_and_emit(editor: &mut Editor, width: usize, height: usize) -> String {
         } else {
             0
         };
-        eprintln!(
+        console_log::console_log!(
             "[PERF] force={} cells_changed={}/{} ({}%) output_bytes={}",
             force_full,
             cells_changed,

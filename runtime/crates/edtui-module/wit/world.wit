@@ -60,6 +60,9 @@ world edtui-module {
     import wasi:sockets/tcp@0.2.9;
     import wasi:sockets/ip-name-lookup@0.2.9;
     
+    // Console logging — route to browser console instead of stderr
+    import host:console/logging@0.1.0;
+
     // EdTUI-specific
     import terminal:info/size@0.1.0;
     

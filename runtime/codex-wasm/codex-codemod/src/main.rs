@@ -79,7 +79,7 @@ fn main() -> Result<()> {
         );
         if !stats.transforms_not_matched.is_empty() {
             for desc in &stats.transforms_not_matched {
-                eprintln!("  [WARN] not matched: {desc}");
+                console_log::console_warn!("  [WARN] not matched: {desc}");
             }
         }
     }

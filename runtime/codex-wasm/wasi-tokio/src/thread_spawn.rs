@@ -62,7 +62,7 @@ where
                 *result_clone.lock().unwrap_or_else(|e| e.into_inner()) = Some(val);
             }
             Err(e) => {
-                eprintln!(
+                console_log::console_error!(
                     "[thread_spawn::spawn] closure at {}:{} panicked: {:?}",
                     file,
                     line,

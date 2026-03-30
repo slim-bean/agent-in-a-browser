@@ -134,6 +134,8 @@ const SHIMS = {
     'ios:bridge/*': '@tjfontaine/wasi-shims/ios-bridge-stub.js#*',
     // Browser actions — open URLs in new tabs
     'host:browser/actions': '@tjfontaine/wasi-shims/browser-impl.js',
+    // Console logging — route to browser console instead of stderr
+    'host:console/logging': '@tjfontaine/wasi-shims/console-logging-impl.js',
 };
 
 // SYNC SHIMS: Uses sync opfs-filesystem-sync-impl for Safari/non-JSPI browsers

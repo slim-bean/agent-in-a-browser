@@ -603,6 +603,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "console-log",
  "proc-macro2",
  "quote",
  "regex-lite",
@@ -624,6 +625,7 @@ dependencies = [
 name = "codex-platform"
 version = "0.1.0"
 dependencies = [
+ "console-log",
  "tokio 1.50.0",
 ]
 
@@ -675,6 +677,10 @@ dependencies = [
  "once_cell",
  "windows-sys 0.59.0",
 ]
+
+[[package]]
+name = "console-log"
+version = "0.1.0"
 
 [[package]]
 name = "console_error_panic_hook"
@@ -1070,6 +1076,7 @@ name = "edtui-module"
 version = "0.1.0"
 dependencies = [
  "anstyle-parse",
+ "console-log",
  "ropey",
  "syntect",
  "unicode-width",
@@ -3751,6 +3758,7 @@ dependencies = [
 name = "tokio"
 version = "1.50.0"
 dependencies = [
+ "console-log",
  "futures-core",
  "pin-project-lite",
  "wasi-tokio-macros",
@@ -3966,6 +3974,7 @@ dependencies = [
  "base64",
  "brush-parser",
  "bzip2",
+ "console-log",
  "console_error_panic_hook",
  "flate2",
  "futures",
@@ -4007,6 +4016,7 @@ name = "tsx-engine"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "console-log",
  "digest",
  "futures-lite",
  "hmac",

@@ -1,0 +1,6 @@
+[package]
+name = "console-log"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]

@@ -9,3 +9,4 @@ path = "src/lib.rs"
 
 [dependencies]
 tokio = { path = "../wasi-tokio" }
+console-log = { path = "../../crates/console-log" }

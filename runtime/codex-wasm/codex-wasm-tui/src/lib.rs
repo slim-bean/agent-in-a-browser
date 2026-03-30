@@ -55,15 +55,15 @@ impl Guest for CodexTui {
     fn run() -> i32 {
         ensure_initialized();
 
-        eprintln!("[codex-wasm-tui] run() entered, calling block_on");
+        console_log::console_log!("[codex-wasm-tui] run() entered, calling block_on");
         tokio::block_on(async {
-            eprintln!("[codex-wasm-tui] block_on started, yielding then creating Cli");
+            console_log::console_log!("[codex-wasm-tui] block_on started, yielding then creating Cli");
             // Yield to JS event loop before heavy startup.
             wasm_yield();
 
             // Parse CLI args from WASI environment (set by the shell via setArguments)
             let wasi_args = bindings::wasi::cli::environment::get_arguments();
-            eprintln!("[codex-wasm-tui] WASI args: {:?}", wasi_args);
+            console_log::console_log!("[codex-wasm-tui] WASI args: {:?}", wasi_args);
 
             let cli = match Cli::try_parse_from(&wasi_args) {
                 Ok(mut cli) => {
@@ -76,7 +76,7 @@ impl Guest for CodexTui {
                 Err(e) => {
                     // --help/--version go to stdout (terminal), errors to stderr (console)
                     if e.use_stderr() {
-                        eprintln!("{e}");
+                        console_log::console_error!("{e}");
                     } else {
                         println!("{e}");
                     }
@@ -89,7 +89,7 @@ impl Guest for CodexTui {
                 main_execve_wrapper_exe: None,
             };
 
-            eprintln!("[codex-wasm-tui] calling run_main...");
+            console_log::console_log!("[codex-wasm-tui] calling run_main...");
             match codex_tui::run_main(cli, arg0_paths, LoaderOverrides::default()).await {
                 Ok(exit_info) => {
                     match exit_info.exit_reason {
@@ -99,7 +99,7 @@ impl Guest for CodexTui {
                 }
                 Err(e) => {
                     // Write error to stderr
-                    eprintln!("codex-tui error: {e}");
+                    console_log::console_error!("codex-tui error: {e}");
                     1
                 }
             }

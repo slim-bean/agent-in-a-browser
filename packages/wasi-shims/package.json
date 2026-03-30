@@ -31,7 +31,8 @@
         "./ws-bridge-impl.js": "./dist/ws-bridge-impl.js",
         "./browser-impl.js": "./dist/browser-impl.js",
         "./shell-exec-impl.js": "./dist/shell-exec-impl.js",
-        "./websocket-impl.js": "./dist/websocket-impl.js"
+        "./websocket-impl.js": "./dist/websocket-impl.js",
+        "./console-logging-impl.js": "./dist/console-logging-impl.js"
     },
     "types": "./dist/index.d.ts",
     "files": [

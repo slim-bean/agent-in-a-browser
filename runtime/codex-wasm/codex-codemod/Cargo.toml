@@ -17,3 +17,4 @@ proc-macro2 = { version = "1", features = ["span-locations"] }
 toml_edit = "0.22"
 regex-lite = "0.1"
 walkdir = "2"
+console-log = { path = "../../crates/console-log" }
