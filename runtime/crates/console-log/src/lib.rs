@@ -53,6 +53,62 @@ pub fn error(msg: &str) {
     eprintln!("[ERROR] {msg}");
 }
 
+// ---------------------------------------------------------------------------
+// std::io::Write adapter for tracing_subscriber
+// ---------------------------------------------------------------------------
+
+/// A writer that buffers a single log line and flushes it to console.log.
+/// Implements `std::io::Write` so it can be used with `tracing_subscriber::fmt`.
+pub struct ConsoleWriter {
+    buf: Vec<u8>,
+}
+
+impl std::io::Write for ConsoleWriter {
+    fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
+        self.buf.extend_from_slice(data);
+        Ok(data.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        if !self.buf.is_empty() {
+            let msg = String::from_utf8_lossy(&self.buf);
+            let trimmed = msg.trim_end_matches('\n');
+            if !trimmed.is_empty() {
+                // Route to appropriate console level based on tracing level prefix
+                if trimmed.contains(" ERROR ") {
+                    error(trimmed);
+                } else if trimmed.contains(" WARN ") {
+                    warn(trimmed);
+                } else {
+                    log(trimmed);
+                }
+            }
+            self.buf.clear();
+        }
+        Ok(())
+    }
+}
+
+impl Drop for ConsoleWriter {
+    fn drop(&mut self) {
+        let _ = std::io::Write::flush(self);
+    }
+}
+
+/// Factory that creates `ConsoleWriter` instances.
+/// Use with `tracing_subscriber::fmt::layer().with_writer(console_log::MakeConsoleWriter)`.
+pub struct MakeConsoleWriter;
+
+impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for MakeConsoleWriter {
+    type Writer = ConsoleWriter;
+
+    fn make_writer(&'a self) -> Self::Writer {
+        ConsoleWriter {
+            buf: Vec::with_capacity(256),
+        }
+    }
+}
+
 /// Log a formatted message to the browser console (console.log).
 #[macro_export]
 macro_rules! console_log {

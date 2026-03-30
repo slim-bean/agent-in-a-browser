@@ -1486,6 +1486,9 @@ dependencies = [
 [[package]]
 name = "console-log"
 version = "0.1.0"
+dependencies = [
+ "tracing-subscriber",
+]
 
 [[package]]
 name = "convert_case"

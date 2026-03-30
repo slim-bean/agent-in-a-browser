@@ -2162,6 +2162,15 @@ impl<T> FileRwLock<T> {
             "    // Open & lock file for reading using a shared lock.\n    // Retry a few times to avoid indefinite blocking.\n    for _ in 0..MAX_RETRIES {\n        let lock_result = file.try_lock_shared();\n\n        match lock_result {\n            Ok(()) => {\n                let reader = BufReader::new(&file);\n                for (idx, line_res) in reader.lines().enumerate() {\n                    let line = match line_res {\n                        Ok(l) => l,\n                        Err(e) => {\n                            tracing::warn!(error = %e, \"failed to read line from history file\");\n                            return None;\n                        }\n                    };\n\n                    if idx == offset {\n                        match serde_json::from_str::<HistoryEntry>(&line) {\n                            Ok(entry) => return Some(entry),\n                            Err(e) => {\n                                tracing::warn!(error = %e, \"failed to parse history entry\");\n                                return None;\n                            }\n                        }\n                    }\n                }\n                // Not found at requested offset.\n                return None;\n            }\n            Err(std::fs::TryLockError::WouldBlock) => {\n                std::thread::sleep(RETRY_SLEEP);\n            }\n            Err(e) => {\n                tracing::warn!(error = %e, \"failed to acquire shared lock on history file\");\n                return None;\n            }\n        }\n    }\n\n    None",
             "    // [codex-codemod] File::try_lock_shared not supported in WASI — read directly\n    {\n        let reader = BufReader::new(&file);\n        for (idx, line_res) in reader.lines().enumerate() {\n            let line = match line_res {\n                Ok(l) => l,\n                Err(e) => {\n                    tracing::warn!(error = %e, \"failed to read line from history file\");\n                    return None;\n                }\n            };\n\n            if idx == offset {\n                match serde_json::from_str::<HistoryEntry>(&line) {\n                    Ok(entry) => return Some(entry),\n                    Err(e) => {\n                        tracing::warn!(error = %e, \"failed to parse history entry\");\n                        return None;\n                    }\n                }\n            }\n        }\n        return None;\n    }",
         );
+
+        // --- tui/src/lib.rs: route tracing output to browser console via console_log ---
+        // Replace stderr writer with console_log::MakeConsoleWriter so tracing
+        // events go to console.log/warn/error instead of polluting the terminal.
+        self.string_replace(
+            "tui/src/lib.rs",
+            ".with_writer(std::io::stderr)",
+            ".with_writer(console_log::MakeConsoleWriter)",
+        );
     }
 
     // -----------------------------------------------------------------------
