@@ -88,6 +88,8 @@ pub mod mcp {
             static __FORCE_SECTION_REF: fn() = super::super::super::__link_custom_section_describing_imports;
             use super::super::super::_rt;
             pub type Pollable = super::super::super::wasi::io::poll::Pollable;
+            pub type InputStream = super::super::super::wasi::io::streams::InputStream;
+            pub type OutputStream = super::super::super::wasi::io::streams::OutputStream;
             /// Execution environment containing working directory and env vars
             #[derive(Clone)]
             pub struct ExecEnv {
@@ -207,7 +209,81 @@ pub mod mcp {
             }
             impl LazyProcess {
                 #[allow(unused_unsafe, clippy::all)]
-                /// Write data to the process stdin
+                /// Get the stdin stream for writing to the process.
+                /// Dropping the stream closes stdin and triggers execution.
+                pub fn get_stdin_stream(&self) -> OutputStream {
+                    unsafe {
+                        #[cfg(target_arch = "wasm32")]
+                        #[link(wasm_import_module = "mcp:module-loader/loader@0.1.0")]
+                        unsafe extern "C" {
+                            #[link_name = "[method]lazy-process.get-stdin-stream"]
+                            fn wit_import0(_: i32) -> i32;
+                        }
+                        #[cfg(not(target_arch = "wasm32"))]
+                        unsafe extern "C" fn wit_import0(_: i32) -> i32 {
+                            unreachable!()
+                        }
+                        let ret = unsafe { wit_import0((self).handle() as i32) };
+                        unsafe {
+                            super::super::super::wasi::io::streams::OutputStream::from_handle(
+                                ret as u32,
+                            )
+                        }
+                    }
+                }
+            }
+            impl LazyProcess {
+                #[allow(unused_unsafe, clippy::all)]
+                /// Get the stdout stream for reading process output.
+                /// blocking-read JSPI-suspends until data arrives or EOF (empty bytes).
+                pub fn get_stdout_stream(&self) -> InputStream {
+                    unsafe {
+                        #[cfg(target_arch = "wasm32")]
+                        #[link(wasm_import_module = "mcp:module-loader/loader@0.1.0")]
+                        unsafe extern "C" {
+                            #[link_name = "[method]lazy-process.get-stdout-stream"]
+                            fn wit_import0(_: i32) -> i32;
+                        }
+                        #[cfg(not(target_arch = "wasm32"))]
+                        unsafe extern "C" fn wit_import0(_: i32) -> i32 {
+                            unreachable!()
+                        }
+                        let ret = unsafe { wit_import0((self).handle() as i32) };
+                        unsafe {
+                            super::super::super::wasi::io::streams::InputStream::from_handle(
+                                ret as u32,
+                            )
+                        }
+                    }
+                }
+            }
+            impl LazyProcess {
+                #[allow(unused_unsafe, clippy::all)]
+                /// Get the stderr stream for reading process errors.
+                pub fn get_stderr_stream(&self) -> InputStream {
+                    unsafe {
+                        #[cfg(target_arch = "wasm32")]
+                        #[link(wasm_import_module = "mcp:module-loader/loader@0.1.0")]
+                        unsafe extern "C" {
+                            #[link_name = "[method]lazy-process.get-stderr-stream"]
+                            fn wit_import0(_: i32) -> i32;
+                        }
+                        #[cfg(not(target_arch = "wasm32"))]
+                        unsafe extern "C" fn wit_import0(_: i32) -> i32 {
+                            unreachable!()
+                        }
+                        let ret = unsafe { wit_import0((self).handle() as i32) };
+                        unsafe {
+                            super::super::super::wasi::io::streams::InputStream::from_handle(
+                                ret as u32,
+                            )
+                        }
+                    }
+                }
+            }
+            impl LazyProcess {
+                #[allow(unused_unsafe, clippy::all)]
+                /// Write data to the process stdin (DEPRECATED — use get-stdin-stream)
                 pub fn write_stdin(&self, data: &[u8]) -> u64 {
                     unsafe {
                         let vec0 = data;
@@ -236,7 +312,7 @@ pub mod mcp {
             }
             impl LazyProcess {
                 #[allow(unused_unsafe, clippy::all)]
-                /// Close the stdin stream
+                /// Close the stdin stream (DEPRECATED — drop get-stdin-stream instead)
                 pub fn close_stdin(&self) -> () {
                     unsafe {
                         #[cfg(target_arch = "wasm32")]
@@ -255,7 +331,7 @@ pub mod mcp {
             }
             impl LazyProcess {
                 #[allow(unused_unsafe, clippy::all)]
-                /// Read from stdout (up to max-bytes)
+                /// Read from stdout (DEPRECATED — use get-stdout-stream)
                 pub fn read_stdout(&self, max_bytes: u64) -> _rt::Vec<u8> {
                     unsafe {
                         #[cfg_attr(target_pointer_width = "64", repr(align(8)))]
@@ -299,7 +375,7 @@ pub mod mcp {
             }
             impl LazyProcess {
                 #[allow(unused_unsafe, clippy::all)]
-                /// Read from stderr (up to max-bytes)
+                /// Read from stderr (DEPRECATED — use get-stderr-stream)
                 pub fn read_stderr(&self, max_bytes: u64) -> _rt::Vec<u8> {
                     unsafe {
                         #[cfg_attr(target_pointer_width = "64", repr(align(8)))]
@@ -18070,8 +18146,8 @@ pub(crate) use __export_ts_runtime_mcp_impl as export;
 #[unsafe(link_section = "component-type:wit-bindgen:0.41.0:mcp:ts-runtime@0.2.0:ts-runtime-mcp:encoded world")]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 16637] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xf7\x80\x01\x01A\x02\
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 16840] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xc2\x82\x01\x01A\x02\
 \x01AQ\x01B\x04\x04\0\x05error\x03\x01\x01h\0\x01@\x01\x04self\x01\0s\x04\0\x1d[\
 method]error.to-debug-string\x01\x02\x03\0\x13wasi:io/error@0.2.9\x05\0\x01B\x0a\
 \x04\0\x08pollable\x03\x01\x01h\0\x01@\x01\x04self\x01\0\x7f\x04\0\x16[method]po\
@@ -18368,41 +18444,44 @@ ress\x03\0\x06\x04\0\x16resolve-address-stream\x03\x01\x01h\x08\x01k\x07\x01j\x0
 olve-next-address\x01\x0c\x01i\x01\x01@\x01\x04self\x09\0\x0d\x04\0([method]reso\
 lve-address-stream.subscribe\x01\x0e\x01h\x03\x01i\x08\x01j\x01\x10\x01\x05\x01@\
 \x02\x07network\x0f\x04names\0\x11\x04\0\x11resolve-addresses\x01\x12\x03\0!wasi\
-:sockets/ip-name-lookup@0.2.9\x05,\x01B2\x02\x03\x02\x01\x03\x04\0\x08pollable\x03\
-\0\0\x01o\x02ss\x01p\x02\x01r\x02\x03cwds\x04vars\x03\x04\0\x08exec-env\x03\0\x04\
-\x01r\x02\x04colsy\x04rowsy\x04\0\x0dterminal-size\x03\0\x06\x04\0\x0clazy-proce\
-ss\x03\x01\x01h\x08\x01i\x01\x01@\x01\x04self\x09\0\x0a\x04\0'[method]lazy-proce\
-ss.get-ready-pollable\x01\x0b\x01@\x01\x04self\x09\0\x7f\x04\0\x1d[method]lazy-p\
-rocess.is-ready\x01\x0c\x01p}\x01@\x02\x04self\x09\x04data\x0d\0w\x04\0\x20[meth\
-od]lazy-process.write-stdin\x01\x0e\x01@\x01\x04self\x09\x01\0\x04\0\x20[method]\
-lazy-process.close-stdin\x01\x0f\x01@\x02\x04self\x09\x09max-bytesw\0\x0d\x04\0\x20\
-[method]lazy-process.read-stdout\x01\x10\x04\0\x20[method]lazy-process.read-stde\
-rr\x01\x10\x01kz\x01@\x01\x04self\x09\0\x11\x04\0\x1d[method]lazy-process.try-wa\
-it\x01\x12\x01@\x01\x04self\x09\0\x07\x04\0&[method]lazy-process.get-terminal-si\
-ze\x01\x13\x01@\x02\x04self\x09\x04size\x07\x01\0\x04\0&[method]lazy-process.set\
--terminal-size\x01\x14\x01@\x02\x04self\x09\x07enabled\x7f\x01\0\x04\0![method]l\
-azy-process.set-raw-mode\x01\x15\x04\0\x20[method]lazy-process.is-raw-mode\x01\x0c\
-\x01@\x02\x04self\x09\x06signum}\x01\0\x04\0\x20[method]lazy-process.send-signal\
-\x01\x16\x01ks\x01@\x01\x07commands\0\x17\x04\0\x0fget-lazy-module\x01\x18\x01ps\
-\x01i\x08\x01@\x04\x06modules\x07commands\x04args\x19\x03env\x05\0\x1a\x04\0\x12\
-spawn-lazy-command\x01\x1b\x01@\x05\x06modules\x07commands\x04args\x19\x03env\x05\
-\x04size\x07\0\x1a\x04\0\x11spawn-interactive\x01\x1c\x01@\x01\x07commands\0\x7f\
-\x04\0\x16is-interactive-command\x01\x1d\x01@\0\0\x7f\x04\0\x08has-jspi\x01\x1e\x01\
-@\x03\x07commands\x04args\x19\x03env\x05\0\x1a\x04\0\x14spawn-worker-command\x01\
-\x1f\x03\0\x1emcp:module-loader/loader@0.1.0\x05-\x01B\x03\x01j\0\x01s\x01@\x01\x03\
-urls\0\0\x04\0\x08open-url\x01\x01\x03\0\x1ahost:browser/actions@0.1.0\x05.\x02\x03\
-\0\x0a\x10incoming-request\x02\x03\0\x0a\x11response-outparam\x01B\x08\x02\x03\x02\
-\x01/\x04\0\x10incoming-request\x03\0\0\x02\x03\x02\x010\x04\0\x11response-outpa\
-ram\x03\0\x02\x01i\x01\x01i\x03\x01@\x02\x07request\x04\x0cresponse-out\x05\x01\0\
-\x04\0\x06handle\x01\x06\x04\0\x20wasi:http/incoming-handler@0.2.9\x051\x01B\x0f\
-\x02\x03\x02\x01\x06\x04\0\x0cinput-stream\x03\0\0\x02\x03\x02\x01\x07\x04\0\x0d\
-output-stream\x03\0\x02\x01o\x02ss\x01p\x04\x01r\x02\x03cwds\x04vars\x05\x04\0\x08\
-exec-env\x03\0\x06\x01ps\x01i\x01\x01i\x03\x01@\x06\x04names\x04args\x08\x03env\x07\
-\x05stdin\x09\x06stdout\x0a\x06stderr\x0a\0z\x04\0\x03run\x01\x0b\x01@\0\0\x08\x04\
-\0\x0dlist-commands\x01\x0c\x04\0\x18shell:unix/command@0.1.0\x052\x04\0#mcp:ts-\
-runtime/ts-runtime-mcp@0.2.0\x04\0\x0b\x14\x01\0\x0ets-runtime-mcp\x03\0\0\0G\x09\
-producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.227.1\x10wit-bindgen-rus\
-t\x060.41.0";
+:sockets/ip-name-lookup@0.2.9\x05,\x01B=\x02\x03\x02\x01\x03\x04\0\x08pollable\x03\
+\0\0\x02\x03\x02\x01\x06\x04\0\x0cinput-stream\x03\0\x02\x02\x03\x02\x01\x07\x04\
+\0\x0doutput-stream\x03\0\x04\x01o\x02ss\x01p\x06\x01r\x02\x03cwds\x04vars\x07\x04\
+\0\x08exec-env\x03\0\x08\x01r\x02\x04colsy\x04rowsy\x04\0\x0dterminal-size\x03\0\
+\x0a\x04\0\x0clazy-process\x03\x01\x01h\x0c\x01i\x01\x01@\x01\x04self\x0d\0\x0e\x04\
+\0'[method]lazy-process.get-ready-pollable\x01\x0f\x01@\x01\x04self\x0d\0\x7f\x04\
+\0\x1d[method]lazy-process.is-ready\x01\x10\x01i\x05\x01@\x01\x04self\x0d\0\x11\x04\
+\0%[method]lazy-process.get-stdin-stream\x01\x12\x01i\x03\x01@\x01\x04self\x0d\0\
+\x13\x04\0&[method]lazy-process.get-stdout-stream\x01\x14\x04\0&[method]lazy-pro\
+cess.get-stderr-stream\x01\x14\x01p}\x01@\x02\x04self\x0d\x04data\x15\0w\x04\0\x20\
+[method]lazy-process.write-stdin\x01\x16\x01@\x01\x04self\x0d\x01\0\x04\0\x20[me\
+thod]lazy-process.close-stdin\x01\x17\x01@\x02\x04self\x0d\x09max-bytesw\0\x15\x04\
+\0\x20[method]lazy-process.read-stdout\x01\x18\x04\0\x20[method]lazy-process.rea\
+d-stderr\x01\x18\x01kz\x01@\x01\x04self\x0d\0\x19\x04\0\x1d[method]lazy-process.\
+try-wait\x01\x1a\x01@\x01\x04self\x0d\0\x0b\x04\0&[method]lazy-process.get-termi\
+nal-size\x01\x1b\x01@\x02\x04self\x0d\x04size\x0b\x01\0\x04\0&[method]lazy-proce\
+ss.set-terminal-size\x01\x1c\x01@\x02\x04self\x0d\x07enabled\x7f\x01\0\x04\0![me\
+thod]lazy-process.set-raw-mode\x01\x1d\x04\0\x20[method]lazy-process.is-raw-mode\
+\x01\x10\x01@\x02\x04self\x0d\x06signum}\x01\0\x04\0\x20[method]lazy-process.sen\
+d-signal\x01\x1e\x01ks\x01@\x01\x07commands\0\x1f\x04\0\x0fget-lazy-module\x01\x20\
+\x01ps\x01i\x0c\x01@\x04\x06modules\x07commands\x04args!\x03env\x09\0\"\x04\0\x12\
+spawn-lazy-command\x01#\x01@\x05\x06modules\x07commands\x04args!\x03env\x09\x04s\
+ize\x0b\0\"\x04\0\x11spawn-interactive\x01$\x01@\x01\x07commands\0\x7f\x04\0\x16\
+is-interactive-command\x01%\x01@\0\0\x7f\x04\0\x08has-jspi\x01&\x01@\x03\x07comm\
+ands\x04args!\x03env\x09\0\"\x04\0\x14spawn-worker-command\x01'\x03\0\x1emcp:mod\
+ule-loader/loader@0.1.0\x05-\x01B\x03\x01j\0\x01s\x01@\x01\x03urls\0\0\x04\0\x08\
+open-url\x01\x01\x03\0\x1ahost:browser/actions@0.1.0\x05.\x02\x03\0\x0a\x10incom\
+ing-request\x02\x03\0\x0a\x11response-outparam\x01B\x08\x02\x03\x02\x01/\x04\0\x10\
+incoming-request\x03\0\0\x02\x03\x02\x010\x04\0\x11response-outparam\x03\0\x02\x01\
+i\x01\x01i\x03\x01@\x02\x07request\x04\x0cresponse-out\x05\x01\0\x04\0\x06handle\
+\x01\x06\x04\0\x20wasi:http/incoming-handler@0.2.9\x051\x01B\x0f\x02\x03\x02\x01\
+\x06\x04\0\x0cinput-stream\x03\0\0\x02\x03\x02\x01\x07\x04\0\x0doutput-stream\x03\
+\0\x02\x01o\x02ss\x01p\x04\x01r\x02\x03cwds\x04vars\x05\x04\0\x08exec-env\x03\0\x06\
+\x01ps\x01i\x01\x01i\x03\x01@\x06\x04names\x04args\x08\x03env\x07\x05stdin\x09\x06\
+stdout\x0a\x06stderr\x0a\0z\x04\0\x03run\x01\x0b\x01@\0\0\x08\x04\0\x0dlist-comm\
+ands\x01\x0c\x04\0\x18shell:unix/command@0.1.0\x052\x04\0#mcp:ts-runtime/ts-runt\
+ime-mcp@0.2.0\x04\0\x0b\x14\x01\0\x0ets-runtime-mcp\x03\0\0\0G\x09producers\x01\x0c\
+processed-by\x02\x0dwit-component\x070.227.1\x10wit-bindgen-rust\x060.41.0";
 #[inline(never)]
 #[doc(hidden)]
 pub fn __link_custom_section_describing_imports() {

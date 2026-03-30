@@ -375,6 +375,92 @@ class _LazyProcess {
         return result;
     }
 
+    // ===== Stream-based I/O =====
+    // These return proper WASI streams whose blocking-read/blocking-write-and-flush
+    // JSPI-suspend, allowing the JS event loop to run (and child processes to produce output).
+
+    getStdoutStream(): InstanceType<typeof CustomInputStream> {
+        const self = this;
+        return new CustomInputStream({
+            blockingRead(len: bigint): Uint8Array | Promise<Uint8Array> {
+                const maxBytes = Number(len);
+                // Data available — return immediately
+                if (self.stdoutBuffer.length > 0) {
+                    return self.readFromBuffer(self.stdoutBuffer, maxBytes);
+                }
+                // Process exited and buffer empty — EOF
+                if (self.exitCode !== undefined) {
+                    return new Uint8Array(0);
+                }
+                // No data yet — return a Promise that JSPI will suspend on
+                return new Promise<Uint8Array>(resolve => {
+                    const check = () => {
+                        if (self.stdoutBuffer.length > 0) {
+                            resolve(self.readFromBuffer(self.stdoutBuffer, maxBytes));
+                        } else if (self.exitCode !== undefined) {
+                            resolve(new Uint8Array(0));
+                        } else {
+                            setTimeout(check, 1);
+                        }
+                    };
+                    setTimeout(check, 1);
+                });
+            },
+        });
+    }
+
+    getStderrStream(): InstanceType<typeof CustomInputStream> {
+        const self = this;
+        return new CustomInputStream({
+            blockingRead(len: bigint): Uint8Array | Promise<Uint8Array> {
+                const maxBytes = Number(len);
+                if (self.stderrBuffer.length > 0) {
+                    return self.readFromBuffer(self.stderrBuffer, maxBytes);
+                }
+                if (self.exitCode !== undefined) {
+                    return new Uint8Array(0);
+                }
+                return new Promise<Uint8Array>(resolve => {
+                    const check = () => {
+                        if (self.stderrBuffer.length > 0) {
+                            resolve(self.readFromBuffer(self.stderrBuffer, maxBytes));
+                        } else if (self.exitCode !== undefined) {
+                            resolve(new Uint8Array(0));
+                        } else {
+                            setTimeout(check, 1);
+                        }
+                    };
+                    setTimeout(check, 1);
+                });
+            },
+        });
+    }
+
+    getStdinStream(): InstanceType<typeof CustomOutputStream> {
+        const self = this;
+        return new CustomOutputStream({
+            write(buf: Uint8Array): bigint {
+                self.stdinBuffer.push(new Uint8Array(buf));
+                return BigInt(buf.length);
+            },
+            blockingWriteAndFlush(buf: Uint8Array): void {
+                self.stdinBuffer.push(new Uint8Array(buf));
+            },
+            checkWrite(): bigint {
+                return BigInt(65536);
+            },
+            blockingFlush(): void { },
+            drop(): void {
+                // Dropping the stdin stream closes stdin and triggers execution
+                if (!self.started) {
+                    self.stdinClosed = true;
+                    self.started = true;
+                    self.executionPromise = self.executeAsync();
+                }
+            },
+        });
+    }
+
     async tryWait(): Promise<number | undefined> {
         // For batch mode (non-interactive), we need to wait for execution to complete.
         // This allows the JavaScript event loop to process pending Promises (like OPFS operations)
@@ -514,21 +600,11 @@ class _LazyProcess {
                 vars: this.env.vars,
             };
 
-            // Set up piped streams to capture console.log output
-            // This redirects WASI CLI stdout to our buffer instead of the terminal
-            const stdoutWrite = (buf: Uint8Array): bigint => {
-                const text = new TextDecoder().decode(buf);
-                console.log(`[LazyProcess] piped stdout.write(${buf.length} bytes):`, JSON.stringify(text));
-                this.stdoutBuffer.push(new Uint8Array(buf));
-                return BigInt(buf.length);
-            };
-            const stderrWrite = (buf: Uint8Array): bigint => {
-                const text = new TextDecoder().decode(buf);
-                console.log(`[LazyProcess] piped stderr.write(${buf.length} bytes):`, JSON.stringify(text));
-                this.stderrBuffer.push(new Uint8Array(buf));
-                return BigInt(buf.length);
-            };
-            setPipedStreams(stdoutWrite, stderrWrite);
+            // NOTE: We do NOT call setPipedStreams here. The child process's
+            // stdout/stderr go to the custom streams (stdoutStream/stderrStream)
+            // which write to this.stdoutBuffer/stderrBuffer. The Rust shell reads
+            // from these via getStdoutStream()/getStderrStream() and writes to the
+            // terminal itself. Piping the ghostty shim would create a feedback loop.
 
             // In sync mode (Safari), wrapSyncModule.spawn() already called run() synchronously
             // In JSPI mode (Chrome), spawn() returns a handle that needs to be awaited
@@ -553,8 +629,6 @@ class _LazyProcess {
                 this.exitCode = handle.poll();
             }
 
-            // Clear piped streams to restore normal terminal mode
-            clearPipedStreams();
             console.log(`[LazyProcess] exitCode: ${this.exitCode}`);
 
             console.log(`[LazyProcess] stdoutBuffer count: ${this.stdoutBuffer.length}`);
@@ -565,8 +639,6 @@ class _LazyProcess {
             const totalStderr = this.stderrBuffer.reduce((sum: number, c: Uint8Array) => sum + c.length, 0);
             console.log(`[LazyProcess] === EXECUTE END === stdout: ${totalStdout} bytes, stderr: ${totalStderr} bytes, exit: ${this.exitCode}`);
         } catch (error) {
-            // Always clear piped streams on error
-            clearPipedStreams();
             console.error(`[LazyProcess] EXCEPTION during module execution:`, error);
             this.stderrBuffer.push(new TextEncoder().encode(
                 `Error: ${error instanceof Error ? error.message : String(error)}\n`
@@ -857,6 +929,74 @@ class WorkerProcess {
 
     readStderr(maxBytes: bigint): Uint8Array {
         return this.drainBuffer(this.stderrBuffer, Number(maxBytes));
+    }
+
+    getStdoutStream(): InstanceType<typeof CustomInputStream> {
+        const self = this;
+        return new CustomInputStream({
+            blockingRead(len: bigint): Uint8Array | Promise<Uint8Array> {
+                const maxBytes = Number(len);
+                if (self.stdoutBuffer.length > 0) {
+                    return self.drainBuffer(self.stdoutBuffer, maxBytes);
+                }
+                if (self.exitCode !== undefined) {
+                    return new Uint8Array(0);
+                }
+                return new Promise<Uint8Array>(resolve => {
+                    const check = () => {
+                        if (self.stdoutBuffer.length > 0) {
+                            resolve(self.drainBuffer(self.stdoutBuffer, maxBytes));
+                        } else if (self.exitCode !== undefined) {
+                            resolve(new Uint8Array(0));
+                        } else {
+                            setTimeout(check, 1);
+                        }
+                    };
+                    setTimeout(check, 1);
+                });
+            },
+        });
+    }
+
+    getStderrStream(): InstanceType<typeof CustomInputStream> {
+        const self = this;
+        return new CustomInputStream({
+            blockingRead(len: bigint): Uint8Array | Promise<Uint8Array> {
+                const maxBytes = Number(len);
+                if (self.stderrBuffer.length > 0) {
+                    return self.drainBuffer(self.stderrBuffer, maxBytes);
+                }
+                if (self.exitCode !== undefined) {
+                    return new Uint8Array(0);
+                }
+                return new Promise<Uint8Array>(resolve => {
+                    const check = () => {
+                        if (self.stderrBuffer.length > 0) {
+                            resolve(self.drainBuffer(self.stderrBuffer, maxBytes));
+                        } else if (self.exitCode !== undefined) {
+                            resolve(new Uint8Array(0));
+                        } else {
+                            setTimeout(check, 1);
+                        }
+                    };
+                    setTimeout(check, 1);
+                });
+            },
+        });
+    }
+
+    getStdinStream(): InstanceType<typeof CustomOutputStream> {
+        return new CustomOutputStream({
+            write: (buf: Uint8Array): bigint => {
+                this.stdinBuffer.push(new Uint8Array(buf));
+                return BigInt(buf.length);
+            },
+            blockingWriteAndFlush: (buf: Uint8Array): void => {
+                this.stdinBuffer.push(new Uint8Array(buf));
+            },
+            checkWrite: (): bigint => BigInt(65536),
+            blockingFlush: (): void => { },
+        });
     }
 
     tryWait(): number | undefined {

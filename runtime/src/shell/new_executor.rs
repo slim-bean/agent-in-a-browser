@@ -937,73 +937,90 @@ async fn execute_simple(
                     );
                 }
 
-                // Get stdin data and write it to the process
-                let stdin_data = match get_stdin_data(stdin, redirects, env) {
-                    Ok(data) => data,
-                    Err(err_result) => return err_result,
-                };
-                if let Some(data) = stdin_data {
-                    // Stream stdin in chunks to avoid memory issues
-                    let mut offset = 0;
-                    while offset < data.len() {
-                        let chunk = &data[offset..std::cmp::min(offset + 65536, data.len())];
-                        let written = process.write_stdin(chunk);
-                        if written == 0 {
-                            break;
+                // Write stdin via stream, then drop to close and trigger execution
+                {
+                    let stdin_stream = process.get_stdin_stream();
+                    let stdin_data = match get_stdin_data(stdin, redirects, env) {
+                        Ok(data) => data,
+                        Err(err_result) => return err_result,
+                    };
+                    if let Some(data) = stdin_data {
+                        let mut offset = 0;
+                        while offset < data.len() {
+                            let end = std::cmp::min(offset + 4096, data.len());
+                            let _ = stdin_stream.blocking_write_and_flush(&data[offset..end]);
+                            offset = end;
                         }
-                        offset += written as usize;
                     }
+                    // Dropping stdin_stream closes stdin and triggers execution
                 }
-                process.close_stdin();
 
-                // Stream stdout and stderr while waiting for completion
+                // Read stdout via stream — blocking_read JSPI-suspends until
+                // data arrives or EOF, naturally yielding to the JS event loop
+                // so the child process can produce output progressively.
+                let stdout_stream = process.get_stdout_stream();
+                let stderr_stream = process.get_stderr_stream();
+
+                let stdout_is_terminal = !redirects.iter().any(|r| {
+                    matches!(
+                        r,
+                        ParsedRedirect::Write { .. } | ParsedRedirect::Append { .. }
+                    )
+                });
                 let mut stdout_buf = Vec::new();
                 let mut stderr_buf = Vec::new();
 
+                // Read stdout until EOF
                 loop {
-                    // Read available output
-                    let stdout_chunk = process.read_stdout(65536);
-                    if !stdout_chunk.is_empty() {
-                        stdout_buf.extend_from_slice(&stdout_chunk);
-                    }
-
-                    let stderr_chunk = process.read_stderr(65536);
-                    if !stderr_chunk.is_empty() {
-                        stderr_buf.extend_from_slice(&stderr_chunk);
-                    }
-
-                    // Check if process completed
-                    if let Some(code) = process.try_wait() {
-                        // Drain remaining output
-                        loop {
-                            let chunk = process.read_stdout(65536);
-                            if chunk.is_empty() {
-                                break;
+                    match stdout_stream.blocking_read(65536) {
+                        Ok(bytes) if bytes.is_empty() => break, // EOF
+                        Ok(bytes) => {
+                            if stdout_is_terminal {
+                                use crate::bindings::wasi::cli::stdout::get_stdout;
+                                let out = get_stdout();
+                                let _ = out.blocking_write_and_flush(&bytes);
                             }
-                            stdout_buf.extend_from_slice(&chunk);
+                            stdout_buf.extend_from_slice(&bytes);
                         }
-                        loop {
-                            let chunk = process.read_stderr(65536);
-                            if chunk.is_empty() {
-                                break;
-                            }
-                            stderr_buf.extend_from_slice(&chunk);
-                        }
-
-                        // Handle output redirects
-                        let (stdout, stderr) = handle_output_redirects(
-                            stdout_buf,
-                            stderr_buf,
-                            redirects,
-                            &env.cwd.to_string_lossy(),
-                        );
-                        return ShellResult {
-                            stdout,
-                            stderr,
-                            code,
-                        };
+                        Err(_) => break,
                     }
                 }
+
+                // Drain stderr (process has exited by now)
+                loop {
+                    match stderr_stream.blocking_read(65536) {
+                        Ok(bytes) if bytes.is_empty() => break,
+                        Ok(bytes) => {
+                            use crate::bindings::wasi::cli::stderr::get_stderr;
+                            let err = get_stderr();
+                            let _ = err.blocking_write_and_flush(&bytes);
+                            stderr_buf.extend_from_slice(&bytes);
+                        }
+                        Err(_) => break,
+                    }
+                }
+
+                let code = process.try_wait().unwrap_or(1);
+
+                if stdout_is_terminal {
+                    return ShellResult {
+                        stdout: String::new(),
+                        stderr: String::new(),
+                        code,
+                    };
+                }
+
+                let (stdout, stderr) = handle_output_redirects(
+                    stdout_buf,
+                    stderr_buf,
+                    redirects,
+                    &env.cwd.to_string_lossy(),
+                );
+                return ShellResult {
+                    stdout,
+                    stderr,
+                    code,
+                };
             }
         }
     }

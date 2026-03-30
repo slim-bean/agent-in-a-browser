@@ -15,29 +15,41 @@ interface loader {
     rows: u32,
   }
 
-  /// A pollable resource (from wasi:io/poll)
+  /// WASI I/O types for stream-based process communication
   use wasi:io/poll@0.2.9.{pollable};
+  use wasi:io/streams@0.2.9.{input-stream, output-stream};
 
   /// A handle to a lazy-loaded process
   resource lazy-process {
     /// Get a pollable that resolves when the process has output ready
     get-ready-pollable: func() -> pollable;
-    
+
     /// Check if output is ready without blocking
     is-ready: func() -> bool;
-    
-    /// Write data to the process stdin
+
+    /// Get the stdin stream for writing to the process.
+    /// Dropping the stream closes stdin and triggers execution.
+    get-stdin-stream: func() -> output-stream;
+
+    /// Get the stdout stream for reading process output.
+    /// blocking-read JSPI-suspends until data arrives or EOF (empty bytes).
+    get-stdout-stream: func() -> input-stream;
+
+    /// Get the stderr stream for reading process errors.
+    get-stderr-stream: func() -> input-stream;
+
+    /// Write data to the process stdin (DEPRECATED — use get-stdin-stream)
     write-stdin: func(data: list<u8>) -> u64;
-    
-    /// Close the stdin stream
+
+    /// Close the stdin stream (DEPRECATED — drop get-stdin-stream instead)
     close-stdin: func();
-    
-    /// Read from stdout (up to max-bytes)
+
+    /// Read from stdout (DEPRECATED — use get-stdout-stream)
     read-stdout: func(max-bytes: u64) -> list<u8>;
-    
-    /// Read from stderr (up to max-bytes)
+
+    /// Read from stderr (DEPRECATED — use get-stderr-stream)
     read-stderr: func(max-bytes: u64) -> list<u8>;
-    
+
     /// Try to get exit status without blocking (none if still running)
     try-wait: func() -> option<s32>;
     
