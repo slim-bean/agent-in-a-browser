@@ -23,7 +23,7 @@ tasks:
   # Step 1: Compile the Go stripe-cli fork to wasip1
   # Requires: Go installed, stripe-cli submodule initialized
   build-go-wasm:
-    script: "cd stripe-cli && GOTOOLCHAIN=auto GOOS=wasip1 GOARCH=wasm go build -o ../stripe.wasm ./cmd/stripe"
+    script: "cd stripe-cli && GOTOOLCHAIN=auto GOOS=wasip1 GOARCH=wasm go build -ldflags \"-X github.com/stripe/stripe-cli/pkg/version.Version=1.23.8\" -o ../stripe.wasm ./cmd/stripe"
     inputs:
       - "stripe-cli/**/*.go"
       - "stripe-cli/go.mod"

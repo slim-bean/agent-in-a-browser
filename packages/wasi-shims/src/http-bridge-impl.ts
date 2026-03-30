@@ -101,6 +101,11 @@ async function requestAsync(
     // from a SharedWorker).
     if (proxied) {
         parsedHeaders['X-Agent-Proxy'] = 'web-agent';
+        // Browsers strip User-Agent from fetch (forbidden header).
+        // Pass via custom header so the CORS proxy can restore it.
+        if (parsedHeaders['User-Agent']) {
+            parsedHeaders['X-Original-User-Agent'] = parsedHeaders['User-Agent'];
+        }
     }
 
     const fetchInit: RequestInit = {

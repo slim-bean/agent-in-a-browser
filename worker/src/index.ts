@@ -89,7 +89,7 @@ async function handleCorsProxy(request: Request): Promise<Response> {
             headers: {
                 'Access-Control-Allow-Origin': origin || '*',
                 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Agent-Proxy',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Agent-Proxy, X-Original-User-Agent, Stripe-Version, X-Stripe-Client-User-Agent',
                 'Access-Control-Max-Age': '86400',
             },
         });
@@ -114,6 +114,12 @@ async function handleCorsProxy(request: Request): Promise<Response> {
     }
 
     const headers = new Headers(request.headers);
+    // Restore the original User-Agent that the browser stripped from fetch
+    const originalUA = headers.get('x-original-user-agent');
+    if (originalUA) {
+        headers.set('user-agent', originalUA);
+        headers.delete('x-original-user-agent');
+    }
     headers.delete('host');
     headers.delete('origin');
     headers.delete('x-agent-proxy');
