@@ -22,6 +22,7 @@ pub struct WasiHttpBackend;
 fn send_request(
     request: &RawRequest,
 ) -> Result<crate::bindings::wasi::http::types::IncomingResponse, String> {
+    console_log::console_log!("[wasi-http] {} {}", request.method, request.url);
     let (scheme, authority, path) = parse_url(&request.url)?;
 
     let header_fields = Fields::new();
@@ -72,17 +73,27 @@ fn send_request(
     }
 
     // Send request and wait for response headers
+    console_log::console_log!("[wasi-http] waiting for response headers...");
     let future_response = outgoing_handler::handle(outgoing_request, None)
         .map_err(|e| format!("HTTP request failed: {e:?}"))?;
 
+    let mut poll_count = 0u32;
     loop {
         let pollable = future_response.subscribe();
         pollable.block();
+        poll_count += 1;
 
         if let Some(result) = future_response.get() {
-            return result
+            let res = result
                 .map_err(|_| "Response error".to_string())?
-                .map_err(|e| format!("HTTP error: {e:?}"));
+                .map_err(|e| format!("HTTP error: {e:?}"))?;
+            let status = res.status();
+            console_log::console_log!("[wasi-http] got response: {} (polls={})", status, poll_count);
+            return Ok(res);
+        }
+
+        if poll_count % 100 == 0 {
+            console_log::console_warn!("[wasi-http] still waiting for headers, polls={}", poll_count);
         }
     }
 }
@@ -103,14 +114,17 @@ fn extract_headers(
 
 impl HttpBackend for WasiHttpBackend {
     fn execute(&self, request: RawRequest) -> Result<RawResponse, String> {
+        let url = request.url.clone();
         let response = send_request(&request)?;
         let (status, headers) = extract_headers(&response);
 
         // Read full body (blocking — suitable for non-streaming endpoints)
+        console_log::console_log!("[wasi-http] reading buffered body for {}", url);
         let body_handle = response
             .consume()
             .map_err(|_| "Failed to consume response body")?;
         let body = read_body_bytes(body_handle)?;
+        console_log::console_log!("[wasi-http] buffered body complete: {} bytes", body.len());
 
         Ok(RawResponse {
             status,
@@ -123,8 +137,10 @@ impl HttpBackend for WasiHttpBackend {
         &self,
         request: RawRequest,
     ) -> Result<RawStreamingResponse, String> {
+        console_log::console_log!("[wasi-http] streaming request: {} {}", request.method, request.url);
         let response = send_request(&request)?;
         let (status, headers) = extract_headers(&response);
+        console_log::console_log!("[wasi-http] streaming response: status={}", status);
 
         // Get body stream but don't read it — return a reader that yields
         // chunks on demand. Each read_chunk call JSPI-suspends until data
@@ -161,16 +177,24 @@ unsafe impl Send for WasiBodyReader {}
 
 impl BodyChunkReader for WasiBodyReader {
     fn read_chunk(&self, max_len: usize) -> Result<Vec<u8>, String> {
-        // Use non-blocking read() so we return Err("would-block") when no
-        // data is available yet. The caller (BytesStream::poll_next) returns
-        // Pending, letting other tasks and the main future run between SSE
-        // chunks. blocking_read would JSPI-suspend but never return Pending,
-        // holding the entire WASM execution for the full SSE stream.
+        // Non-blocking read. Per WASI spec:
+        // - Ok(data) with data.len() > 0 → chunk available
+        // - Ok(empty) → no data available yet (would-block)
+        // - Err(StreamError::Closed) → stream done (EOF)
         match self.stream.read(max_len as u64) {
             Ok(chunk) if chunk.is_empty() => Err("would-block".to_string()),
-            Ok(chunk) => Ok(chunk),
-            Err(crate::bindings::wasi::io::streams::StreamError::Closed) => Ok(Vec::new()),
-            Err(e) => Err(format!("Stream read error: {e:?}")),
+            Ok(chunk) => {
+                console_log::console_log!("[wasi-http] stream chunk: {} bytes", chunk.len());
+                Ok(chunk)
+            }
+            Err(crate::bindings::wasi::io::streams::StreamError::Closed) => {
+                console_log::console_log!("[wasi-http] stream closed (EOF)");
+                Ok(Vec::new())
+            }
+            Err(e) => {
+                console_log::console_error!("[wasi-http] stream error: {e:?}");
+                Err(format!("Stream read error: {e:?}"))
+            }
         }
     }
 }

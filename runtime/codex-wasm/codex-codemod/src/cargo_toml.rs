@@ -95,10 +95,7 @@ const INJECT_DEPS: &[(&str, &[(&str, &str)])] = &[
             ("console-log", "../../../crates/console-log"),
         ],
     ),
-    (
-        "core",
-        &[("console-log", "../../../crates/console-log")],
-    ),
+    ("core", &[("console-log", "../../../crates/console-log")]),
     // state: sqlx is stripped globally but state's runtime.rs uses it;
     // inject the wasi-sqlx shim path so it resolves via [patch.crates-io]
     ("state", &[("sqlx", "../../../codex-wasm/wasi-sqlx")]),

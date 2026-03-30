@@ -141,7 +141,7 @@ export function createSyncStreamingInputStream(
                 return result;
             }
 
-            // If stream is done, return empty
+            // If stream is done, return empty (EOF)
             if (done) {
                 return new Uint8Array(0);
             }
@@ -213,7 +213,7 @@ export function createSyncStreamingInputStreamFromChunks(
                 return result;
             }
 
-            // If stream is done, return empty
+            // If stream is done, return empty (EOF)
             if (done) {
                 return new Uint8Array(0);
             }
@@ -387,8 +387,13 @@ export function createStreamingInputStream(reader: ReadableStreamDefaultReader<U
                 return result;
             }
 
+            // Stream finished and buffer empty → EOF per WASI spec
+            if (done) {
+                throw { tag: 'closed' };
+            }
+
             // If not done and no pending read, start one for next poll
-            if (!done && pendingRead === null) {
+            if (pendingRead === null) {
                 startRead();
             }
 
@@ -404,7 +409,7 @@ export function createStreamingInputStream(reader: ReadableStreamDefaultReader<U
                 return result;
             }
 
-            // If stream is done, return empty
+            // If stream is done, return empty (EOF)
             if (done) {
                 return new Uint8Array(0);
             }
@@ -494,7 +499,7 @@ export function createLazyFetchStream(url: string, options: RequestInit): unknow
                 return result;
             }
 
-            // If stream is done, return empty
+            // If stream is done, return empty (EOF)
             if (done) {
                 return new Uint8Array(0);
             }

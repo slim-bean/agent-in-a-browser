@@ -10,7 +10,13 @@ pub struct WasiWebSocketBackend;
 
 impl WebSocketBackend for WasiWebSocketBackend {
     fn connect(&self, url: &str, protocols: &[String]) -> Result<u32, String> {
-        websocket::connect(url, protocols)
+        console_log::console_log!("[wasi-ws] connect: {}", url);
+        let result = websocket::connect(url, protocols);
+        match &result {
+            Ok(handle) => console_log::console_log!("[wasi-ws] connected: handle={}", handle),
+            Err(e) => console_log::console_error!("[wasi-ws] connect failed: {}", e),
+        }
+        result
     }
 
     fn send(&self, handle: u32, data: &str) -> Result<(), String> {
@@ -22,6 +28,7 @@ impl WebSocketBackend for WasiWebSocketBackend {
     }
 
     fn close(&self, handle: u32) {
+        console_log::console_log!("[wasi-ws] close: handle={}", handle);
         websocket::close(handle);
     }
 

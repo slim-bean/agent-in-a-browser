@@ -204,8 +204,8 @@ export interface ErrorCodeInternalError {
   val: string | undefined,
 }
 export type Pollable = import('./wasi-io-poll.js').Pollable;
-export type StatusCode = number;
 export type InputStream = import('./wasi-io-streams.js').InputStream;
+export type StatusCode = number;
 export type Result<T, E> = { tag: 'ok', val: T } | { tag: 'err', val: E };
 
 export class Fields {
