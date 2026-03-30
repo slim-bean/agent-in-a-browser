@@ -2205,6 +2205,9 @@ impl<T> FileRwLock<T> {
         self.replace_offset_datetime_now_local();
         self.replace_is_terminal_checks();
         self.replace_home_dir_canonicalize();
+        self.replace_stream_idle_timeout_map_response_stream();
+        self.replace_stream_idle_timeout_call_sites();
+        self.replace_stream_idle_timeout_try_run_sampling();
     }
 
     /// 1. zstd compression bypass (codex-client/src/transport.rs):
@@ -2338,6 +2341,70 @@ impl<T> FileRwLock<T> {
         }
         let needle = "                path.canonicalize().map_err(|err| {\n                    std::io::Error::new(\n                        err.kind(),\n                        format!(\"failed to canonicalize CODEX_HOME {val:?}: {err}\"),\n                    )\n                })";
         let replacement = "                Ok(path)";
+        if let Some((start, end)) = self.find_source_range(needle) {
+            self.edits.push(Edit {
+                start,
+                end,
+                replacement: replacement.to_string(),
+            });
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Stream idle timeout transforms (core/src/client.rs, core/src/codex.rs)
+    // -----------------------------------------------------------------------
+
+    /// Add idle_timeout parameter to map_response_stream and wrap api_stream.next()
+    /// with tokio::time::timeout so a stalled SSE stream errors out instead of
+    /// hanging forever.
+    fn replace_stream_idle_timeout_map_response_stream(&mut self) {
+        if !self.file_matches("core/src/client.rs") {
+            return;
+        }
+        // Signature + opening of the spawned task loop
+        let needle = "fn map_response_stream<S>(\n    api_stream: S,\n    session_telemetry: SessionTelemetry,\n) -> (ResponseStream, oneshot::Receiver<LastResponse>)\nwhere\n    S: futures::Stream<Item = std::result::Result<ResponseEvent, ApiError>>\n        + Unpin\n        + Send\n        + 'static,\n{\n    let (tx_event, rx_event) = mpsc::channel::<Result<ResponseEvent>>(1600);\n    let (tx_last_response, rx_last_response) = oneshot::channel::<LastResponse>();\n\n    tokio::spawn(async move {\n        let mut logged_error = false;\n        let mut tx_last_response = Some(tx_last_response);\n        let mut items_added: Vec<ResponseItem> = Vec::new();\n        let mut api_stream = api_stream;\n        while let Some(event) = api_stream.next().await {";
+        let replacement = "fn map_response_stream<S>(\n    api_stream: S,\n    session_telemetry: SessionTelemetry,\n    idle_timeout: Duration,\n) -> (ResponseStream, oneshot::Receiver<LastResponse>)\nwhere\n    S: futures::Stream<Item = std::result::Result<ResponseEvent, ApiError>>\n        + Unpin\n        + Send\n        + 'static,\n{\n    let (tx_event, rx_event) = mpsc::channel::<Result<ResponseEvent>>(1600);\n    let (tx_last_response, rx_last_response) = oneshot::channel::<LastResponse>();\n\n    tokio::spawn(async move {\n        let mut logged_error = false;\n        let mut tx_last_response = Some(tx_last_response);\n        let mut items_added: Vec<ResponseItem> = Vec::new();\n        let mut api_stream = api_stream;\n        loop {\n            let event = match tokio::time::timeout(idle_timeout, api_stream.next()).await {\n                Ok(Some(event)) => event,\n                Ok(None) => break, // stream ended normally\n                Err(_elapsed) => {\n                    // Idle timeout -- no event received within the deadline.\n                    tracing::warn!(\n                        timeout_secs = idle_timeout.as_secs(),\n                        \"API response stream idle timeout -- no events received\"\n                    );\n                    let _ = tx_event\n                        .send(Err(CodexErr::Stream(\n                            format!(\n                                \"stream idle timeout: no events for {}s\",\n                                idle_timeout.as_secs()\n                            ),\n                            None,\n                        )))\n                        .await;\n                    break;\n                }\n            };";
+        if let Some((start, end)) = self.find_source_range(needle) {
+            self.edits.push(Edit {
+                start,
+                end,
+                replacement: replacement.to_string(),
+            });
+        }
+    }
+
+    /// Update the three call sites of map_response_stream to pass idle_timeout.
+    fn replace_stream_idle_timeout_call_sites(&mut self) {
+        if !self.file_matches("core/src/client.rs") {
+            return;
+        }
+        // Call site 1: fixture path
+        self.replace_in_file(
+            "core/src/client.rs",
+            "let (stream, _last_request_rx) = map_response_stream(stream, session_telemetry.clone());",
+            "let (stream, _last_request_rx) = map_response_stream(stream, session_telemetry.clone(), self.client.state.provider.stream_idle_timeout());",
+        );
+        // Call site 2: SSE streaming
+        self.replace_in_file(
+            "core/src/client.rs",
+            "let (stream, _) = map_response_stream(stream, session_telemetry.clone());",
+            "let (stream, _) = map_response_stream(stream, session_telemetry.clone(), self.client.state.provider.stream_idle_timeout());",
+        );
+        // Call site 3: WebSocket streaming
+        self.replace_in_file(
+            "core/src/client.rs",
+            "map_response_stream(stream_result, session_telemetry.clone());",
+            "map_response_stream(stream_result, session_telemetry.clone(), self.client.state.provider.stream_idle_timeout());",
+        );
+    }
+
+    /// Wrap stream.next() in try_run_sampling_request with tokio::time::timeout.
+    fn replace_stream_idle_timeout_try_run_sampling(&mut self) {
+        if !self.file_matches("core/src/codex.rs") {
+            return;
+        }
+        let needle = "        let event = match stream\n            .next()\n            .instrument(trace_span!(parent: &handle_responses, \"receiving\"))\n            .or_cancel(&cancellation_token)\n            .await\n        {\n            Ok(event) => event,\n            Err(codex_async_utils::CancelErr::Cancelled) => break Err(CodexErr::TurnAborted),\n        };\n\n        let event = match event {\n            Some(res) => res?,\n            None => {\n                break Err(CodexErr::Stream(\n                    \"stream closed before response.completed\".into(),\n                    None,\n                ));\n            }\n        };";
+        let replacement = "        let stream_idle_timeout = turn_context.provider.stream_idle_timeout();\n        let event = match tokio::time::timeout(\n            stream_idle_timeout,\n            stream\n                .next()\n                .instrument(trace_span!(parent: &handle_responses, \"receiving\")),\n        )\n        .or_cancel(&cancellation_token)\n        .await\n        {\n            Ok(Ok(event)) => event,\n            Ok(Err(_elapsed)) => {\n                tracing::warn!(\n                    timeout_secs = stream_idle_timeout.as_secs(),\n                    \"stream.next() idle timeout in try_run_sampling_request\"\n                );\n                break Err(CodexErr::Stream(\n                    format!(\n                        \"stream idle timeout: no response events for {}s\",\n                        stream_idle_timeout.as_secs()\n                    ),\n                    None,\n                ));\n            }\n            Err(codex_async_utils::CancelErr::Cancelled) => break Err(CodexErr::TurnAborted),\n        };\n\n        let event = match event {\n            Some(res) => res?,\n            None => {\n                break Err(CodexErr::Stream(\n                    \"stream closed before response.completed\".into(),\n                    None,\n                ));\n            }\n        };";
         if let Some((start, end)) = self.find_source_range(needle) {
             self.edits.push(Edit {
                 start,

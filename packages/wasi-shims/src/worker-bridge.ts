@@ -324,11 +324,14 @@ export class WorkerBridge {
                 return;
             }
 
-            // Direct fetch with streaming for non-MCP requests
+            // Direct fetch with streaming for non-MCP requests.
+            // Use AbortController so we can kill a stalled stream from the JS side.
+            const abortController = new AbortController();
             response = await fetch(msg.url, {
                 method: msg.method,
                 headers: msg.headers,
-                body: msg.body ? new Uint8Array(msg.body) : undefined
+                body: msg.body ? new Uint8Array(msg.body) : undefined,
+                signal: abortController.signal
             });
 
             // Extract headers
@@ -352,14 +355,29 @@ export class WorkerBridge {
                 return;
             }
 
-            // Stream body chunks directly to worker as they arrive
+            // Stream body chunks directly to worker as they arrive.
+            // Idle watchdog: if no chunk arrives within STREAM_IDLE_TIMEOUT_MS,
+            // abort the fetch and signal EOF so WASM doesn't hang forever.
+            const STREAM_IDLE_TIMEOUT_MS = 300_000; // 5 minutes, matches Rust DEFAULT_STREAM_IDLE_TIMEOUT_MS
             console.log('[WorkerBridge] Streaming HTTP response body...');
             const reader = response.body.getReader();
             let totalBytes = 0;
+            let idleTimer: ReturnType<typeof setTimeout> | null = null;
+
+            const resetIdleTimer = () => {
+                if (idleTimer !== null) clearTimeout(idleTimer);
+                idleTimer = setTimeout(() => {
+                    console.error(`[WorkerBridge] Stream idle timeout (${STREAM_IDLE_TIMEOUT_MS}ms) — aborting fetch`);
+                    abortController.abort();
+                    reader.cancel('idle timeout').catch(() => {});
+                }, STREAM_IDLE_TIMEOUT_MS);
+            };
 
             try {
+                resetIdleTimer();
                 while (true) {
                     const { value, done } = await reader.read();
+                    resetIdleTimer();
 
                     if (done || !value || value.length === 0) {
                         // Signal EOF - empty chunk with done=true
@@ -385,6 +403,7 @@ export class WorkerBridge {
                     }
                 }
             } finally {
+                if (idleTimer !== null) clearTimeout(idleTimer);
                 reader.releaseLock();
             }
 
