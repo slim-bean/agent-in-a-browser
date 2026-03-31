@@ -563,6 +563,11 @@ impl<'a> Visit<'a> for EditCollector<'a> {
                     self.inject_select_loop_diagnostics(loop_expr);
                 }
             }
+            // Replace synchronous thread_spawn commit animation with async tokio::spawn.
+            // The original `thread_spawn::spawn(move || { while ... sleep ... })` creates
+            // an infinite synchronous loop inside a spawned task that blocks poll_spawned_tasks,
+            // deadlocking the entire event loop.
+            self.rewrite_commit_animation_spawn(expr);
         }
 
         syn::visit::visit_expr(self, expr);
@@ -703,6 +708,69 @@ impl<'a> EditCollector<'a> {
             });
             search_start = abs_pos + "else =>".len();
         }
+    }
+
+    /// Replace `tokio::thread_spawn::spawn(move || { while ... thread_spawn::sleep ... })`
+    /// with `tokio::spawn(async move { while ... { tokio::time::sleep(...).await; ... } })`.
+    ///
+    /// The synchronous version creates an infinite loop that blocks poll_spawned_tasks,
+    /// causing a deadlock: StopCommitAnimation can never be delivered because the select!
+    /// loop can't run while poll_spawned_tasks is stuck on the animation task.
+    fn rewrite_commit_animation_spawn(&mut self, expr: &'a Expr) {
+        if let Expr::Call(call) = expr {
+            // Check if this is a thread_spawn::spawn call
+            let call_src = {
+                let (start, end) = self.call_expr_range(call);
+                if start < end {
+                    &self.source[start..end]
+                } else {
+                    return;
+                }
+            };
+
+            if !call_src.contains("thread_spawn::spawn") {
+                return;
+            }
+            if !call_src.contains("thread_spawn::sleep") {
+                return;
+            }
+            if !call_src.contains("CommitTick") {
+                return;
+            }
+
+            // Found the commit animation spawn. Replace the entire expression.
+            let (start, end) = self.call_expr_range(call);
+            // Find the end of the full expression (including the closing paren and semicolon)
+            let replacement = concat!(
+                "tokio::spawn(async move {\n",
+                "                        while running.load(Ordering::Relaxed) {\n",
+                "                            tokio::time::sleep(COMMIT_ANIMATION_TICK).await;\n",
+                "                            tx.send(AppEvent::CommitTick);\n",
+                "                        }\n",
+                "                    })",
+            );
+
+            self.edits.push(Edit {
+                start,
+                end,
+                replacement: replacement.to_string(),
+            });
+        }
+    }
+
+    /// Get byte range covering a call expression (from start of function path to closing paren).
+    fn call_expr_range(&self, call: &syn::ExprCall) -> (usize, usize) {
+        // Start from the function expression
+        let func_span = match &*call.func {
+            Expr::Path(p) => p.path.segments.first().map(|s| s.ident.span()),
+            _ => None,
+        };
+        let start = func_span
+            .map(|s| self.span_range(s).0)
+            .unwrap_or(0);
+        // End at the closing paren
+        let (_, end) = self.span_range(call.paren_token.span.close());
+        (start, end)
     }
 
     /// Check if a block contains a select! macro invocation.
