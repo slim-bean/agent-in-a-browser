@@ -27,6 +27,7 @@ fs = []
 
 [dependencies]
 futures-core = { version = "0.3", default-features = false }
+getrandom = "0.2"
 pin-project-lite = "0.2"
 wasi-tokio-macros = { path = "../wasi-tokio-macros" }
 console-log = { path = "../../crates/console-log" }

@@ -552,18 +552,56 @@ pub fn __poll_spawned_tasks(cx: &mut Context<'_>) {
     poll_spawned_tasks(cx);
 }
 
-/// Return the next starting branch index for select! round-robin polling.
-/// Increments a thread-local counter each call so branches get fair access.
+/// Return a random starting branch index for select! polling.
+/// Uses xorshift64+ PRNG (same algorithm as real tokio) seeded from
+/// wasi:random via getrandom. Matches tokio's `thread_rng_n()`.
 #[doc(hidden)]
 pub fn __select_start(num_branches: usize) -> usize {
-    thread_local! {
-        static COUNTER: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    /// xorshift64+ PRNG — identical to tokio::util::rand::FastRand.
+    struct FastRand {
+        one: u32,
+        two: u32,
     }
-    COUNTER.with(|c| {
-        let val = c.get();
-        c.set(val.wrapping_add(1));
-        val % num_branches
-    })
+
+    impl FastRand {
+        fn from_seed(seed: [u8; 8]) -> Self {
+            let one = u32::from_le_bytes([seed[0], seed[1], seed[2], seed[3]]);
+            let two = u32::from_le_bytes([seed[4], seed[5], seed[6], seed[7]]);
+            Self {
+                one: one | 1, // must be non-zero
+                two: two | 1,
+            }
+        }
+
+        fn fastrand(&mut self) -> u32 {
+            let mut s1 = self.one;
+            let s0 = self.two;
+            s1 ^= s1 << 17;
+            s1 = s1 ^ s0 ^ (s1 >> 7) ^ (s0 >> 16);
+            self.one = s0;
+            self.two = s1;
+            s0.wrapping_add(s1)
+        }
+
+        /// Lemire's fast modulo reduction — same as tokio.
+        fn fastrand_n(&mut self, n: u32) -> u32 {
+            let mul = (self.fastrand() as u64).wrapping_mul(n as u64);
+            (mul >> 32) as u32
+        }
+    }
+
+    thread_local! {
+        static RNG: std::cell::RefCell<FastRand> = std::cell::RefCell::new({
+            let mut seed = [0u8; 8];
+            getrandom::getrandom(&mut seed).unwrap_or_else(|_| {
+                // Fallback: use a fixed seed (still better than no randomization)
+                seed = [0xde, 0xad, 0xbe, 0xef, 0xca, 0xfe, 0xba, 0xbe];
+            });
+            FastRand::from_seed(seed)
+        });
+    }
+
+    RNG.with(|rng| rng.borrow_mut().fastrand_n(num_branches as u32) as usize)
 }
 
 /// Poll spawned tasks then yield to JS event loop.
