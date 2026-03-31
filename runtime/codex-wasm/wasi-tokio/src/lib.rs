@@ -552,6 +552,20 @@ pub fn __poll_spawned_tasks(cx: &mut Context<'_>) {
     poll_spawned_tasks(cx);
 }
 
+/// Return the next starting branch index for select! round-robin polling.
+/// Increments a thread-local counter each call so branches get fair access.
+#[doc(hidden)]
+pub fn __select_start(num_branches: usize) -> usize {
+    thread_local! {
+        static COUNTER: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    }
+    COUNTER.with(|c| {
+        let val = c.get();
+        c.set(val.wrapping_add(1));
+        val % num_branches
+    })
+}
+
 /// Poll spawned tasks then yield to JS event loop.
 /// Called from the select! polling loop between iterations.
 #[doc(hidden)]

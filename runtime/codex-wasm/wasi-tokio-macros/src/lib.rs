@@ -183,6 +183,10 @@ fn generate_select(input: SelectInput) -> TokenStream2 {
         })
         .collect();
 
+    // Generate branch indices as tokens
+    let num_branches = n;
+    let branch_indices: Vec<_> = (0..n).collect();
+
     quote! {{
         #enum_def
 
@@ -199,7 +203,22 @@ fn generate_select(input: SelectInput) -> TokenStream2 {
                 tokio::__poll_spawned_tasks(__cx);
                 let mut __is_pending = false;
 
-                #(#poll_branches)*
+                // Round-robin: rotate starting branch each poll so no branch
+                // is permanently starved (matches real tokio's random-start).
+                let __start = tokio::__select_start(#num_branches);
+
+                // Poll branches in round-robin order: start, start+1, ..., wrap around
+                let __branch_order: [usize; #num_branches] = [
+                    #( (#branch_indices + __start) % #num_branches ),*
+                ];
+
+                for &__branch_idx in &__branch_order {
+                    #(
+                        if __branch_idx == #branch_indices {
+                            #poll_branches
+                        }
+                    )*
+                }
 
                 if __is_pending {
                     core::task::Poll::Pending
