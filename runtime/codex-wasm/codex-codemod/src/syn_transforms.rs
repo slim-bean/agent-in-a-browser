@@ -2147,6 +2147,31 @@ impl<T> FileRwLock<T> {
             "        console_log::console_log!(\"[diag-trace] agent.rs: spawning op-forwarding loop\");\n        let thread_clone = thread.clone();\n        tokio::spawn(async move {\n            console_log::console_log!(\"[diag-trace] agent.rs: op-forwarding loop STARTED, waiting for ops\");\n            while let Some(op) = codex_op_rx.recv().await {\n                console_log::console_log!(\"[diag-trace] agent.rs: op-forwarding received op, submitting\");\n                let id = thread_clone.submit(op).await;",
         );
 
+        // =====================================================================
+        // DIAGNOSTIC TRACES: Event delivery hang debugging
+        // =====================================================================
+
+        // --- tui/src/app.rs: trace enqueue_thread_event entry ---
+        self.string_replace(
+            "tui/src/app.rs",
+            "    async fn enqueue_thread_event(&mut self, thread_id: ThreadId, event: Event) -> Result<()> {\n        let refresh_pending_thread_approvals =",
+            "    async fn enqueue_thread_event(&mut self, thread_id: ThreadId, event: Event) -> Result<()> {\n        console_log::console_log!(\"[event-trace] enqueue_thread_event: thread={} msg={:?} active={:?}\", thread_id, std::mem::discriminant(&event.msg), self.active_thread_id);\n        let refresh_pending_thread_approvals =",
+        );
+
+        // --- tui/src/app.rs: trace enqueue should_send decision ---
+        self.string_replace(
+            "tui/src/app.rs",
+            "        if should_send {\n            // Never await a bounded channel send on the main TUI loop",
+            "        console_log::console_log!(\"[event-trace] enqueue should_send={} refresh_approvals={}\", should_send, refresh_pending_thread_approvals);\n        if should_send {\n            // Never await a bounded channel send on the main TUI loop",
+        );
+
+        // --- tui/src/app.rs: trace handle_active_thread_event ---
+        self.string_replace(
+            "tui/src/app.rs",
+            "    async fn handle_active_thread_event(&mut self, tui: &mut tui::Tui, event: Event) -> Result<()> {\n        // Capture this before any potential thread switch",
+            "    async fn handle_active_thread_event(&mut self, tui: &mut tui::Tui, event: Event) -> Result<()> {\n        console_log::console_log!(\"[event-trace] handle_active_thread_event: msg={:?}\", std::mem::discriminant(&event.msg));\n        // Capture this before any potential thread switch",
+        );
+
         // --- core/src/message_history.rs: stub File::try_lock (unsupported in WASI) ---
         // Single-threaded WASM has no contention, so skip the lock and write directly.
         // NOTE: needle uses std::thread::sleep (original) — AST transforms run AFTER string_replace.
