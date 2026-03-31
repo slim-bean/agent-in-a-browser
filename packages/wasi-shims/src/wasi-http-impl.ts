@@ -420,16 +420,19 @@ export function createStreamingInputStream(reader: ReadableStreamDefaultReader<U
 
             // If stream is done and buffer empty, signal EOF
             if (done) {
+                console.log('[InputStream:streaming] blockingRead -> EOF (done flag set, throwing closed)');
                 throw { tag: 'closed' };
             }
 
             // Read from the stream - this suspends via JSPI until data arrives
             const { value, done: streamDone } = await reader.read();
             done = streamDone;
+            console.log(`[InputStream:streaming] reader.read() -> ${value?.length ?? 0} bytes, done=${done}`);
 
             if (!value || value.length === 0) {
                 // If stream just finished, signal EOF immediately
                 if (done) {
+                    console.log('[InputStream:streaming] blockingRead -> EOF (reader done + no value, throwing closed)');
                     throw { tag: 'closed' };
                 }
                 return new Uint8Array(0);
