@@ -131,11 +131,19 @@ class InstantPollable extends Pollable {
         return nowNanos >= this.#targetTime;
     }
 
-    override block(): void {
+    override block(): Promise<void> {
         resourceRegistry.activity(this._registryId);
-        while (!this.ready()) {
-            // Busy wait
+        if (this.ready()) {
+            return Promise.resolve();
         }
+        // Compute remaining time and use setTimeout like DurationPollable
+        const nowNanos = BigInt(Math.floor(performance.now() * 1e6));
+        const remainingNs = this.#targetTime - nowNanos;
+        const remainingMs = Number(remainingNs) / 1e6;
+        if (typeof (globalThis as any).__wasmYieldActivity === 'function') {
+            (globalThis as any).__wasmYieldActivity();
+        }
+        return new Promise(resolve => setTimeout(resolve, Math.max(0, Math.ceil(remainingMs))));
     }
 }
 
@@ -143,6 +151,9 @@ class InstantPollable extends Pollable {
  * Poll function matching WASI io.poll signature.
  */
 export async function poll(list: Pollable[]): Promise<Uint32Array> {
+    if (list.length === 0) {
+        throw new Error('poll: list must not be empty');
+    }
     // Check if any pollable is already ready
     const readyIndices: number[] = [];
     for (let i = 0; i < list.length; i++) {
@@ -169,7 +180,21 @@ export async function poll(list: Pollable[]): Promise<Uint32Array> {
     }
 
     if (blockPromises.length === 0) {
+        // No pollable has a block() method and none is ready.
+        // Yield briefly and retry — one should become ready.
         await new Promise(resolve => setTimeout(resolve, 1));
+        // Re-check readiness after yield
+        const retryReady: number[] = [];
+        for (let i = 0; i < list.length; i++) {
+            const pollable = list[i] as any;
+            if (pollable.ready && pollable.ready()) {
+                retryReady.push(i);
+            }
+        }
+        if (retryReady.length > 0) {
+            return new Uint32Array(retryReady);
+        }
+        // Still nothing ready — return last index as best-effort
         return new Uint32Array([list.length - 1]);
     }
 

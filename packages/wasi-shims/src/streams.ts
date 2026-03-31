@@ -147,7 +147,7 @@ export class OutputStream {
 
     checkWrite(_len?: bigint): bigint {
         if (!this.open) {
-            return 0n;
+            throw { tag: 'closed' };
         }
         if (this.handler.checkWrite) {
             return this.handler.checkWrite();
@@ -156,11 +156,13 @@ export class OutputStream {
     }
 
     write(buf: Uint8Array): bigint {
+        if (!this.open) throw { tag: 'closed' };
         resourceRegistry.activity(this._registryId);
         return this.handler.write(buf);
     }
 
     blockingWriteAndFlush(buf: Uint8Array): void | Promise<void> {
+        if (!this.open) throw { tag: 'closed' };
         resourceRegistry.activity(this._registryId);
         if (this.handler.blockingWriteAndFlush) {
             return this.handler.blockingWriteAndFlush(buf);
@@ -176,19 +178,21 @@ export class OutputStream {
     }
 
     flush(): void {
+        if (!this.open) throw { tag: 'closed' };
         if (this.handler.flush) {
             this.handler.flush();
         }
     }
 
     blockingFlush(): void {
+        if (!this.open) throw { tag: 'closed' };
         if (this.handler.blockingFlush) {
             this.handler.blockingFlush();
         }
-        this.open = true;
     }
 
     writeZeroes(len: bigint): void {
+        if (!this.open) throw { tag: 'closed' };
         this.write(new Uint8Array(Number(len)));
     }
 

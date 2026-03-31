@@ -23,7 +23,6 @@ export const monotonicClock = {
     },
 
     subscribeInstant(instant: bigint): InstantPollable {
-        console.log(`[monotonic-clock] subscribeInstant: ${instant}`);
         return new InstantPollable(instant);
     },
 
