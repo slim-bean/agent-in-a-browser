@@ -1,9 +1,0 @@
-[package]
-name = "libc"
-version = "0.2.172"
-edition = "2021"
-description = "Minimal libc shim for wasip2 — provides only the types/constants Codex uses."
-
-[lib]
-name = "libc"
-path = "src/lib.rs"

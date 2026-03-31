@@ -123,6 +123,24 @@ impl<T> Sender<T> {
     }
 }
 
+impl<T> Drop for Sender<T> {
+    fn drop(&mut self) {
+        // When the last sender is dropped, close the channel so receivers get RecvError.
+        // strong_count == 2 means only this sender + one receiver remain.
+        // For watch, senders can be cloned, so check if we're the last sender.
+        // Weak refs from diagnostics don't affect strong_count.
+        if let Ok(mut inner) = self.inner.lock() {
+            // We check if after dropping this sender, only receivers remain.
+            // Each Sender and Receiver holds one Arc. If strong_count == 2,
+            // this sender is the last non-receiver holder.
+            if Arc::strong_count(&self.inner) == 2 {
+                inner.closed = true;
+                inner.wake_all();
+            }
+        }
+    }
+}
+
 impl<T> Clone for Sender<T> {
     fn clone(&self) -> Self {
         Self {

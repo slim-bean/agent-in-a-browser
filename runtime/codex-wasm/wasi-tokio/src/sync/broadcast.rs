@@ -1,6 +1,7 @@
 //! Broadcast channel matching tokio::sync::broadcast.
 
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::task::Waker;
 
@@ -14,12 +15,14 @@ pub fn channel<T: Clone + 'static>(capacity: usize) -> (Sender<T>, Receiver<T>) 
         loc.line()
     );
 
+    let receiver_count = Arc::new(AtomicUsize::new(1)); // 1 for the initial receiver
     let inner = Arc::new(Mutex::new(BroadcastInner {
         buffer: VecDeque::with_capacity(capacity),
         capacity,
         next_id: 0,
         closed: false,
         wakers: Vec::new(),
+        receiver_count: receiver_count.clone(),
     }));
 
     // Register for diagnostics with a weak reference
@@ -44,8 +47,13 @@ pub fn channel<T: Clone + 'static>(capacity: usize) -> (Sender<T>, Receiver<T>) 
 
     let sender = Sender {
         inner: inner.clone(),
+        receiver_count: receiver_count.clone(),
     };
-    let receiver = Receiver { inner, read_id: 0 };
+    let receiver = Receiver {
+        inner,
+        read_id: 0,
+        receiver_count,
+    };
     (sender, receiver)
 }
 
@@ -55,11 +63,14 @@ struct BroadcastInner<T> {
     next_id: u64,
     closed: bool,
     wakers: Vec<Waker>,
+    /// Tracks the number of active receivers.
+    receiver_count: Arc<AtomicUsize>,
 }
 
 #[derive(Clone)]
 pub struct Sender<T: Clone> {
     inner: Arc<Mutex<BroadcastInner<T>>>,
+    receiver_count: Arc<AtomicUsize>,
 }
 
 impl<T: Clone> Sender<T> {
@@ -86,21 +97,23 @@ impl<T: Clone> Sender<T> {
         let inner_guard = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         let read_id = inner_guard.next_id;
         drop(inner_guard);
+        self.receiver_count.fetch_add(1, Ordering::Relaxed);
         Receiver {
             inner: self.inner.clone(),
             read_id,
+            receiver_count: self.receiver_count.clone(),
         }
     }
 
     pub fn receiver_count(&self) -> usize {
-        // Not precisely tracked in this simple implementation
-        1
+        self.receiver_count.load(Ordering::Relaxed)
     }
 }
 
 pub struct Receiver<T> {
     inner: Arc<Mutex<BroadcastInner<T>>>,
     read_id: u64,
+    receiver_count: Arc<AtomicUsize>,
 }
 
 impl<T> std::fmt::Debug for Receiver<T> {
@@ -114,9 +127,11 @@ impl<T: Clone> Receiver<T> {
         let inner_guard = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         let read_id = inner_guard.next_id;
         drop(inner_guard);
+        self.receiver_count.fetch_add(1, Ordering::Relaxed);
         Receiver {
             inner: self.inner.clone(),
             read_id,
+            receiver_count: self.receiver_count.clone(),
         }
     }
 
@@ -166,10 +181,18 @@ impl<T: Clone> Receiver<T> {
 
 impl<T: Clone> Clone for Receiver<T> {
     fn clone(&self) -> Self {
+        self.receiver_count.fetch_add(1, Ordering::Relaxed);
         Self {
             inner: self.inner.clone(),
             read_id: self.read_id,
+            receiver_count: self.receiver_count.clone(),
         }
+    }
+}
+
+impl<T> Drop for Receiver<T> {
+    fn drop(&mut self) {
+        self.receiver_count.fetch_sub(1, Ordering::Relaxed);
     }
 }
 

@@ -16,7 +16,8 @@ use std::cell::RefCell;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Arc;
 use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
 use std::time::Instant;
 
@@ -57,6 +58,8 @@ struct SpawnedTask {
     file: &'static str,
     line: u32,
     task_id: u64,
+    /// Shared cancellation flag — set by JoinHandle::abort().
+    cancelled: Arc<AtomicBool>,
 }
 
 /// Single-write log to avoid WASI stderr fragmentation.
@@ -91,6 +94,27 @@ fn poll_spawned_tasks(cx: &mut Context<'_>) {
         let file = task.file.rsplit('/').next().unwrap_or(task.file);
         let line = task.line;
         let task_id = task.task_id;
+
+        // If the task has been cancelled via JoinHandle::abort(), skip it
+        // and mark it as completed without polling.
+        if task.cancelled.load(Ordering::Acquire) {
+            log(format!("[poll_tasks] cancelled #{task_id} {file}:{line}"));
+            TASK_REGISTRY.with(|reg| {
+                if let Ok(mut entries) = reg.try_borrow_mut() {
+                    if let Some(entry) = entries.iter_mut().find(|e| e.id == task_id) {
+                        entry.status = TaskStatus::Completed;
+                    }
+                }
+            });
+            diagnostics::RUNTIME_STATE.with(|state| {
+                if let Ok(mut s) = state.try_borrow_mut() {
+                    s.completions_since_last_dump += 1;
+                    s.last_completion_time = Some(Instant::now());
+                }
+            });
+            continue;
+        }
+
         let before = std::time::Instant::now();
 
         // Update task registry: mark as Polling
@@ -218,6 +242,8 @@ where
 
     let result_slot: Arc<Mutex<Option<F::Output>>> = Arc::new(Mutex::new(None));
     let slot_clone = result_slot.clone();
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let cancelled_clone = cancelled.clone();
 
     // Wrap the future to store its result when it completes
     let wrapped = async move {
@@ -231,11 +257,13 @@ where
         file,
         line,
         task_id,
+        cancelled: cancelled_clone,
     });
 
     JoinHandle {
         result_slot: Some(result_slot),
         task_id,
+        cancelled,
     }
 }
 
@@ -244,12 +272,17 @@ pub struct JoinHandle<T> {
     pub(crate) result_slot: Option<std::sync::Arc<std::sync::Mutex<Option<T>>>>,
     /// Unique task ID for diagnostics.
     pub task_id: u64,
+    /// Shared cancellation flag — when set, poll_spawned_tasks skips the task.
+    cancelled: Arc<AtomicBool>,
 }
 
 impl<T> JoinHandle<T> {
-    /// Abort the task. In single-threaded WASM this is a no-op
-    /// (we can't remove a specific task from the queue easily).
-    pub fn abort(&self) {}
+    /// Abort the task. Marks the task for cancellation so it will not be
+    /// polled again by `poll_spawned_tasks`. In single-threaded WASM we
+    /// cannot interrupt a running poll, but we prevent future polls.
+    pub fn abort(&self) {
+        self.cancelled.store(true, Ordering::Release);
+    }
 
     /// Check if the task has finished.
     pub fn is_finished(&self) -> bool {
@@ -275,6 +308,10 @@ where
     type Output = Result<T, JoinError>;
 
     fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
+        // If the task was cancelled, return a cancellation error
+        if self.cancelled.load(Ordering::Acquire) {
+            return Poll::Ready(Err(JoinError { cancelled: true }));
+        }
         match &self.result_slot {
             Some(slot) => {
                 let mut guard = slot.lock().unwrap_or_else(|e| e.into_inner());
@@ -283,7 +320,7 @@ where
                     None => Poll::Pending, // Task hasn't completed yet
                 }
             }
-            None => Poll::Ready(Err(JoinError { _priv: () })),
+            None => Poll::Ready(Err(JoinError { cancelled: false })),
         }
     }
 }
@@ -291,12 +328,16 @@ where
 /// Error returned when a spawned task fails.
 #[derive(Debug)]
 pub struct JoinError {
-    _priv: (),
+    cancelled: bool,
 }
 
 impl std::fmt::Display for JoinError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "task failed")
+        if self.cancelled {
+            write!(f, "task was cancelled")
+        } else {
+            write!(f, "task failed")
+        }
     }
 }
 
@@ -304,7 +345,7 @@ impl std::error::Error for JoinError {}
 
 impl JoinError {
     pub fn is_cancelled(&self) -> bool {
-        false
+        self.cancelled
     }
 
     pub fn is_panic(&self) -> bool {

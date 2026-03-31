@@ -233,6 +233,20 @@ impl<T> Drop for Receiver<T> {
     }
 }
 
+impl<T> Drop for Sender<T> {
+    fn drop(&mut self) {
+        // If this is the last sender (only receiver's Arc remains after we drop),
+        // close the channel so recv() returns None.
+        // Weak refs from diagnostics don't affect strong_count.
+        if Arc::strong_count(&self.inner) == 2 {
+            if let Ok(mut inner) = self.inner.lock() {
+                inner.closed = true;
+                inner.wake_all();
+            }
+        }
+    }
+}
+
 // -- Unbounded --
 
 pub struct UnboundedSender<T> {
@@ -267,6 +281,20 @@ impl<T> UnboundedSender<T> {
 
     pub fn is_closed(&self) -> bool {
         self.inner.lock().unwrap_or_else(|e| e.into_inner()).closed
+    }
+}
+
+impl<T> Drop for UnboundedSender<T> {
+    fn drop(&mut self) {
+        // If this is the last sender (only receiver's Arc remains after we drop),
+        // close the channel so recv() returns None.
+        // Weak refs from diagnostics don't affect strong_count.
+        if Arc::strong_count(&self.inner) == 2 {
+            if let Ok(mut inner) = self.inner.lock() {
+                inner.closed = true;
+                inner.wake_all();
+            }
+        }
     }
 }
 

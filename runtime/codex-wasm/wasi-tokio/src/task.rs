@@ -27,6 +27,7 @@ where
     super::JoinHandle {
         result_slot: Some(slot),
         task_id: 0,
+        cancelled: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
     }
 }
 

@@ -102,6 +102,7 @@ impl<F: Future> Future for Timeout<F> {
 pub struct Sleep {
     duration: Duration,
     started: bool,
+    start_time: Option<StdInstant>,
 }
 
 impl std::fmt::Debug for Sleep {
@@ -117,6 +118,7 @@ impl Sleep {
         Self {
             duration,
             started: false,
+            start_time: None,
         }
     }
 
@@ -130,14 +132,21 @@ impl Future for Sleep {
     fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<()> {
         let this = self.get_mut();
         if !this.started {
-            // First poll: return Pending to yield to the event loop.
+            // First poll: record start time and yield to the event loop.
             // block_on will call the yield function (subscribe_duration +
             // pollable.block) which triggers JSPI suspension.
             this.started = true;
+            this.start_time = Some(StdInstant::now());
             Poll::Pending
-        } else {
-            // Second poll: sleep is complete.
+        } else if this
+            .start_time
+            .map_or(true, |s| s.elapsed() >= this.duration)
+        {
+            // Duration has elapsed — sleep is complete.
             Poll::Ready(())
+        } else {
+            // Not enough time has passed — keep waiting.
+            Poll::Pending
         }
     }
 }

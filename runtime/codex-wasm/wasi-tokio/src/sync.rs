@@ -351,10 +351,12 @@ pub mod watch;
 
 /// Notification primitive matching tokio::sync::Notify.
 ///
-/// Uses a shared atomic flag for coordination between tasks in the
-/// cooperative single-threaded scheduler.
+/// Uses a shared atomic counter for coordination between tasks in the
+/// cooperative single-threaded scheduler. Each notify_one() increments
+/// the counter by 1; each notified().await decrements by 1. This ensures
+/// multiple notifications are not lost.
 pub struct Notify {
-    notified: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    count: std::sync::Arc<std::sync::atomic::AtomicUsize>,
 }
 
 impl std::fmt::Debug for Notify {
@@ -372,7 +374,7 @@ impl Default for Notify {
 impl Notify {
     pub fn new() -> Self {
         Notify {
-            notified: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            count: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         }
     }
 
@@ -380,26 +382,31 @@ impl Notify {
         Self::new()
     }
 
+    /// Send a single notification. Increments the counter by 1 so that
+    /// exactly one waiter will be woken.
     pub fn notify_one(&self) {
-        self.notified
-            .store(true, std::sync::atomic::Ordering::Release);
+        self.count
+            .fetch_add(1, std::sync::atomic::Ordering::Release);
     }
 
+    /// Wake all current waiters. In our single-threaded model this is
+    /// equivalent to notify_one() — only one waiter polls at a time,
+    /// but we still increment to ensure no notification is lost.
     pub fn notify_waiters(&self) {
-        self.notified
-            .store(true, std::sync::atomic::Ordering::Release);
+        self.count
+            .fetch_add(1, std::sync::atomic::Ordering::Release);
     }
 
     pub fn notified(&self) -> Notified {
         Notified {
-            flag: std::sync::Arc::clone(&self.notified),
+            count: std::sync::Arc::clone(&self.count),
             first_poll: true,
         }
     }
 
     pub fn notified_owned(self: &std::sync::Arc<Self>) -> Notified {
         Notified {
-            flag: std::sync::Arc::clone(&self.notified),
+            count: std::sync::Arc::clone(&self.count),
             first_poll: true,
         }
     }
@@ -407,7 +414,7 @@ impl Notify {
 
 /// Future returned by [`Notify::notified()`].
 pub struct Notified {
-    flag: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    count: std::sync::Arc<std::sync::atomic::AtomicUsize>,
     first_poll: bool,
 }
 
@@ -417,32 +424,34 @@ impl std::future::Future for Notified {
         mut self: std::pin::Pin<&mut Self>,
         _cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<()> {
-        // If notification was already sent, consume it and return Ready
-        if self
-            .flag
-            .compare_exchange(
-                true,
-                false,
-                std::sync::atomic::Ordering::AcqRel,
-                std::sync::atomic::Ordering::Acquire,
-            )
-            .is_ok()
-        {
-            return std::task::Poll::Ready(());
+        // Try to consume one notification by decrementing the counter.
+        loop {
+            let current = self.count.load(std::sync::atomic::Ordering::Acquire);
+            if current > 0 {
+                // Try to decrement by 1 (consume one notification)
+                if self
+                    .count
+                    .compare_exchange(
+                        current,
+                        current - 1,
+                        std::sync::atomic::Ordering::AcqRel,
+                        std::sync::atomic::Ordering::Acquire,
+                    )
+                    .is_ok()
+                {
+                    return std::task::Poll::Ready(());
+                }
+                // CAS failed, retry
+                continue;
+            }
+            break;
         }
         // On first poll, return Pending to yield to the scheduler
         // (allows notify_one() to run in another task)
         if self.first_poll {
             self.first_poll = false;
-            return std::task::Poll::Pending;
         }
-        // On subsequent polls, check again
-        if self.flag.load(std::sync::atomic::Ordering::Acquire) {
-            self.flag.store(false, std::sync::atomic::Ordering::Release);
-            std::task::Poll::Ready(())
-        } else {
-            std::task::Poll::Pending
-        }
+        std::task::Poll::Pending
     }
 }
 
@@ -601,13 +610,21 @@ impl Semaphore {
     }
 
     pub async fn acquire(&self) -> Result<SemaphorePermit<'_>, AcquireError> {
-        let current = self.permits.load(std::sync::atomic::Ordering::Relaxed);
-        if current == 0 {
-            return Err(AcquireError(()));
-        }
-        self.permits
-            .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
-        Ok(SemaphorePermit { sem: self })
+        // Poll until a permit is available. In single-threaded WASM, permits
+        // can only be released by other tasks during yield/cooperative polling.
+        std::future::poll_fn(|_cx| {
+            let current = self.permits.load(std::sync::atomic::Ordering::Relaxed);
+            if current > 0 {
+                self.permits
+                    .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+                std::task::Poll::Ready(Ok(SemaphorePermit { sem: self }))
+            } else {
+                // Return Pending — block_on will re-poll after yielding to
+                // the JS event loop, giving other tasks a chance to release permits.
+                std::task::Poll::Pending
+            }
+        })
+        .await
     }
 
     pub fn try_acquire(&self) -> Result<SemaphorePermit<'_>, TryAcquireError> {
@@ -623,13 +640,19 @@ impl Semaphore {
     pub async fn acquire_owned(
         self: std::sync::Arc<Self>,
     ) -> Result<OwnedSemaphorePermit, AcquireError> {
-        let current = self.permits.load(std::sync::atomic::Ordering::Relaxed);
-        if current == 0 {
-            return Err(AcquireError(()));
-        }
-        self.permits
-            .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
-        Ok(OwnedSemaphorePermit { sem: self })
+        // Poll until a permit is available.
+        let sem = self;
+        std::future::poll_fn(|_cx| {
+            let current = sem.permits.load(std::sync::atomic::Ordering::Relaxed);
+            if current > 0 {
+                sem.permits
+                    .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+                std::task::Poll::Ready(Ok(OwnedSemaphorePermit { sem: sem.clone() }))
+            } else {
+                std::task::Poll::Pending
+            }
+        })
+        .await
     }
 }
 
