@@ -554,6 +554,17 @@ impl<'a> Visit<'a> for EditCollector<'a> {
         if let Expr::Call(call) = expr {
             self.rewrite_which_calls(call);
         }
+
+        // --- tui/src/app.rs: instrument the main select! loop ---
+        // Find `loop { ... select! { ... } ... }` and inject diagnostics.
+        if self.file_matches("tui/src/app.rs") {
+            if let Expr::Loop(loop_expr) = expr {
+                if self.loop_body_contains_select(&loop_expr.body) {
+                    self.inject_select_loop_diagnostics(loop_expr);
+                }
+            }
+        }
+
         syn::visit::visit_expr(self, expr);
     }
 
@@ -692,6 +703,67 @@ impl<'a> EditCollector<'a> {
             });
             search_start = abs_pos + "else =>".len();
         }
+    }
+
+    /// Check if a block contains a select! macro invocation.
+    fn loop_body_contains_select(&self, block: &syn::Block) -> bool {
+        for stmt in &block.stmts {
+            let source_fragment = self.stmt_source(stmt);
+            if source_fragment.contains("select!") {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Get the source text for a statement.
+    fn stmt_source(&self, stmt: &syn::Stmt) -> &str {
+        let span = match stmt {
+            syn::Stmt::Local(local) => local.let_token.span,
+            syn::Stmt::Expr(expr, _) => {
+                // Use the first token's span
+                match expr {
+                    Expr::Let(e) => e.let_token.span,
+                    _ => return "", // fallback
+                }
+            }
+            _ => return "",
+        };
+        let (start, _end) = self.span_range(span);
+        // Extend to end of statement (approximate)
+        let line_end = self.source[start..].find('\n').unwrap_or(0) + start;
+        &self.source[start..line_end]
+    }
+
+    /// Inject diagnostics into a loop containing a select! macro.
+    /// Adds per-iteration channel depth logging before the select!.
+    fn inject_select_loop_diagnostics(&mut self, loop_expr: &syn::ExprLoop) {
+        // Find the opening brace of the loop body
+        let (brace_start, _) = self.span_range(loop_expr.body.brace_token.span.open());
+        // Insert right after the opening brace
+        let inject_point = brace_start + 1;
+
+        // Inject: iteration counter, periodic channel depth logging
+        let code = concat!(
+            "\n",
+            "                // [codex-codemod] select! loop diagnostics\n",
+            "                static __LOOP_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);\n",
+            "                let __iter = __LOOP_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);\n",
+            "                if __iter % 500 == 0 && __iter > 0 {\n",
+            "                    let __rx_depth = app.active_thread_rx.as_ref().map(|rx| rx.len()).unwrap_or(0);\n",
+            "                    let __rx_is_some = app.active_thread_rx.is_some();\n",
+            "                    console_log::console_log!(\n",
+            "                        \"[select-loop] iter={} active_rx: is_some={} depth={}\",\n",
+            "                        __iter, __rx_is_some, __rx_depth\n",
+            "                    );\n",
+            "                }\n",
+        );
+
+        self.edits.push(Edit {
+            start: inject_point,
+            end: inject_point,
+            replacement: code.to_string(),
+        });
     }
 
     /// Get byte range of the body tokens inside a macro's delimiters.
