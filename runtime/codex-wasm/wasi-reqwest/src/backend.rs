@@ -33,11 +33,11 @@ pub struct RawStreamingResponse {
 }
 
 /// Trait for reading body chunks incrementally.
-/// Each call to `read_chunk` may JSPI-suspend to wait for the next chunk.
+/// Each call to `read_chunk` JSPI-suspends until data arrives or stream closes.
 pub trait BodyChunkReader: Send {
     /// Read the next chunk of up to `max_len` bytes.
-    /// Returns Ok(data) with data, Ok(empty) for EOF, Err("would-block") when
-    /// no data is available yet (caller should return Pending and retry later).
+    /// Blocks (JSPI-suspends) until data is available.
+    /// Returns Ok(data) with data, Ok(empty) for EOF, Err for stream errors.
     fn read_chunk(&self, max_len: usize) -> std::result::Result<Vec<u8>, String>;
 }
 

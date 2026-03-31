@@ -177,12 +177,19 @@ unsafe impl Send for WasiBodyReader {}
 
 impl BodyChunkReader for WasiBodyReader {
     fn read_chunk(&self, max_len: usize) -> Result<Vec<u8>, String> {
-        // Non-blocking read. Per WASI spec:
+        // Blocking read — JSPI-suspends until data arrives or stream closes.
+        // This matches how real reqwest's WASM backend works (await JS promise).
+        // Per WASI spec for blocking-read:
         // - Ok(data) with data.len() > 0 → chunk available
-        // - Ok(empty) → no data available yet (would-block)
         // - Err(StreamError::Closed) → stream done (EOF)
-        match self.stream.read(max_len as u64) {
-            Ok(chunk) if chunk.is_empty() => Err("would-block".to_string()),
+        match self.stream.blocking_read(max_len as u64) {
+            Ok(chunk) if chunk.is_empty() => {
+                // blocking_read returned empty — treat as EOF
+                // (blocking_read should not return empty for would-block;
+                // it blocks until data arrives or the stream closes)
+                console_log::console_log!("[wasi-http] stream blocking_read empty (EOF)");
+                Ok(Vec::new())
+            }
             Ok(chunk) => {
                 console_log::console_log!("[wasi-http] stream chunk: {} bytes", chunk.len());
                 Ok(chunk)

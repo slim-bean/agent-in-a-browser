@@ -434,17 +434,15 @@ impl Stream for BytesStream {
                 if *done {
                     return Poll::Ready(None);
                 }
-                // Non-blocking read: returns data, empty (EOF), or
-                // Err("would-block") when no data available yet.
+                // Blocking read: JSPI-suspends until data arrives or EOF.
+                // Always returns Ready — no Pending. Matches real reqwest's
+                // WASM backend which awaits JS promises for each chunk.
                 match reader.read_chunk(65536) {
                     Ok(chunk) if chunk.is_empty() => {
                         *done = true;
                         Poll::Ready(None) // EOF
                     }
                     Ok(chunk) => Poll::Ready(Some(Ok(Bytes::from(chunk)))),
-                    Err(e) if e == "would-block" => {
-                        Poll::Pending // No data yet, yield to other tasks
-                    }
                     Err(e) => {
                         *done = true;
                         Poll::Ready(Some(Err(Error::new(e))))
