@@ -393,11 +393,13 @@ export function createStreamingInputStream(reader: ReadableStreamDefaultReader<U
                 if (buffer.length === 0 && !done) {
                     startRead();
                 }
+                console.log(`[InputStream:streaming] read(${len}) -> ${n} bytes from buffer, ${buffer.length} remaining, done=${done}`);
                 return result;
             }
 
             // Stream finished and buffer empty → EOF per WASI spec
             if (done) {
+                console.log('[InputStream:streaming] read() -> EOF (done, throwing closed)');
                 throw { tag: 'closed' };
             }
 
