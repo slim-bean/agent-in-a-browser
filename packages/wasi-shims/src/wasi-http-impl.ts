@@ -142,9 +142,9 @@ export function createSyncStreamingInputStream(
                 return result;
             }
 
-            // If stream is done, return empty (EOF)
+            // If stream is done and buffer empty, signal EOF
             if (done) {
-                return new Uint8Array(0);
+                throw { tag: 'closed' };
             }
 
             // Get next chunk from generator (this blocks via Atomics.wait in worker)
@@ -214,9 +214,9 @@ export function createSyncStreamingInputStreamFromChunks(
                 return result;
             }
 
-            // If stream is done, return empty (EOF)
+            // If stream is done and buffer empty, signal EOF
             if (done) {
-                return new Uint8Array(0);
+                throw { tag: 'closed' };
             }
 
             // Mark first chunk as consumed (it was pre-extracted for headers)
@@ -410,9 +410,9 @@ export function createStreamingInputStream(reader: ReadableStreamDefaultReader<U
                 return result;
             }
 
-            // If stream is done, return empty (EOF)
+            // If stream is done and buffer empty, signal EOF
             if (done) {
-                return new Uint8Array(0);
+                throw { tag: 'closed' };
             }
 
             // Read from the stream - this suspends via JSPI until data arrives
@@ -500,9 +500,9 @@ export function createLazyFetchStream(url: string, options: RequestInit): unknow
                 return result;
             }
 
-            // If stream is done, return empty (EOF)
+            // If stream is done and buffer empty, signal EOF
             if (done) {
-                return new Uint8Array(0);
+                throw { tag: 'closed' };
             }
 
             // If we had a fetch error, return empty
