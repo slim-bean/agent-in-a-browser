@@ -533,8 +533,10 @@ class _DescriptorSync {
         let position = Number(_offset);
 
         const doRead = (len: bigint): Uint8Array => {
+            if (position >= content.length) {
+                throw { tag: 'closed' };
+            }
             const toRead = Math.min(Number(len), content.length - position);
-            if (toRead <= 0) return new Uint8Array(0);
             const result = content.slice(position, position + toRead);
             position += toRead;
             return result;

@@ -130,6 +130,10 @@ export function createSyncStreamingInputStream(
                 offset += n;
                 return result;
             }
+            // Stream finished and buffer empty → EOF per WASI spec
+            if (done) {
+                throw { tag: 'closed' };
+            }
             return new Uint8Array(0);
         },
 
@@ -163,7 +167,7 @@ export function createSyncStreamingInputStream(
 
             if (chunkResult.done && chunkResult.chunk.length === 0) {
                 done = true;
-                return new Uint8Array(0);
+                throw { tag: 'closed' };
             }
 
             // Set current chunk and return first portion
@@ -202,6 +206,10 @@ export function createSyncStreamingInputStreamFromChunks(
                 offset += n;
                 return result;
             }
+            // Stream finished and buffer empty → EOF per WASI spec
+            if (done) {
+                throw { tag: 'closed' };
+            }
             return new Uint8Array(0);
         },
 
@@ -233,7 +241,7 @@ export function createSyncStreamingInputStreamFromChunks(
 
             if (chunkResult.done && chunkResult.chunk.length === 0) {
                 done = true;
-                return new Uint8Array(0);
+                throw { tag: 'closed' };
             }
 
             // Set current chunk and return first portion
@@ -306,7 +314,7 @@ export function createInputStreamFromBytes(bytes: Uint8Array): unknown {
         read(len: bigint): Uint8Array {
             const remaining = bytes.length - offset;
             if (remaining <= 0) {
-                return new Uint8Array(0);
+                throw { tag: 'closed' };
             }
             const toRead = Math.min(Number(len), remaining);
             const chunk = bytes.slice(offset, offset + toRead);
@@ -318,8 +326,8 @@ export function createInputStreamFromBytes(bytes: Uint8Array): unknown {
             console.log('[InputStream:bytes] blockingRead called, len:', len.toString(), 'bytesTotal:', bytes.length, 'offset:', offset);
             const remaining = bytes.length - offset;
             if (remaining <= 0) {
-                console.log('[InputStream:bytes] blockingRead -> empty (EOF)');
-                return new Uint8Array(0);
+                console.log('[InputStream:bytes] blockingRead -> EOF');
+                throw { tag: 'closed' };
             }
             const toRead = Math.min(Number(len), remaining);
             const chunk = bytes.slice(offset, offset + toRead);
@@ -492,6 +500,10 @@ export function createLazyFetchStream(url: string, options: RequestInit): unknow
                 buffer = buffer.slice(n);
                 return result;
             }
+            // Stream finished and buffer empty → EOF per WASI spec
+            if (done) {
+                throw { tag: 'closed' };
+            }
             return new Uint8Array(0);
         },
 
@@ -509,9 +521,9 @@ export function createLazyFetchStream(url: string, options: RequestInit): unknow
                 throw { tag: 'closed' };
             }
 
-            // If we had a fetch error, return empty
+            // If we had a fetch error, stream is done
             if (fetchError) {
-                return new Uint8Array(0);
+                throw { tag: 'closed' };
             }
 
             try {
@@ -521,7 +533,7 @@ export function createLazyFetchStream(url: string, options: RequestInit): unknow
 
                     if (!response.body) {
                         done = true;
-                        return new Uint8Array(0);
+                        throw { tag: 'closed' };
                     }
                     reader = response.body.getReader();
                 }
@@ -547,9 +559,13 @@ export function createLazyFetchStream(url: string, options: RequestInit): unknow
 
                 return value;
             } catch (err) {
+                // Re-throw WASI closed signal
+                if (err && typeof err === 'object' && 'tag' in err && (err as {tag: string}).tag === 'closed') {
+                    throw err;
+                }
                 fetchError = err as Error;
                 done = true;
-                return new Uint8Array(0);
+                throw { tag: 'closed' };
             }
         }
     });
@@ -579,6 +595,10 @@ export function createLazyBufferStream(dataPromise: Promise<Uint8Array>): unknow
                 }
                 return result;
             }
+            // Stream finished and buffer empty → EOF per WASI spec
+            if (done) {
+                throw { tag: 'closed' };
+            }
             return new Uint8Array(0);
         },
 
@@ -594,14 +614,14 @@ export function createLazyBufferStream(dataPromise: Promise<Uint8Array>): unknow
                 return result;
             }
 
-            // If done, return empty
+            // If done, signal EOF
             if (done) {
-                return new Uint8Array(0);
+                throw { tag: 'closed' };
             }
 
-            // If we had an error, return empty
+            // If we had an error, stream is done
             if (error) {
-                return new Uint8Array(0);
+                throw { tag: 'closed' };
             }
 
             try {
@@ -611,7 +631,7 @@ export function createLazyBufferStream(dataPromise: Promise<Uint8Array>): unknow
 
                 if (!data || data.length === 0) {
                     done = true;
-                    return new Uint8Array(0);
+                    throw { tag: 'closed' };
                 }
 
                 // Return first chunk
@@ -623,9 +643,13 @@ export function createLazyBufferStream(dataPromise: Promise<Uint8Array>): unknow
                 }
                 return result;
             } catch (err) {
+                // Re-throw WASI closed signal
+                if (err && typeof err === 'object' && 'tag' in err && (err as {tag: string}).tag === 'closed') {
+                    throw err;
+                }
                 error = err as Error;
                 done = true;
-                return new Uint8Array(0);
+                throw { tag: 'closed' };
             }
         }
     });

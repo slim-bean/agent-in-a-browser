@@ -123,7 +123,7 @@ export function blockingReadStdin(maxLen: number): Uint8Array {
 
     // Check for EOF
     if (Atomics.load(controlArray, STDIN_CONTROL.EOF) === 1) {
-        return new Uint8Array(0);
+        throw { tag: 'closed' };
     }
 
     // Signal we want input
@@ -198,6 +198,11 @@ export function nonBlockingReadStdin(maxLen: number): Uint8Array {
 
     if (!controlArray || !dataArray) {
         return new Uint8Array(0);
+    }
+
+    // Check for EOF
+    if (Atomics.load(controlArray, STDIN_CONTROL.EOF) === 1) {
+        throw { tag: 'closed' };
     }
 
     // Check if response is already ready (buffered data)

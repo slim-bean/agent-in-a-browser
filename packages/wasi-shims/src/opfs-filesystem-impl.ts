@@ -441,7 +441,7 @@ class OpfsDescriptor {
                     // Always get current size — file may have grown since stream creation
                     const size = handle.getSize();
                     if (offset >= size) {
-                        return new Uint8Array(0);
+                        throw { tag: 'closed' };
                     }
                     const readLen = Math.min(Number(len), size - offset);
                     const buffer = new Uint8Array(readLen);
@@ -452,7 +452,7 @@ class OpfsDescriptor {
                 blockingRead(len: bigint): Uint8Array {
                     const size = handle.getSize();
                     if (offset >= size) {
-                        return new Uint8Array(0);
+                        throw { tag: 'closed' };
                     }
                     const readLen = Math.min(Number(len), size - offset);
                     const buffer = new Uint8Array(readLen);
@@ -478,7 +478,7 @@ class OpfsDescriptor {
                     return new Uint8Array(0);
                 }
                 if (offset >= fileSize) {
-                    return new Uint8Array(0);
+                    throw { tag: 'closed' };
                 }
                 const readLen = Math.min(Number(len), fileSize - offset);
                 const result = fileData.slice(offset, offset + readLen);
@@ -506,7 +506,7 @@ class OpfsDescriptor {
                 }
 
                 if (offset >= fileSize) {
-                    return new Uint8Array(0);
+                    throw { tag: 'closed' };
                 }
                 const readLen = Math.min(Number(len), fileSize - offset);
                 const result = fileData.slice(offset, offset + readLen);
