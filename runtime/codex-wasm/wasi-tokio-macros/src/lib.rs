@@ -137,6 +137,8 @@ fn generate_select(input: SelectInput) -> TokenStream2 {
     let poll_branches: Vec<_> = (0..n)
         .map(|i| {
             let mask = 1u64 << i;
+            let idx = i;
+            let nb = n;
             let vn = &variant_names[i];
             let pat = &input.branches[i].pat;
             // Generate tuple destructuring: let (_, _, fut, ..) = &mut *__futures;
@@ -156,6 +158,7 @@ fn generate_select(input: SelectInput) -> TokenStream2 {
                                 // disable this branch and continue polling others
                                 #[allow(unused_variables, unused_mut)]
                                 if let #pat = &__out {
+                                    tokio::__select_site_win(&__site_id, file!(), line!(), #idx, #nb);
                                     return core::task::Poll::Ready(__Out::#vn(__out));
                                 }
                                 // Pattern didn't match — branch stays disabled, continue polling
@@ -189,6 +192,10 @@ fn generate_select(input: SelectInput) -> TokenStream2 {
 
     quote! {{
         #enum_def
+
+        // Per-call-site tracking ID (lazy-initialized on first branch win)
+        static __SITE_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let __site_id = &__SITE_ID;
 
         let mut __disabled: u64 = 0;
 

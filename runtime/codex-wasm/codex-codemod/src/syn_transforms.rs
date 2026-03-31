@@ -2172,6 +2172,7 @@ impl<T> FileRwLock<T> {
             "    async fn handle_active_thread_event(&mut self, tui: &mut tui::Tui, event: Event) -> Result<()> {\n        console_log::console_log!(\"[event-trace] handle_active_thread_event: msg={:?}\", std::mem::discriminant(&event.msg));\n        // Capture this before any potential thread switch",
         );
 
+
         // --- core/src/message_history.rs: stub File::try_lock (unsupported in WASI) ---
         // Single-threaded WASM has no contention, so skip the lock and write directly.
         // NOTE: needle uses std::thread::sleep (original) — AST transforms run AFTER string_replace.

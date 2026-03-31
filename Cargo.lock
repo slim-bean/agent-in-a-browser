@@ -3787,6 +3787,7 @@ version = "1.50.0"
 dependencies = [
  "console-log",
  "futures-core",
+ "getrandom 0.2.17",
  "pin-project-lite",
  "wasi-tokio-macros",
 ]

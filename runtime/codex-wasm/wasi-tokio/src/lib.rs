@@ -552,6 +552,118 @@ pub fn __poll_spawned_tasks(cx: &mut Context<'_>) {
     poll_spawned_tasks(cx);
 }
 
+// ---------------------------------------------------------------------------
+// Per-call-site select! branch tracking
+// ---------------------------------------------------------------------------
+
+/// State for one select! call site.
+struct SelectSiteState {
+    file: &'static str,
+    line: u32,
+    num_branches: usize,
+    wins: Vec<u64>,
+    last_win: Vec<Option<Instant>>,
+    total: u64,
+    last_log: Instant,
+}
+
+impl SelectSiteState {
+    fn new(file: &'static str, line: u32, num_branches: usize) -> Self {
+        Self {
+            file,
+            line,
+            num_branches,
+            wins: vec![0; num_branches],
+            last_win: vec![None; num_branches],
+            total: 0,
+            last_log: Instant::now(),
+        }
+    }
+
+    fn record_win(&mut self, branch: usize) {
+        self.wins[branch] += 1;
+        self.last_win[branch] = Some(Instant::now());
+        self.total += 1;
+
+        // Check for stalls every 5 seconds
+        if self.last_log.elapsed().as_secs() >= 5 {
+            self.log_status();
+            self.last_log = Instant::now();
+        }
+    }
+
+    fn log_status(&self) {
+        let now = Instant::now();
+        let mut any_starved = false;
+        let summary: Vec<String> = (0..self.num_branches)
+            .map(|i| {
+                let ago = match self.last_win[i] {
+                    Some(t) => {
+                        let secs = now.duration_since(t).as_secs();
+                        if secs >= 10 {
+                            any_starved = true;
+                        }
+                        format!("{}s", secs)
+                    }
+                    None => {
+                        if self.total > 100 {
+                            any_starved = true;
+                        }
+                        "never".to_string()
+                    }
+                };
+                format!("b{}={} ({})", i, self.wins[i], ago)
+            })
+            .collect();
+
+        let file = self.file.rsplit('/').next().unwrap_or(self.file);
+        if any_starved {
+            console_log::console_log!(
+                "[SELECT STALL] {}:{} total={} branches: {}",
+                file,
+                self.line,
+                self.total,
+                summary.join(", ")
+            );
+        }
+    }
+}
+
+/// Register a branch win for a specific call site. Called by select! generated code.
+/// Uses a simple global Vec since WASM is single-threaded.
+#[doc(hidden)]
+pub fn __select_site_win(
+    site_id: &std::sync::atomic::AtomicU64,
+    file: &'static str,
+    line: u32,
+    branch: usize,
+    num_branches: usize,
+) {
+    use std::sync::atomic::Ordering;
+
+    thread_local! {
+        static SITES: RefCell<Vec<SelectSiteState>> = RefCell::new(Vec::new());
+    }
+
+    // Lazily assign a site ID on first call
+    let mut id = site_id.load(Ordering::Relaxed);
+    if id == 0 {
+        SITES.with(|sites| {
+            let mut sites = sites.borrow_mut();
+            sites.push(SelectSiteState::new(file, line, num_branches));
+            id = sites.len() as u64;
+            site_id.store(id, Ordering::Relaxed);
+        });
+    }
+
+    SITES.with(|sites| {
+        let mut sites = sites.borrow_mut();
+        if let Some(site) = sites.get_mut((id - 1) as usize) {
+            site.record_win(branch);
+        }
+    });
+}
+
 /// Return a random starting branch index for select! polling.
 /// Uses xorshift64+ PRNG (same algorithm as real tokio) seeded from
 /// wasi:random via getrandom. Matches tokio's `thread_rng_n()`.
