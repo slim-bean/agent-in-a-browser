@@ -1741,7 +1741,7 @@ impl<T> FileRwLock<T> {
         self.string_replace(
             "tui/src/lib.rs",
             "    let (non_blocking, _guard) = non_blocking(log_file);\n\n    // use RUST_LOG env var, default to info for codex crates.\n    let env_filter = || {\n        EnvFilter::try_from_default_env().unwrap_or_else(|_| {\n            EnvFilter::new(\"codex_core=info,codex_tui=info,codex_rmcp_client=info\")\n        })\n    };\n\n    let file_layer = tracing_subscriber::fmt::layer()\n        .with_writer(non_blocking)",
-            "    // [codex-codemod] non_blocking replaced with stderr (no thread spawning in WASM)\n    let _guard = ();\n\n    let env_filter = || {\n        EnvFilter::try_from_default_env().unwrap_or_else(|_| {\n            EnvFilter::new(\"codex_core=warn,codex_tui=warn\")\n        })\n    };\n\n    let file_layer = tracing_subscriber::fmt::layer()\n        .with_writer(std::io::stderr)",
+            "    // [codex-codemod] non_blocking replaced with console_log (no thread spawning in WASM)\n    let _guard = ();\n\n    let env_filter = || {\n        EnvFilter::try_from_default_env().unwrap_or_else(|_| {\n            EnvFilter::new(\"codex_core=warn,codex_tui=warn\")\n        })\n    };\n\n    let file_layer = tracing_subscriber::fmt::layer()\n        .with_writer(console_log::MakeConsoleWriter)",
         );
 
         // --- tui/src/tui/frame_requester.rs: FrameRequester struct ---
@@ -2193,7 +2193,7 @@ impl<T> FileRwLock<T> {
         // events go to console.log/warn/error instead of polluting the terminal.
         self.string_replace(
             "tui/src/lib.rs",
-            ".with_writer(std::io::stderr)",
+            ".with_writer(console_log::MakeConsoleWriter)",
             ".with_writer(console_log::MakeConsoleWriter)",
         );
     }
@@ -2469,7 +2469,7 @@ impl<T> FileRwLock<T> {
         }
         self.replace_in_file(
             "tui/src/lib.rs",
-            ".with_writer(std::io::stderr)",
+            ".with_writer(console_log::MakeConsoleWriter)",
             ".with_writer(console_log::MakeConsoleWriter)",
         );
     }
@@ -2496,7 +2496,7 @@ impl<T> FileRwLock<T> {
         self.replace_in_file(
             "tui/src/lib.rs",
             "    let (non_blocking, _guard) = non_blocking(log_file);\n\n    // use RUST_LOG env var, default to info for codex crates.\n    let env_filter = || {\n        EnvFilter::try_from_default_env().unwrap_or_else(|_| {\n            EnvFilter::new(\"codex_core=info,codex_tui=info,codex_rmcp_client=info\")\n        })\n    };\n\n    let file_layer = tracing_subscriber::fmt::layer()\n        .with_writer(non_blocking)",
-            "    // [codex-codemod] non_blocking replaced with stderr (no thread spawning in WASM)\n    let _guard = ();\n\n    let env_filter = || {\n        EnvFilter::try_from_default_env().unwrap_or_else(|_| {\n            EnvFilter::new(\"codex_core=warn,codex_tui=warn\")\n        })\n    };\n\n    let file_layer = tracing_subscriber::fmt::layer()\n        .with_writer(std::io::stderr)",
+            "    // [codex-codemod] non_blocking replaced with console_log (no thread spawning in WASM)\n    let _guard = ();\n\n    let env_filter = || {\n        EnvFilter::try_from_default_env().unwrap_or_else(|_| {\n            EnvFilter::new(\"codex_core=warn,codex_tui=warn\")\n        })\n    };\n\n    let file_layer = tracing_subscriber::fmt::layer()\n        .with_writer(console_log::MakeConsoleWriter)",
         );
 
         // 2. frame_requester struct (tui/src/tui/frame_requester.rs)
