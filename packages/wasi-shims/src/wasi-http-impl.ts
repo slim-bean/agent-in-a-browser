@@ -151,7 +151,7 @@ export function createSyncStreamingInputStream(
             const next = generator.next();
             if (next.done) {
                 done = true;
-                return new Uint8Array(0);
+                throw { tag: 'closed' };
             }
 
             const chunkResult = next.value;
@@ -226,7 +226,7 @@ export function createSyncStreamingInputStreamFromChunks(
             const next = generator.next();
             if (next.done) {
                 done = true;
-                return new Uint8Array(0);
+                throw { tag: 'closed' };
             }
 
             const chunkResult = next.value;
@@ -420,6 +420,10 @@ export function createStreamingInputStream(reader: ReadableStreamDefaultReader<U
             done = streamDone;
 
             if (!value || value.length === 0) {
+                // If stream just finished, signal EOF immediately
+                if (done) {
+                    throw { tag: 'closed' };
+                }
                 return new Uint8Array(0);
             }
 
@@ -527,6 +531,10 @@ export function createLazyFetchStream(url: string, options: RequestInit): unknow
                 done = streamDone;
 
                 if (!value || value.length === 0) {
+                    // If stream just finished, signal EOF immediately
+                    if (done) {
+                        throw { tag: 'closed' };
+                    }
                     return new Uint8Array(0);
                 }
 
