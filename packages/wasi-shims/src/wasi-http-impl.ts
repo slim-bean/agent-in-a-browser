@@ -415,6 +415,7 @@ export function createStreamingInputStream(reader: ReadableStreamDefaultReader<U
                 const n = Math.min(Number(len), buffer.length);
                 const result = buffer.slice(0, n);
                 buffer = buffer.slice(n);
+                console.log(`[InputStream:streaming] blockingRead(${len}) -> ${n} bytes from buffer, ${buffer.length} remaining, done=${done}`);
                 return result;
             }
 
@@ -427,7 +428,7 @@ export function createStreamingInputStream(reader: ReadableStreamDefaultReader<U
             // Read from the stream - this suspends via JSPI until data arrives
             const { value, done: streamDone } = await reader.read();
             done = streamDone;
-            console.log(`[InputStream:streaming] reader.read() -> ${value?.length ?? 0} bytes, done=${done}`);
+            console.log(`[InputStream:streaming] reader.read() -> ${value?.length ?? 0} bytes, done=${done}, requested=${len}`);
 
             if (!value || value.length === 0) {
                 // If stream just finished, signal EOF immediately
