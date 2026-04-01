@@ -10,8 +10,8 @@ pub use super::JoinHandle;
 /// This allows `tokio::task::spawn()` to work in addition to `tokio::spawn()`.
 pub fn spawn<F>(future: F) -> super::JoinHandle<F::Output>
 where
-    F: Future + Send + 'static,
-    F::Output: Send + 'static,
+    F: Future + 'static,
+    F::Output: 'static,
 {
     super::spawn(future)
 }
@@ -19,8 +19,8 @@ where
 /// spawn_blocking — in WASM, just runs the closure inline.
 pub fn spawn_blocking<F, R>(f: F) -> super::JoinHandle<R>
 where
-    F: FnOnce() -> R + Send + 'static,
-    R: Send + 'static,
+    F: FnOnce() -> R + 'static,
+    R: 'static,
 {
     let result = f();
     let slot = std::sync::Arc::new(std::sync::Mutex::new(Some(result)));
@@ -47,7 +47,7 @@ pub struct JoinSet<T> {
     results: Vec<T>,
 }
 
-impl<T: Send + 'static> JoinSet<T> {
+impl<T: 'static> JoinSet<T> {
     pub fn new() -> Self {
         Self {
             results: Vec::new(),
@@ -56,7 +56,7 @@ impl<T: Send + 'static> JoinSet<T> {
 
     pub fn spawn<F>(&mut self, future: F)
     where
-        F: Future<Output = T> + Send + 'static,
+        F: Future<Output = T> + 'static,
     {
         let result = super::block_on(future);
         self.results.push(result);

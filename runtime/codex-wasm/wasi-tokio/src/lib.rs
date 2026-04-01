@@ -54,7 +54,7 @@ thread_local! {
 
 /// Type-erased future stored in the global task queue, with spawn location metadata.
 struct SpawnedTask {
-    future: Pin<Box<dyn Future<Output = ()> + Send + 'static>>,
+    future: Pin<Box<dyn Future<Output = ()> + 'static>>,
     file: &'static str,
     line: u32,
     task_id: u64,
@@ -67,8 +67,10 @@ fn log(msg: String) {
     console_log::console_log!("{msg}");
 }
 
-/// Global queue of spawned tasks. `block_on` drains this each iteration.
-static TASK_QUEUE: std::sync::Mutex<Vec<SpawnedTask>> = std::sync::Mutex::new(Vec::new());
+thread_local! {
+    /// Global queue of spawned tasks. `block_on` drains this each iteration.
+    static TASK_QUEUE: RefCell<Vec<SpawnedTask>> = RefCell::new(Vec::new());
+}
 
 /// Maximum time a single task poll should take before we consider it a
 /// potential deadlock. In WASM, a task that takes >5s is almost certainly
@@ -82,10 +84,7 @@ fn poll_spawned_tasks(cx: &mut Context<'_>) {
     static LAST_PENDING_LOG: std::sync::Mutex<Option<std::time::Instant>> =
         std::sync::Mutex::new(None);
 
-    let tasks: Vec<SpawnedTask> = {
-        let mut queue = TASK_QUEUE.lock().unwrap_or_else(|e| e.into_inner());
-        std::mem::take(&mut *queue)
-    };
+    let tasks: Vec<SpawnedTask> = { TASK_QUEUE.with(|q| std::mem::take(&mut *q.borrow_mut())) };
 
     let mut pending = Vec::new();
     let mut pending_names = Vec::new();
@@ -196,16 +195,17 @@ fn poll_spawned_tasks(cx: &mut Context<'_>) {
     }
 
     if !pending.is_empty() {
-        let mut queue = TASK_QUEUE.lock().unwrap_or_else(|e| e.into_inner());
-        pending.append(&mut *queue);
-        *queue = pending;
+        TASK_QUEUE.with(|q| {
+            let mut queue = q.borrow_mut();
+            pending.append(&mut *queue);
+            *queue = pending;
+        });
     }
 }
 
 /// Returns true if there are spawned tasks waiting to be polled.
 fn has_spawned_tasks() -> bool {
-    let queue = TASK_QUEUE.lock().unwrap_or_else(|e| e.into_inner());
-    !queue.is_empty()
+    TASK_QUEUE.with(|q| !q.borrow().is_empty())
 }
 
 // ---------------------------------------------------------------------------
@@ -217,8 +217,8 @@ fn has_spawned_tasks() -> bool {
 #[track_caller]
 pub fn spawn<F>(future: F) -> JoinHandle<F::Output>
 where
-    F: Future + Send + 'static,
-    F::Output: Send + 'static,
+    F: Future + 'static,
+    F::Output: 'static,
 {
     use std::sync::{Arc, Mutex};
 
@@ -251,13 +251,14 @@ where
         *slot_clone.lock().unwrap_or_else(|e| e.into_inner()) = Some(val);
     };
 
-    let mut queue = TASK_QUEUE.lock().unwrap_or_else(|e| e.into_inner());
-    queue.push(SpawnedTask {
-        future: Box::pin(wrapped),
-        file,
-        line,
-        task_id,
-        cancelled: cancelled_clone,
+    TASK_QUEUE.with(|q| {
+        q.borrow_mut().push(SpawnedTask {
+            future: Box::pin(wrapped),
+            file,
+            line,
+            task_id,
+            cancelled: cancelled_clone,
+        });
     });
 
     JoinHandle {
@@ -443,7 +444,7 @@ pub fn block_on<F: Future>(future: F) -> F::Output {
         // Log loop liveness every 5s so we can detect hangs
         let loop_now = std::time::Instant::now();
         if loop_now.duration_since(last_loop_log).as_secs() >= 5 {
-            let task_count = { TASK_QUEUE.lock().unwrap_or_else(|e| e.into_inner()).len() };
+            let task_count = TASK_QUEUE.with(|q| q.borrow().len());
             log(format!(
                 "[block_on] loop alive: iter={iteration}, tasks={task_count}"
             ));
@@ -465,7 +466,7 @@ pub fn block_on<F: Future>(future: F) -> F::Output {
                 // Heartbeat every 10s
                 let now = std::time::Instant::now();
                 if now.duration_since(last_heartbeat).as_secs() >= 10 {
-                    let task_count = { TASK_QUEUE.lock().unwrap_or_else(|e| e.into_inner()).len() };
+                    let task_count = TASK_QUEUE.with(|q| q.borrow().len());
                     let uptime = start.elapsed().as_secs();
                     log(format!(
                         "[block_on] heartbeat: iter={iteration}, uptime={uptime}s, tasks={task_count}, main={}ms tasks={}ms",

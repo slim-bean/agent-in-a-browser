@@ -4227,6 +4227,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasi-js-engine"
+version = "0.1.0"
+dependencies = [
+ "futures-lite",
+ "rquickjs",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "wasi-tokio-macros"
 version = "0.1.0"
 dependencies = [

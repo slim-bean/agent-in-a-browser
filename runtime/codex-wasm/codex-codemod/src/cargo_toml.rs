@@ -82,10 +82,7 @@ const PER_CRATE_STRIP_DEPS: &[(&str, &[&str])] = &[
 
 /// rmcp features to strip from any crate's rmcp dependency.
 /// These transport features pull in process-wrap, real reqwest, etc.
-const STRIP_RMCP_FEATURES: &[&str] = &[
-    "auth",
-    "transport-streamable-http-server",
-];
+const STRIP_RMCP_FEATURES: &[&str] = &["auth", "transport-streamable-http-server"];
 
 /// Dependencies that were originally under [target.'cfg(unix)'.dependencies] etc.
 /// but need to be moved to [dependencies] since we strip all [target] sections.
@@ -116,6 +113,10 @@ const INJECT_DEPS: &[(&str, &[(&str, &str)])] = &[
     (
         "app-server-client",
         &[("codex-feedback", "../../../codex-wasm/wasi-codex-feedback")],
+    ),
+    (
+        "code-mode",
+        &[("wasi-js-engine", "../../../crates/wasi-js-engine")],
     ),
     // state: sqlx is stripped globally but state's runtime.rs uses it;
     // inject the wasi-sqlx shim path so it resolves via [patch.crates-io]
@@ -261,7 +262,6 @@ const KEEP_WORKSPACE_MEMBERS: &[&str] = &[
     "skills",
     "hooks",
     "secrets",
-    "code-mode",
     "connectors",
     "features",
     "app-server-protocol",
