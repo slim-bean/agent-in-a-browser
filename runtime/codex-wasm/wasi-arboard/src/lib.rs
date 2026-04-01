@@ -5,17 +5,27 @@ use std::fmt;
 
 pub struct Clipboard;
 
+static CLIPBOARD_STORE: std::sync::LazyLock<std::sync::Mutex<String>> = 
+    std::sync::LazyLock::new(|| std::sync::Mutex::new(String::new()));
+
 impl Clipboard {
     pub fn new() -> Result<Self, Error> {
-        Err(Error::ClipboardNotSupported)
+        Ok(Self)
     }
 
     pub fn get_text(&mut self) -> Result<String, Error> {
-        Err(Error::ClipboardNotSupported)
+        let store = CLIPBOARD_STORE.lock().unwrap();
+        if store.is_empty() {
+            Err(Error::ContentNotAvailable)
+        } else {
+            Ok(store.clone())
+        }
     }
 
-    pub fn set_text(&mut self, _text: String) -> Result<(), Error> {
-        Err(Error::ClipboardNotSupported)
+    pub fn set_text(&mut self, text: String) -> Result<(), Error> {
+        let mut store = CLIPBOARD_STORE.lock().unwrap();
+        *store = text;
+        Ok(())
     }
 
     pub fn get(&mut self) -> Get<'_> {
@@ -33,7 +43,12 @@ pub struct Get<'a> {
 
 impl<'a> Get<'a> {
     pub fn text(self) -> Result<String, Error> {
-        Err(Error::ClipboardNotSupported)
+        let store = CLIPBOARD_STORE.lock().unwrap();
+        if store.is_empty() {
+            Err(Error::ContentNotAvailable)
+        } else {
+            Ok(store.clone())
+        }
     }
 
     pub fn image(self) -> Result<ImageData<'static>, Error> {

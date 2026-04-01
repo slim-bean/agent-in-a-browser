@@ -2702,6 +2702,43 @@ impl<T> FileRwLock<T> {
             "#[cfg(not(any(unix, windows)))]\ncompile_error!(\"codex-git symlink support is only implemented for Unix and Windows\");",
             "#[cfg(not(any(unix, windows)))]\npub fn create_symlink(\n    _source: &Path,\n    _link_target: &Path,\n    _destination: &Path,\n) -> Result<(), GitToolingError> {\n    Err(std::io::Error::new(std::io::ErrorKind::Unsupported, \"symlinks not supported on wasm32\").into())\n}",
         );
+
+        // 26. Replace process::exit in tui/src/lib.rs with Result return
+        self.replace_in_file(
+            "tui/src/lib.rs",
+            "eprintln!(\"Error parsing -c overrides: {e}\");\n            std::process::exit(1);",
+            "return Err(std::io::Error::other(format!(\"Error parsing -c overrides: {e}\")));",
+        );
+        self.replace_in_file(
+            "tui/src/lib.rs",
+            "eprintln!(\"Error finding codex home: {err}\");\n            std::process::exit(1);",
+            "return Err(std::io::Error::other(format!(\"Error finding codex home: {err}\")));",
+        );
+        self.replace_in_file(
+            "tui/src/lib.rs",
+            "eprintln!(\"Error loading config.toml: {err}\");\n            }\n            std::process::exit(1);",
+            "eprintln!(\"Error loading config.toml: {err}\");\n            }\n            return Err(std::io::Error::other(\"Error loading config.toml\"));"
+        );
+        self.replace_in_file(
+            "tui/src/lib.rs",
+            "eprintln!(\n                \"Error loading rules:\\n{}\",\n                format_exec_policy_error_with_source(&err)\n            );\n            std::process::exit(1);",
+            "return Err(std::io::Error::other(format!(\"Error loading rules:\\n{}\", format_exec_policy_error_with_source(&err))));"
+        );
+        self.replace_in_file(
+            "tui/src/lib.rs",
+            "eprintln!(\"Error adding directories: {warning}\");\n            std::process::exit(1);",
+            "return Err(std::io::Error::other(format!(\"Error adding directories: {warning}\")));"
+        );
+        self.replace_in_file(
+            "tui/src/lib.rs",
+            "eprintln!(\"{err}\");\n            std::process::exit(1);",
+            "return Err(std::io::Error::other(format!(\"{err}\")));",
+        );
+        self.replace_in_file(
+            "tui/src/lib.rs",
+            "eprintln!(\"Error loading configuration: {err}\");\n            std::process::exit(1);",
+            "return Err(std::io::Error::other(format!(\"Error loading configuration: {err}\")));"
+        );
     }
 }
 

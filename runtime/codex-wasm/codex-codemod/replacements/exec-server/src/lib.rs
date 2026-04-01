@@ -7,6 +7,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use serde::{Deserialize, Serialize};
 
+mod wasi_fs;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct ProcessId(String);
@@ -165,7 +167,7 @@ impl Environment {
     pub async fn create(_url: Option<String>) -> Result<Self, ExecServerError> { Ok(Self) }
     pub fn exec_server_url(&self) -> Option<&str> { None }
     pub fn get_exec_backend(&self) -> Arc<dyn ExecBackend> { Arc::new(StubBackend) }
-    pub fn get_filesystem(&self) -> Arc<dyn ExecutorFileSystem> { Arc::new(StubFs) }
+    pub fn get_filesystem(&self) -> Arc<dyn ExecutorFileSystem> { Arc::new(wasi_fs::WasiFs) }
 }
 impl ExecutorEnvironment for Environment { fn get_exec_backend(&self) -> Arc<dyn ExecBackend> { Arc::new(StubBackend) } }
 
