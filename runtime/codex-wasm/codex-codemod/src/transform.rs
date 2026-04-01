@@ -103,12 +103,12 @@ impl Transform {
 
             Transform::ReplaceFirst { find, replace, .. } => {
                 // Idempotency: if the replacement text is already present, skip.
-                // (Unless find is also present — in which case there's a genuine
-                // second occurrence that needs replacing)
+                // Check this FIRST, because the replacement may contain the find text
+                // (e.g., injecting stubs before #[cfg(test)] where replacement also ends with #[cfg(test)]).
+                if content.contains(*replace) {
+                    return (content.to_string(), TransformResult::AlreadyApplied);
+                }
                 if !content.contains(*find) {
-                    if content.contains(*replace) {
-                        return (content.to_string(), TransformResult::AlreadyApplied);
-                    }
                     return (content.to_string(), TransformResult::NotMatched);
                 }
                 // Replace only the first occurrence

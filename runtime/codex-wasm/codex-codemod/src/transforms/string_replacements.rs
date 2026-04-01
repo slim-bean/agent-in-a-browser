@@ -15,6 +15,7 @@ pub fn transforms() -> Vec<Transform> {
             path_suffix: "core/src/connectors.rs",
             find: "\n#[cfg(test)]",
             replace: r#"
+// [codex-codemod-connector-stubs] — injected stubs for WASM build
 /// List all connectors with options — stub for WASM (no ChatGPT auth).
 /// Previously in codex_chatgpt::connectors, moved to core after codemod.
 pub async fn list_all_connectors_with_options(

@@ -626,6 +626,7 @@ dependencies = [
  "codex-login",
  "codex-plugin",
  "codex-protocol",
+ "os_info",
  "serde",
  "sha1",
  "tokio",

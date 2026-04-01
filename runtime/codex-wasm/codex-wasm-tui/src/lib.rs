@@ -85,12 +85,13 @@ impl Guest for CodexTui {
             };
 
             let arg0_paths = Arg0DispatchPaths {
+                codex_self_exe: None,
                 codex_linux_sandbox_exe: None,
                 main_execve_wrapper_exe: None,
             };
 
             console_log::console_log!("[codex-wasm-tui] calling run_main...");
-            match codex_tui::run_main(cli, arg0_paths, LoaderOverrides::default()).await {
+            match codex_tui::run_main(cli, arg0_paths, LoaderOverrides::default(), None, None).await {
                 Ok(exit_info) => {
                     match exit_info.exit_reason {
                         codex_tui::ExitReason::UserRequested => 0,

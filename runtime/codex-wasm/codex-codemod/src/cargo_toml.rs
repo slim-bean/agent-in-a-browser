@@ -84,10 +84,7 @@ const PER_CRATE_STRIP_DEPS: &[(&str, &[&str])] = &[
 /// These transport features pull in process-wrap, real reqwest, etc.
 const STRIP_RMCP_FEATURES: &[&str] = &[
     "auth",
-    "transport-child-process",
-    "transport-streamable-http-client-reqwest",
     "transport-streamable-http-server",
-    "transport-streamable-http-client",
 ];
 
 /// Dependencies that were originally under [target.'cfg(unix)'.dependencies] etc.
