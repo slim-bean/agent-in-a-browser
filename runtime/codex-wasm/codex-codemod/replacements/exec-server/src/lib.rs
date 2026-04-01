@@ -7,6 +7,23 @@ use std::sync::Arc;
 use std::time::Duration;
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ProcessId(String);
+impl ProcessId {
+    pub fn new(value: impl Into<String>) -> Self { Self(value.into()) }
+    pub fn as_str(&self) -> &str { &self.0 }
+    pub fn into_inner(self) -> String { self.0 }
+}
+impl std::ops::Deref for ProcessId { type Target = str; fn deref(&self) -> &str { self.as_str() } }
+impl std::borrow::Borrow<str> for ProcessId { fn borrow(&self) -> &str { self.as_str() } }
+impl AsRef<str> for ProcessId { fn as_ref(&self) -> &str { self.as_str() } }
+impl std::fmt::Display for ProcessId { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { self.0.fmt(f) } }
+impl From<String> for ProcessId { fn from(value: String) -> Self { Self(value) } }
+impl From<&str> for ProcessId { fn from(value: &str) -> Self { Self(value.to_string()) } }
+impl From<&String> for ProcessId { fn from(value: &String) -> Self { Self(value.clone()) } }
+impl From<ProcessId> for String { fn from(value: ProcessId) -> Self { value.0 } }
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ByteChunk(pub Vec<u8>);
 impl ByteChunk { pub fn into_inner(self) -> Vec<u8> { self.0 } }
@@ -17,19 +34,21 @@ pub struct InitializeParams { pub client_name: String }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InitializeResponse {}
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ExecParams { pub process_id: String, pub argv: Vec<String>, pub cwd: PathBuf, pub env: HashMap<String, String>, pub tty: bool, pub arg0: Option<String> }
+pub struct ExecParams { pub process_id: ProcessId, pub argv: Vec<String>, pub cwd: PathBuf, pub env: HashMap<String, String>, pub tty: bool, pub arg0: Option<String> }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ExecResponse { pub process_id: String }
+pub struct ExecResponse { pub process_id: ProcessId }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReadParams { pub process_id: String, pub after_seq: Option<u64>, pub max_bytes: Option<usize>, pub wait_ms: Option<u64> }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProcessOutputChunk { pub seq: u64, pub stream: ExecOutputStream, pub chunk: ByteChunk }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ReadResponse { pub chunks: Vec<ProcessOutputChunk>, pub next_seq: u64, pub exited: bool, pub exit_code: Option<i32> }
+pub struct ReadResponse { pub chunks: Vec<ProcessOutputChunk>, pub next_seq: u64, pub exited: bool, pub exit_code: Option<i32>, pub closed: bool, pub failure: Option<String> }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WriteParams { pub process_id: String, pub chunk: ByteChunk }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WriteStatus { Accepted, UnknownProcess, StdinClosed, Starting }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WriteResponse { pub accepted: bool }
+pub struct WriteResponse { pub status: WriteStatus }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TerminateParams { pub process_id: String }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -84,17 +103,26 @@ impl ExecServerClient {
     pub async fn notify_initialized(&self) -> Result<(), ExecServerError> { Ok(()) }
 }
 
+pub struct StartedExecProcess {
+    pub process: Arc<dyn ExecProcess>,
+}
+
 #[async_trait::async_trait]
 pub trait ExecProcess: Send + Sync {
-    async fn start(&self, params: ExecParams) -> Result<ExecResponse, ExecServerError>;
-    async fn read(&self, params: ReadParams) -> Result<ReadResponse, ExecServerError>;
-    async fn write(&self, process_id: &str, chunk: Vec<u8>) -> Result<WriteResponse, ExecServerError>;
-    async fn terminate(&self, process_id: &str) -> Result<TerminateResponse, ExecServerError>;
-    fn subscribe_events(&self) -> tokio::sync::broadcast::Receiver<ExecServerEvent>;
+    fn process_id(&self) -> &ProcessId;
+    fn subscribe_wake(&self) -> tokio::sync::watch::Receiver<u64>;
+    async fn read(&self, after_seq: Option<u64>, max_bytes: Option<usize>, wait_ms: Option<u64>) -> Result<ReadResponse, ExecServerError>;
+    async fn write(&self, chunk: Vec<u8>) -> Result<WriteResponse, ExecServerError>;
+    async fn terminate(&self) -> Result<(), ExecServerError>;
+}
+
+#[async_trait::async_trait]
+pub trait ExecBackend: Send + Sync {
+    async fn start(&self, params: ExecParams) -> Result<StartedExecProcess, ExecServerError>;
 }
 
 pub trait ExecutorEnvironment: Send + Sync {
-    fn get_executor(&self) -> Arc<dyn ExecProcess>;
+    fn get_exec_backend(&self) -> Arc<dyn ExecBackend>;
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -120,25 +148,42 @@ pub trait ExecutorFileSystem: Send + Sync {
     async fn copy(&self, source: &codex_utils_absolute_path::AbsolutePathBuf, dest: &codex_utils_absolute_path::AbsolutePathBuf, options: CopyOptions) -> FileSystemResult<()>;
 }
 
+pub struct EnvironmentManager {
+    exec_server_url: Option<String>,
+}
+impl EnvironmentManager {
+    pub fn new(exec_server_url: Option<String>) -> Self { Self { exec_server_url } }
+    pub fn from_env() -> Self { Self::new(std::env::var("CODEX_EXEC_SERVER_URL").ok()) }
+    pub fn exec_server_url(&self) -> Option<&str> { self.exec_server_url.as_deref() }
+    pub async fn current(&self) -> Result<Arc<Environment>, ExecServerError> { Ok(Arc::new(Environment)) }
+}
+
 pub struct Environment;
 impl Default for Environment { fn default() -> Self { Self } }
 impl std::fmt::Debug for Environment { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.debug_struct("Environment").finish() } }
 impl Environment {
     pub async fn create(_url: Option<String>) -> Result<Self, ExecServerError> { Ok(Self) }
-    pub fn experimental_exec_server_url(&self) -> Option<&str> { None }
-    pub fn get_executor(&self) -> Arc<dyn ExecProcess> { Arc::new(StubExec) }
+    pub fn exec_server_url(&self) -> Option<&str> { None }
+    pub fn get_exec_backend(&self) -> Arc<dyn ExecBackend> { Arc::new(StubBackend) }
     pub fn get_filesystem(&self) -> Arc<dyn ExecutorFileSystem> { Arc::new(StubFs) }
 }
-impl ExecutorEnvironment for Environment { fn get_executor(&self) -> Arc<dyn ExecProcess> { Arc::new(StubExec) } }
+impl ExecutorEnvironment for Environment { fn get_exec_backend(&self) -> Arc<dyn ExecBackend> { Arc::new(StubBackend) } }
+
+struct StubBackend;
+#[async_trait::async_trait]
+impl ExecBackend for StubBackend {
+    async fn start(&self, _: ExecParams) -> Result<StartedExecProcess, ExecServerError> { Err(ExecServerError::Protocol("WASM".into())) }
+}
 
 struct StubExec;
+static STUB_PROCESS_ID: std::sync::LazyLock<ProcessId> = std::sync::LazyLock::new(|| ProcessId::new("stub"));
 #[async_trait::async_trait]
 impl ExecProcess for StubExec {
-    async fn start(&self, _: ExecParams) -> Result<ExecResponse, ExecServerError> { Err(ExecServerError::Protocol("WASM".into())) }
-    async fn read(&self, _: ReadParams) -> Result<ReadResponse, ExecServerError> { Err(ExecServerError::Protocol("WASM".into())) }
-    async fn write(&self, _: &str, _: Vec<u8>) -> Result<WriteResponse, ExecServerError> { Err(ExecServerError::Protocol("WASM".into())) }
-    async fn terminate(&self, _: &str) -> Result<TerminateResponse, ExecServerError> { Err(ExecServerError::Protocol("WASM".into())) }
-    fn subscribe_events(&self) -> tokio::sync::broadcast::Receiver<ExecServerEvent> { let (_tx, rx) = tokio::sync::broadcast::channel(1); rx }
+    fn process_id(&self) -> &ProcessId { &STUB_PROCESS_ID }
+    fn subscribe_wake(&self) -> tokio::sync::watch::Receiver<u64> { let (_tx, rx) = tokio::sync::watch::channel(0); rx }
+    async fn read(&self, _: Option<u64>, _: Option<usize>, _: Option<u64>) -> Result<ReadResponse, ExecServerError> { Err(ExecServerError::Protocol("WASM".into())) }
+    async fn write(&self, _: Vec<u8>) -> Result<WriteResponse, ExecServerError> { Err(ExecServerError::Protocol("WASM".into())) }
+    async fn terminate(&self) -> Result<(), ExecServerError> { Err(ExecServerError::Protocol("WASM".into())) }
 }
 
 struct StubFs;

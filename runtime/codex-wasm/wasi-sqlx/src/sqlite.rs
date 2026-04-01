@@ -102,6 +102,14 @@ fn bind_params(stmt: &mut rusqlite::Statement<'_>, params: &[QueryParam]) -> Res
     Ok(())
 }
 
+/// Auto-vacuum mode — matches sqlx::sqlite::SqliteAutoVacuum.
+#[derive(Debug, Clone, Copy)]
+pub enum SqliteAutoVacuum {
+    None,
+    Full,
+    Incremental,
+}
+
 /// Connection options — matches sqlx::sqlite::SqliteConnectOptions.
 pub struct SqliteConnectOptions {
     pub(crate) path: String,
@@ -135,6 +143,10 @@ impl SqliteConnectOptions {
     }
 
     pub fn busy_timeout(self, _timeout: std::time::Duration) -> Self {
+        self
+    }
+
+    pub fn auto_vacuum(self, _mode: SqliteAutoVacuum) -> Self {
         self
     }
 }

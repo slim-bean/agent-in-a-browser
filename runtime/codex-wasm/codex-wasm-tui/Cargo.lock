@@ -241,58 +241,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "askama"
-version = "0.15.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b8246bcbf8eb97abef10c2d92166449680d41d55c0fc6978a91dec2e3619608"
-dependencies = [
- "askama_macros",
- "itoa",
- "percent-encoding",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "askama_derive"
-version = "0.15.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f9670bc84a28bb3da91821ef74226949ab63f1265aff7c751634f1dd0e6f97c"
-dependencies = [
- "askama_parser",
- "basic-toml",
- "memchr",
- "proc-macro2",
- "quote",
- "rustc-hash 2.1.2",
- "serde",
- "serde_derive",
- "syn 2.0.117",
-]
-
-[[package]]
-name = "askama_macros"
-version = "0.15.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0756b45480437dded0565dfc568af62ccce146fb6cfe902e808ba86e445f44f"
-dependencies = [
- "askama_derive",
-]
-
-[[package]]
-name = "askama_parser"
-version = "0.15.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d0af3691ba3af77949c0b5a3925444b85cb58a0184cc7fec16c68ba2e7be868"
-dependencies = [
- "rustc-hash 2.1.2",
- "serde",
- "serde_derive",
- "unicode-ident",
- "winnow 1.0.0",
-]
-
-[[package]]
 name = "async-channel"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -670,6 +618,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e9b18233253483ce2f65329a24072ec414db782531bdbb7d0bbc4bd2ce6b7e21"
 
 [[package]]
+name = "codex-analytics"
+version = "0.0.0"
+dependencies = [
+ "codex-app-server-protocol",
+ "codex-git-utils",
+ "codex-login",
+ "codex-plugin",
+ "codex-protocol",
+ "serde",
+ "sha1",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "codex-ansi-escape"
 version = "0.0.0"
 dependencies = [
@@ -700,12 +663,76 @@ dependencies = [
 ]
 
 [[package]]
+name = "codex-app-server"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64 0.22.1",
+ "chrono",
+ "clap",
+ "codex-app-server-protocol",
+ "codex-arg0",
+ "codex-core",
+ "codex-exec-server",
+ "codex-features",
+ "codex-feedback",
+ "codex-file-search",
+ "codex-git-utils",
+ "codex-login",
+ "codex-otel",
+ "codex-protocol",
+ "codex-rmcp-client",
+ "codex-sandboxing",
+ "codex-shell-command",
+ "codex-state",
+ "codex-tools",
+ "codex-utils-absolute-path",
+ "codex-utils-cli",
+ "codex-utils-json-to-toml",
+ "codex-utils-pty",
+ "console-log",
+ "futures",
+ "owo-colors",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "time",
+ "tokio",
+ "tokio-util",
+ "toml 0.9.12+spec-1.1.0",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
+name = "codex-app-server-client"
+version = "0.0.0"
+dependencies = [
+ "codex-app-server",
+ "codex-app-server-protocol",
+ "codex-arg0",
+ "codex-core",
+ "codex-feedback",
+ "codex-protocol",
+ "futures",
+ "serde",
+ "serde_json",
+ "tokio",
+ "toml 0.9.12+spec-1.1.0",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "codex-app-server-protocol"
 version = "0.0.0"
 dependencies = [
  "anyhow",
  "clap",
  "codex-experimental-api-macros",
+ "codex-git-utils",
  "codex-protocol",
  "codex-utils-absolute-path",
  "inventory",
@@ -736,25 +763,12 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "codex-apply-patch",
+ "codex-sandboxing",
  "codex-shell-escalation",
  "codex-utils-home-dir",
  "dotenvy",
  "tempfile",
  "tokio",
-]
-
-[[package]]
-name = "codex-artifacts"
-version = "0.0.0"
-dependencies = [
- "codex-package-manager",
- "reqwest",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.18",
- "tokio",
- "url",
 ]
 
 [[package]]
@@ -808,6 +822,7 @@ dependencies = [
  "codex-utils-absolute-path",
  "futures",
  "multimap",
+ "schemars 0.8.22",
  "serde",
  "serde_json",
  "serde_path_to_error",
@@ -835,7 +850,6 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "arc-swap",
- "askama",
  "async-channel",
  "async-trait",
  "base64 0.22.1",
@@ -843,39 +857,47 @@ dependencies = [
  "chardetng",
  "chrono",
  "clap",
+ "codex-analytics",
  "codex-api",
  "codex-app-server-protocol",
  "codex-apply-patch",
- "codex-artifacts",
  "codex-async-utils",
  "codex-code-mode",
  "codex-config",
  "codex-connectors",
+ "codex-core-skills",
  "codex-exec-server",
  "codex-execpolicy",
  "codex-features",
- "codex-file-search",
- "codex-git",
+ "codex-git-utils",
  "codex-hooks",
+ "codex-instructions",
  "codex-login",
  "codex-network-proxy",
  "codex-otel",
+ "codex-plugin",
  "codex-protocol",
  "codex-rmcp-client",
+ "codex-rollout",
+ "codex-sandboxing",
  "codex-secrets",
  "codex-shell-command",
  "codex-shell-escalation",
- "codex-skills",
  "codex-state",
  "codex-terminal-detection",
+ "codex-tools",
  "codex-utils-absolute-path",
  "codex-utils-cache",
  "codex-utils-home-dir",
  "codex-utils-image",
+ "codex-utils-output-truncation",
+ "codex-utils-path",
+ "codex-utils-plugins",
  "codex-utils-pty",
  "codex-utils-readiness",
  "codex-utils-stream-parser",
  "codex-utils-string",
+ "codex-utils-template",
  "console-log",
  "csv",
  "dirs",
@@ -896,14 +918,12 @@ dependencies = [
  "schemars 0.8.22",
  "serde",
  "serde_json",
- "serde_yaml",
  "sha1",
  "shlex",
  "similar",
  "tempfile",
  "test-log",
  "thiserror 2.0.18",
- "time",
  "tokio",
  "tokio-util",
  "toml 0.9.12+spec-1.1.0",
@@ -915,9 +935,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "codex-core-skills"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "codex-analytics",
+ "codex-app-server-protocol",
+ "codex-config",
+ "codex-instructions",
+ "codex-login",
+ "codex-otel",
+ "codex-protocol",
+ "codex-skills",
+ "codex-utils-absolute-path",
+ "codex-utils-plugins",
+ "dirs",
+ "dunce",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "shlex",
+ "tokio",
+ "toml 0.9.12+spec-1.1.0",
+ "tracing",
+]
+
+[[package]]
 name = "codex-exec-server"
 version = "0.0.0"
 dependencies = [
+ "arc-swap",
  "async-trait",
  "base64 0.22.1",
  "codex-app-server-protocol",
@@ -991,15 +1038,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "codex-git"
+name = "codex-git-utils"
 version = "0.0.0"
 dependencies = [
+ "codex-utils-absolute-path",
+ "futures",
  "once_cell",
  "regex",
  "schemars 0.8.22",
  "serde",
  "tempfile",
  "thiserror 2.0.18",
+ "tokio",
  "walkdir",
 ]
 
@@ -1017,6 +1067,14 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "codex-instructions"
+version = "0.0.0"
+dependencies = [
+ "codex-protocol",
+ "serde",
 ]
 
 [[package]]
@@ -1039,6 +1097,7 @@ dependencies = [
  "codex-keyring-store",
  "codex-protocol",
  "codex-terminal-detection",
+ "codex-utils-template",
  "once_cell",
  "os_info",
  "rand 0.9.2",
@@ -1081,16 +1140,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "codex-package-manager"
+name = "codex-plugin"
 version = "0.0.0"
 dependencies = [
- "reqwest",
- "serde",
- "sha2",
- "tempfile",
+ "codex-utils-absolute-path",
+ "codex-utils-plugins",
  "thiserror 2.0.18",
- "tokio",
- "url",
 ]
 
 [[package]]
@@ -1098,9 +1153,11 @@ name = "codex-protocol"
 version = "0.0.0"
 dependencies = [
  "codex-execpolicy",
- "codex-git",
+ "codex-git-utils",
  "codex-utils-absolute-path",
  "codex-utils-image",
+ "codex-utils-string",
+ "codex-utils-template",
  "icu_decimal",
  "icu_locale_core",
  "icu_provider",
@@ -1137,12 +1194,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "codex-rollout"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "codex-file-search",
+ "codex-git-utils",
+ "codex-login",
+ "codex-otel",
+ "codex-protocol",
+ "codex-state",
+ "codex-utils-path",
+ "codex-utils-string",
+ "serde",
+ "serde_json",
+ "time",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "codex-sandboxing"
+version = "0.0.0"
+dependencies = [
+ "codex-network-proxy",
+ "codex-protocol",
+ "codex-utils-absolute-path",
+ "dunce",
+ "libc",
+ "serde_json",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "codex-secrets"
 version = "0.0.0"
 dependencies = [
  "age",
  "anyhow",
  "base64 0.22.1",
+ "codex-git-utils",
  "codex-keyring-store",
  "rand 0.9.2",
  "regex",
@@ -1222,6 +1317,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "codex-tools"
+version = "0.0.0"
+dependencies = [
+ "codex-app-server-protocol",
+ "codex-code-mode",
+ "codex-protocol",
+ "rmcp",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "codex-tui"
 version = "0.0.0"
 dependencies = [
@@ -1231,13 +1338,14 @@ dependencies = [
  "chrono",
  "clap",
  "codex-ansi-escape",
+ "codex-app-server-client",
  "codex-app-server-protocol",
  "codex-arg0",
- "codex-client",
  "codex-core",
  "codex-features",
  "codex-feedback",
  "codex-file-search",
+ "codex-git-utils",
  "codex-login",
  "codex-otel",
  "codex-protocol",
@@ -1275,7 +1383,7 @@ dependencies = [
  "shlex",
  "strum 0.27.2",
  "strum_macros 0.28.0",
- "supports-color",
+ "supports-color 3.0.2",
  "syntect",
  "tempfile",
  "textwrap 0.16.2",
@@ -1358,6 +1466,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "codex-utils-json-to-toml"
+version = "0.0.0"
+dependencies = [
+ "serde_json",
+ "toml 0.9.12+spec-1.1.0",
+]
+
+[[package]]
+name = "codex-utils-output-truncation"
+version = "0.0.0"
+dependencies = [
+ "codex-protocol",
+ "codex-utils-string",
+]
+
+[[package]]
+name = "codex-utils-path"
+version = "0.0.0"
+dependencies = [
+ "codex-utils-absolute-path",
+ "dunce",
+ "tempfile",
+]
+
+[[package]]
+name = "codex-utils-plugins"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "codex-utils-pty"
 version = "0.0.0"
 dependencies = [
@@ -1400,6 +1541,10 @@ version = "0.0.0"
 dependencies = [
  "regex-lite",
 ]
+
+[[package]]
+name = "codex-utils-template"
+version = "0.0.0"
 
 [[package]]
 name = "codex-wasm-tui"
@@ -3393,6 +3538,10 @@ name = "owo-colors"
 version = "4.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d211803b9b6b570f68772237e415a029d5a50c65d382910b879fb19d3271f94d"
+dependencies = [
+ "supports-color 2.1.0",
+ "supports-color 3.0.2",
+]
 
 [[package]]
 name = "parking"
@@ -4680,6 +4829,16 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "supports-color"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d6398cde53adc3c4557306a96ce67b302968513830a77a95b2b17305d9719a89"
+dependencies = [
+ "is-terminal",
+ "is_ci",
+]
+
+[[package]]
+name = "supports-color"
 version = "3.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c64fc7232dd8d2e4ac5ce4ef302b1d81e0b80d055b9d77c7c4f51f6aa4c867d6"
@@ -4938,6 +5097,7 @@ version = "1.50.0"
 dependencies = [
  "console-log",
  "futures-core",
+ "getrandom 0.2.17",
  "pin-project-lite",
  "wasi-tokio-macros",
 ]
@@ -5108,6 +5268,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-serde"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "704b1aeb7be0d0a84fc9828cae51dab5970fee5088f83d1dd7ee6f6246fc6ff1"
+dependencies = [
+ "serde",
+ "tracing-core",
+]
+
+[[package]]
 name = "tracing-subscriber"
 version = "0.3.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5117,12 +5287,15 @@ dependencies = [
  "nu-ansi-term",
  "once_cell",
  "regex-automata",
+ "serde",
+ "serde_json",
  "sharded-slab",
  "smallvec",
  "thread_local",
  "tracing",
  "tracing-core",
  "tracing-log",
+ "tracing-serde",
 ]
 
 [[package]]
@@ -5683,9 +5856,6 @@ name = "winnow"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a90e88e4667264a994d34e6d1ab2d26d398dcdca8b7f52bec8668957517fc7d8"
-dependencies = [
- "memchr",
-]
 
 [[package]]
 name = "wit-bindgen"

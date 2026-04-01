@@ -75,7 +75,7 @@ pub struct SpawnedProcess {
     pub session: ProcessHandle,
     pub stdout_rx: tokio::sync::broadcast::Receiver<Vec<u8>>,
     pub stderr_rx: tokio::sync::broadcast::Receiver<Vec<u8>>,
-    pub exit_rx: tokio::sync::oneshot::Receiver<Option<i32>>,
+    pub exit_rx: tokio::sync::oneshot::Receiver<i32>,
 }
 
 pub type SpawnedPty = SpawnedProcess;

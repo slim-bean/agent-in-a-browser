@@ -61,6 +61,19 @@ const PER_CRATE_STRIP_DEPS: &[(&str, &[&str])] = &[
         &["clap", "socket2", "tracing-subscriber"],
     ),
     ("exec-server", &["clap"]),
+    (
+        "app-server",
+        &[
+            "axum",
+            "jsonwebtoken",
+            "constant_time_eq",
+            "hmac",
+            "sha2",
+            "codex-backend-client",
+            "codex-cloud-requirements",
+        ],
+    ),
+    ("app-server-client", &["tokio-tungstenite", "tungstenite"]),
     ("core", &["image", "notify"]),
     ("pty", &["portable-pty", "windows-sys"]),
     // state: sqlx is now redirected to wasi-sqlx via [patch.crates-io]
@@ -96,6 +109,17 @@ const INJECT_DEPS: &[(&str, &[(&str, &str)])] = &[
         ],
     ),
     ("core", &[("console-log", "../../../crates/console-log")]),
+    (
+        "app-server",
+        &[
+            ("codex-feedback", "../../../codex-wasm/wasi-codex-feedback"),
+            ("console-log", "../../../crates/console-log"),
+        ],
+    ),
+    (
+        "app-server-client",
+        &[("codex-feedback", "../../../codex-wasm/wasi-codex-feedback")],
+    ),
     // state: sqlx is stripped globally but state's runtime.rs uses it;
     // inject the wasi-sqlx shim path so it resolves via [patch.crates-io]
     ("state", &[("sqlx", "../../../codex-wasm/wasi-sqlx")]),
@@ -147,8 +171,8 @@ const STRIP_DEPS: &[&str] = &[
     // codex-arg0: kept — used by TUI for Arg0DispatchPaths
     "codex-mcp-server",
     // codex-exec-server: kept (stubbed via REPLACE_FILES)
-    "codex-app-server",
-    "codex-app-server-client",
+    // codex-app-server: kept — in-process path works in WASM
+    // codex-app-server-client: kept — provides AppServerClient types
     "codex-app-server-test-client",
     "codex-responses-api-proxy",
     // Test support crates
@@ -211,7 +235,7 @@ const KEEP_WORKSPACE_MEMBERS: &[&str] = &[
     "utils/absolute-path",
     "utils/image",
     "utils/cache",
-    "utils/git",
+    "git-utils",
     "utils/home-dir",
     // "utils/oss",  // depends on codex_lmstudio/codex_ollama (stripped)
     "utils/json-to-toml",
@@ -223,6 +247,10 @@ const KEEP_WORKSPACE_MEMBERS: &[&str] = &[
     "utils/cargo-bin",
     // "utils/rustls-provider",  // stripped: depends on rustls (native TLS not needed in WASM)
     "utils/pty",
+    "utils/output-truncation",
+    "utils/path-utils",
+    "utils/plugins",
+    "utils/template",
     "terminal-detection",
     // Phase 2: Agent loop
     "execpolicy",
@@ -241,9 +269,12 @@ const KEEP_WORKSPACE_MEMBERS: &[&str] = &[
     "features",
     "app-server-protocol",
     "keyring-store",
-    "test-macros",
-    "package-manager",
-    "artifacts",
+    "core-skills",
+    "instructions",
+    "plugin",
+    "rollout",
+    "sandboxing",
+    "tools",
     // Phase 2 deps
     "ansi-escape",
     "async-utils",
@@ -253,7 +284,10 @@ const KEEP_WORKSPACE_MEMBERS: &[&str] = &[
     "file-search",
     "network-proxy",
     "exec-server",
-    // Phase 3: TUI deps
+    // Phase 3: App server (general-purpose agent backend)
+    "app-server",
+    "app-server-client",
+    // Phase 4: TUI deps
     // "feedback",  // stripped — uses sentry (native crash reporting). Stubbed via wasi-codex-feedback.
     "utils/sleep-inhibitor",
     // "tui",  // compiled via codex-wasm-tui standalone workspace

@@ -43,3 +43,28 @@ pub fn resolve_windows_sandbox_private_desktop(
 ) -> bool {
     false
 }
+
+/// Windows sandbox setup mode — stub for wasip2.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WindowsSandboxSetupMode {
+    Elevated,
+    Unelevated,
+}
+
+/// Windows sandbox setup request — stub for wasip2.
+pub struct WindowsSandboxSetupRequest {
+    pub mode: WindowsSandboxSetupMode,
+    pub policy: codex_protocol::protocol::SandboxPolicy,
+    pub policy_cwd: std::path::PathBuf,
+    pub command_cwd: std::path::PathBuf,
+    pub env_map: std::collections::HashMap<String, String>,
+    pub codex_home: std::path::PathBuf,
+    pub active_profile: Option<String>,
+}
+
+/// Run Windows sandbox setup — not available in WASM.
+pub async fn run_windows_sandbox_setup(
+    _request: WindowsSandboxSetupRequest,
+) -> anyhow::Result<()> {
+    anyhow::bail!("Windows sandbox setup not available in WASM")
+}

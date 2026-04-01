@@ -250,6 +250,7 @@ pub enum TelemetryAuthMode {
     None,
     ApiKey,
     ChatGpt,
+    Chatgpt,
 }
 
 impl std::fmt::Display for TelemetryAuthMode {
@@ -257,7 +258,7 @@ impl std::fmt::Display for TelemetryAuthMode {
         match self {
             Self::None => write!(f, "None"),
             Self::ApiKey => write!(f, "ApiKey"),
-            Self::ChatGpt => write!(f, "Chatgpt"),
+            Self::ChatGpt | Self::Chatgpt => write!(f, "Chatgpt"),
         }
     }
 }
@@ -362,6 +363,11 @@ pub fn current_span_w3c_trace_context<T>() -> Option<T> {
     None
 }
 
+/// Get W3C trace context from a specific span — no-op in WASM.
+pub fn span_w3c_trace_context<T>(_span: &tracing::Span) -> Option<T> {
+    None
+}
+
 /// Get trace ID from current span — no-op in WASM.
 pub fn current_span_trace_id() -> Option<String> {
     None
@@ -376,6 +382,30 @@ pub fn set_parent_from_w3c_trace_context<S, T>(_span: &S, _ctx: &T) -> bool {
 /// Takes any type by reference — always returns None in WASM.
 pub fn context_from_w3c_trace_context<T>(_ctx: &T) -> Option<()> {
     None
+}
+
+/// Sanitize a tag value to comply with metric tag validation rules — no-op stub.
+pub fn sanitize_metric_tag_value(value: &str) -> String {
+    const MAX_LEN: usize = 256;
+    let sanitized: String = value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '-' | '/') {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let trimmed = sanitized.trim_matches('_');
+    if trimmed.is_empty() || trimmed.chars().all(|ch| !ch.is_ascii_alphanumeric()) {
+        return "unspecified".to_string();
+    }
+    if trimmed.len() <= MAX_LEN {
+        trimmed.to_string()
+    } else {
+        trimmed[..MAX_LEN].to_string()
+    }
 }
 
 /// Metrics error — stub.
@@ -615,6 +645,7 @@ pub mod metrics {
         pub const TURN_NETWORK_PROXY_METRIC: &str = "turn.network_proxy";
         pub const TURN_TOKEN_USAGE_METRIC: &str = "turn.token_usage";
         pub const TURN_TOOL_CALL_METRIC: &str = "turn.tool_call";
+        pub const TOOL_CALL_UNIFIED_EXEC_METRIC: &str = "codex.tool.unified_exec";
         pub const THREAD_STARTED_METRIC: &str = "thread.started";
         pub const STARTUP_PREWARM_DURATION_METRIC: &str = "startup.prewarm.duration";
         pub const STARTUP_PREWARM_AGE_AT_FIRST_TURN_METRIC: &str =

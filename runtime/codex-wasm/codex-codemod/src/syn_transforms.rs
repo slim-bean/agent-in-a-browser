@@ -82,16 +82,17 @@ const PREPEND_TEXT: &[(&str, &str)] = &[
     ("code-mode/src/lib.rs", "#![allow(unreachable_code, unused_variables, unused_mut, dead_code, unused_imports, unused_assignments)]\n"),
     ("state/src/lib.rs", "#![allow(unused_variables, unused_mut, unused_imports, dead_code)]\n"),
     ("hooks/src/lib.rs", "#![allow(unused_variables, unused_mut, unused_imports)]\n"),
-    ("artifacts/src/lib.rs", "#![allow(unused_imports)]\n"),
     ("app-server-protocol/src/lib.rs", "#![allow(dead_code, unused_imports)]\n"),
     ("codex-client/src/lib.rs", "#![allow(dead_code, unused_imports)]\n"),
-    ("package-manager/src/lib.rs", "#![allow(dead_code, unused_imports)]\n"),
     ("shell-command/src/lib.rs", "#![allow(dead_code, unused_variables, unused_imports)]\n"),
     ("file-search/src/lib.rs", "#![allow(unused_imports, dead_code, unused_variables, unreachable_code)]\n"),
     ("core/src/lib.rs", "#![allow(unreachable_code, unused_variables, unused_mut, dead_code, unused_imports, unused_assignments)]\n"),
     ("async-utils/src/lib.rs", "#![allow(unused_variables, unused_imports)]\n"),
-    ("arg0/src/lib.rs", "#![allow(dead_code, unused_variables)]\n"),
+    ("arg0/src/lib.rs", "#![allow(dead_code, unused_variables, unused_imports)]\n"),
     ("feedback/src/lib.rs", "#![allow(dead_code, unused_imports)]\n"),
+    ("rollout/src/lib.rs", "#![allow(unused_imports)]\n"),
+    ("app-server/src/lib.rs", "#![allow(unused_variables, unused_mut, unused_assignments, dead_code)]\n"),
+    ("app-server-client/src/lib.rs", "#![allow(unused_variables, unused_mut, unused_assignments)]\n"),
     ("tui/src/lib.rs", "#![allow(unexpected_cfgs, unused_imports, unused_variables, unused_mut, dead_code, unused_assignments, unused_attributes)]\n"),
 ];
 
@@ -765,9 +766,7 @@ impl<'a> EditCollector<'a> {
             Expr::Path(p) => p.path.segments.first().map(|s| s.ident.span()),
             _ => None,
         };
-        let start = func_span
-            .map(|s| self.span_range(s).0)
-            .unwrap_or(0);
+        let start = func_span.map(|s| self.span_range(s).0).unwrap_or(0);
         // End at the closing paren
         let (_, end) = self.span_range(call.paren_token.span.close());
         (start, end)
@@ -1019,7 +1018,13 @@ impl<'a> EditCollector<'a> {
     }
 
     /// Rewrite `merge_connectors_with_accessible` → `merge_plugin_apps_with_accessible`
+    /// ONLY in TUI files (tui/src/chatwidget.rs). The app-server calls the 3-arg version
+    /// which is injected into connectors.rs as `merge_connectors_with_accessible`.
     fn rewrite_merge_connectors(&mut self, path: &Path) {
+        // Only rename in TUI chatwidget files, not in app-server
+        if !self.file_matches("tui/src/chatwidget.rs") {
+            return;
+        }
         let segments = &path.segments;
         for i in 0..segments.len() {
             if segments[i].ident == "merge_connectors_with_accessible" {
@@ -1855,8 +1860,8 @@ impl<T> FileRwLock<T> {
         // --- arg0/src/lib.rs: cfg-gate linux sandbox dispatch ---
         self.string_replace(
             "arg0/src/lib.rs",
-            "    if exe_name == LINUX_SANDBOX_ARG0 {\n        // Safety: [`run_main`] never returns.\n        codex_linux_sandbox::run_main();\n    } else if exe_name == APPLY_PATCH_ARG0",
-            "    #[cfg(not(target_arch = \"wasm32\"))]\n    if exe_name == LINUX_SANDBOX_ARG0 {\n        // Safety: [`run_main`] never returns.\n        codex_linux_sandbox::run_main();\n    }\n    if exe_name == APPLY_PATCH_ARG0",
+            "    if exe_name == CODEX_LINUX_SANDBOX_ARG0 {\n        // Safety: [`run_main`] never returns.\n        codex_linux_sandbox::run_main();\n    } else if exe_name == APPLY_PATCH_ARG0 || exe_name == MISSPELLED_APPLY_PATCH_ARG0",
+            "    #[cfg(not(target_arch = \"wasm32\"))]\n    if exe_name == CODEX_LINUX_SANDBOX_ARG0 {\n        // Safety: [`run_main`] never returns.\n        codex_linux_sandbox::run_main();\n    }\n    if exe_name == APPLY_PATCH_ARG0 || exe_name == MISSPELLED_APPLY_PATCH_ARG0",
         );
 
         // --- arg0/src/lib.rs: cfg-gate thread_stack_size ---
@@ -1921,16 +1926,7 @@ impl<T> FileRwLock<T> {
             "    let mut tui = Tui::new(terminal);",
             "    console_log::console_log!(\"[tui-trace] before Tui::new\");\n    tokio::time::sleep(std::time::Duration::from_millis(1)).await;\n    let mut tui = Tui::new(terminal);\n    console_log::console_log!(\"[tui-trace] Tui::new done\");\n    tokio::time::sleep(std::time::Duration::from_millis(1)).await;",
         );
-        self.string_replace(
-            "tui/src/lib.rs",
-            "    let auth_manager = AuthManager::shared(",
-            "    console_log::console_log!(\"[tui-trace] before AuthManager\");\n    tokio::time::sleep(std::time::Duration::from_millis(1)).await;\n    let auth_manager = AuthManager::shared(",
-        );
-        self.string_replace(
-            "tui/src/lib.rs",
-            "    let login_status = get_login_status(&initial_config);",
-            "    console_log::console_log!(\"[tui-trace] before get_login_status\");\n    let login_status = get_login_status(&initial_config);\n    console_log::console_log!(\"[tui-trace] login_status: {:?}\", login_status);",
-        );
+        // [stale] auth_manager/login_status traces removed — upstream refactored auth init
         self.string_replace(
             "tui/src/lib.rs",
             "    let should_show_onboarding =\n        should_show_onboarding(login_status, &initial_config, should_show_trust_screen_flag);",
@@ -1958,11 +1954,7 @@ impl<T> FileRwLock<T> {
         );
 
         // --- tui/src/app.rs: trace injections ---
-        self.string_replace(
-            "tui/src/app.rs",
-            "        let mut model = thread_manager\n            .get_models_manager()\n            .get_default_model(&config.model, RefreshStrategy::Offline)\n            .await;",
-            "        console_log::console_log!(\"[tui-trace] App::run ThreadManager created, fetching models...\");\n        let mut model = thread_manager\n            .get_models_manager()\n            .get_default_model(&config.model, RefreshStrategy::Offline)\n            .await;\n        console_log::console_log!(\"[tui-trace] App::run got default model: {}\", model);",
-        );
+        // [stale] model = thread_manager trace removed — upstream refactored model fetching
         self.string_replace(
             "tui/src/app.rs",
             "        let enhanced_keys_supported = tui.enhanced_keys_supported();",
@@ -1990,25 +1982,67 @@ impl<T> FileRwLock<T> {
             "// codex-utils-oss stripped for WASM — OSS providers not available\nasync fn ensure_oss_provider_ready(_provider_id: &str, _config: &codex_core::config::Config) -> Result<(), std::io::Error> { Ok(()) }\nfn get_default_model_for_oss_provider(_provider_id: &str) -> Option<&'static str> { None }",
         );
 
-        // --- tui/src/lib.rs: stub cloud_requirements_loader ---
+        // --- tui/src/lib.rs: stub cloud_requirements_loader_for_storage ---
         self.string_replace(
             "tui/src/lib.rs",
-            "use codex_cloud_requirements::cloud_requirements_loader;",
-            "// codex-cloud-requirements stripped for WASM — cloud config not needed\nfn cloud_requirements_loader(\n    _auth_manager: std::sync::Arc<codex_core::AuthManager>,\n    _chatgpt_base_url: String,\n    _codex_home: std::path::PathBuf,\n) -> codex_core::config_loader::CloudRequirementsLoader {\n    codex_core::config_loader::CloudRequirementsLoader::default()\n}",
+            "use codex_cloud_requirements::cloud_requirements_loader_for_storage;",
+            "// codex-cloud-requirements stripped for WASM — cloud config not needed\nfn cloud_requirements_loader_for_storage(\n    _codex_home: std::path::PathBuf,\n    _enable_codex_api_key_env: bool,\n    _credentials_store_mode: codex_core::auth::AuthCredentialsStoreMode,\n    _chatgpt_base_url: String,\n) -> codex_core::config_loader::CloudRequirementsLoader {\n    codex_core::config_loader::CloudRequirementsLoader::default()\n}",
         );
 
-        // --- tui/src/app.rs: stub InProcessAppServerClient ---
+        // [stale] InProcessAppServerClient stub removed from app.rs — moved to lib.rs (handled in replace_in_file)
+
+        // [stale] BackendClient stub removed — upstream removed codex_backend_client from chatwidget
+
+        // --- app-server/src/codex_message_processor.rs: fix FeedbackUploadResponse type mismatch ---
+        self.string_replace(
+            "app-server/src/codex_message_processor.rs",
+            "let response = FeedbackUploadResponse { thread_id };",
+            "let response = FeedbackUploadResponse { thread_id: thread_id.unwrap_or_default() };",
+        );
+
+        // --- tui/src/app.rs: fix None type inference for SessionTelemetry ---
         self.string_replace(
             "tui/src/app.rs",
-            "use codex_app_server_client::DEFAULT_IN_PROCESS_CHANNEL_CAPACITY;\nuse codex_app_server_client::InProcessAppServerClient;\nuse codex_app_server_client::InProcessClientStartArgs;",
-            "// codex-app-server-client stripped for WASM\n#[allow(dead_code)]\nconst DEFAULT_IN_PROCESS_CHANNEL_CAPACITY: usize = 64;\n#[allow(dead_code)] struct InProcessAppServerClient;\nimpl InProcessAppServerClient {\n    async fn start(_args: InProcessClientStartArgs) -> color_eyre::Result<Self> { color_eyre::eyre::bail!(\"not available in WASM\") }\n    fn request_handle(&self) -> InProcessRequestHandle { InProcessRequestHandle }\n    async fn shutdown(&self) -> color_eyre::Result<()> { Ok(()) }\n}\n#[allow(dead_code)] struct InProcessRequestHandle;\nimpl InProcessRequestHandle {\n    async fn request_typed<Req: serde::Serialize, Resp: serde::de::DeserializeOwned>(&self, _req: Req) -> color_eyre::Result<Resp> { color_eyre::eyre::bail!(\"not available\") }\n}\n#[allow(dead_code)] struct InProcessClientStartArgs { _private: () }",
+            "/*account_id*/ None,\n            bootstrap.account_email.clone(),",
+            "/*account_id*/ None::<String>,\n            bootstrap.account_email.clone(),",
         );
 
-        // --- tui/src/chatwidget.rs: stub BackendClient ---
+        // --- tui/src/chatwidget.rs: fix feedback_diagnostics borrow ---
         self.string_replace(
             "tui/src/chatwidget.rs",
+            "            snapshot.feedback_diagnostics(),\n        );\n        self.bottom_pane.show_selection_view(params);",
+            "            &snapshot.feedback_diagnostics(),\n        );\n        self.bottom_pane.show_selection_view(params);",
+        );
+
+        // merge_connectors_with_accessible: The 3-arg version is injected via string_replacements.rs
+        // to handle app-server call sites. The AST rename changes the name but the 3-arg version
+        // remains as an alias for the renamed function.
+
+        // --- git-utils/src/info.rs: fix process::Output type mismatch ---
+        // wasi-tokio's process::Output is a distinct type from std::process::Output
+        self.string_replace(
+            "git-utils/src/info.rs",
+            "async fn run_git_command_with_timeout(args: &[&str], cwd: &Path) -> Option<std::process::Output> {",
+            "async fn run_git_command_with_timeout(args: &[&str], cwd: &Path) -> Option<tokio::process::Output> {",
+        );
+
+        // --- app-server/src/codex_message_processor.rs: stub stripped crate imports ---
+        // codex_backend_client is stripped; stub BackendClient for rate limit checking
+        self.string_replace(
+            "app-server/src/codex_message_processor.rs",
             "use codex_backend_client::Client as BackendClient;",
-            "// codex-backend-client stripped for WASM — rate limit checking not available\n#[allow(dead_code)]\nstruct BackendClient;\nimpl BackendClient {\n    fn from_auth(_base_url: impl AsRef<str>, _auth: &codex_login::CodexAuth) -> Result<Self, std::io::Error> {\n        Err(std::io::Error::other(\"backend client not available in WASM\"))\n    }\n    async fn get_rate_limits_many(&self) -> Result<RateLimitsResponse, std::io::Error> {\n        Err(std::io::Error::other(\"not available in WASM\"))\n    }\n}\n#[allow(dead_code)]\nstruct RateLimitsResponse;\nimpl RateLimitsResponse {\n    fn rate_limits(&self) -> Vec<()> { Vec::new() }\n}",
+            "// codex-backend-client stripped for WASM — rate limit checking not available\nstruct BackendClient;\nimpl BackendClient {\n    fn from_auth(_base_url: String, _auth: &codex_core::CodexAuth) -> Result<Self, std::io::Error> {\n        Err(std::io::Error::other(\"backend client not available in WASM\"))\n    }\n    async fn get_rate_limits_many(&self) -> Result<Vec<codex_protocol::protocol::RateLimitSnapshot>, std::io::Error> {\n        Err(std::io::Error::other(\"not available in WASM\"))\n    }\n}",
+        );
+        // codex_cloud_requirements is stripped; stub cloud_requirements_loader in both files
+        self.string_replace(
+            "app-server/src/codex_message_processor.rs",
+            "use codex_cloud_requirements::cloud_requirements_loader;",
+            "// codex-cloud-requirements stripped for WASM\nfn cloud_requirements_loader(\n    _auth_manager: std::sync::Arc<codex_core::AuthManager>,\n    _chatgpt_base_url: String,\n    _codex_home: std::path::PathBuf,\n) -> codex_core::config_loader::CloudRequirementsLoader {\n    codex_core::config_loader::CloudRequirementsLoader::default()\n}",
+        );
+        self.string_replace(
+            "app-server/src/lib.rs",
+            "use codex_cloud_requirements::cloud_requirements_loader;",
+            "// codex-cloud-requirements stripped for WASM\nfn cloud_requirements_loader(\n    _auth_manager: std::sync::Arc<codex_core::AuthManager>,\n    _chatgpt_base_url: String,\n    _codex_home: std::path::PathBuf,\n) -> codex_core::config_loader::CloudRequirementsLoader {\n    codex_core::config_loader::CloudRequirementsLoader::default()\n}",
         );
 
         // --- tui/src/clipboard_text.rs: stub arboard clipboard ---
@@ -2048,37 +2082,15 @@ impl<T> FileRwLock<T> {
             ".map(|m| TelemetryAuthMode::from_display(&m))",
         );
 
-        // --- tui/src/lib.rs: codex_login::ForcedLoginMethod → codex_protocol ---
-        // The upstream TUI maps between codex_protocol and codex_login ForcedLoginMethod,
-        // but they're the same type. Use codex_protocol directly.
-        self.string_replace(
-            "tui/src/lib.rs",
-            "codex_login::ForcedLoginMethod::Chatgpt",
-            "codex_protocol::config_types::ForcedLoginMethod::Chatgpt",
-        );
-        self.string_replace(
-            "tui/src/lib.rs",
-            "codex_login::ForcedLoginMethod::Api",
-            "codex_protocol::config_types::ForcedLoginMethod::Api",
-        );
+        // [stale] ForcedLoginMethod rewrites removed — upstream no longer uses codex_login paths
         self.string_replace(
             "core/src/models_manager/manager.rs",
             "TelemetryAuthMode::from(mode)",
             "TelemetryAuthMode::from_display(&mode)",
         );
-        // tui/src/app.rs also maps TelemetryAuthMode
-        self.string_replace(
-            "tui/src/app.rs",
-            ".map(TelemetryAuthMode::from)",
-            ".map(|m| TelemetryAuthMode::from_display(&m))",
-        );
+        // [stale] tui/src/app.rs TelemetryAuthMode::from removed upstream
 
-        // --- tui/src/app.rs: replace InProcessClientStartArgs with bail ---
-        self.string_replace(
-            "tui/src/app.rs",
-            "    InProcessAppServerClient::start(InProcessClientStartArgs {\n        arg0_paths,\n        config_warnings: config_warning_notifications(&config),\n        config: Arc::new(config),\n        cli_overrides: cli_kv_overrides,\n        loader_overrides,\n        cloud_requirements,\n        feedback,\n        session_source: SessionSource::Cli,\n        enable_codex_api_key_env: false,\n        client_name: \"codex-tui\".to_string(),\n        client_version: env!(\"CARGO_PKG_VERSION\").to_string(),\n        experimental_api: true,\n        opt_out_notification_methods: Vec::new(),\n        channel_capacity: DEFAULT_IN_PROCESS_CHANNEL_CAPACITY,\n    })\n    .await\n    .wrap_err(\"failed to start embedded app server for plugin request\")",
-            "    { let _ = (&arg0_paths, &config, &cli_kv_overrides, &loader_overrides, &cloud_requirements, &feedback); color_eyre::eyre::bail!(\"plugin requests not available in WASM\") }",
-        );
+        // [stale] InProcessAppServerClient::start bail in app.rs removed — moved to lib.rs
 
         // --- tui/src/chatwidget.rs: stub connectors list ---
         self.string_replace(
@@ -2108,19 +2120,8 @@ impl<T> FileRwLock<T> {
         // directly (same type the TUI passes). The identity mapping in the old code
         // is replaced by fixing the TUI to use codex_protocol paths directly.
 
-        // --- tui/src/lib.rs: fix Multiplexer::Zellij pattern ---
-        self.string_replace(
-            "tui/src/lib.rs",
-            "!matches!(terminal_info.multiplexer, Some(Multiplexer::Zellij { .. }))",
-            "!matches!(terminal_info.multiplexer, Some(ref m) if m.name == codex_terminal_detection::MultiplexerName::Zellij)",
-        );
-
-        // --- tui/src/lib.rs: fix from_auth_storage ---
-        self.string_replace(
-            "tui/src/lib.rs",
-            "match CodexAuth::from_auth_storage(&codex_home, config.cli_auth_credentials_store_mode) {\n            Ok(Some(auth)) => LoginStatus::AuthMode(auth.auth_mode()),",
-            "match CodexAuth::from_auth_storage(&codex_home, config.cli_auth_credentials_store_mode) {\n            Ok(Some(auth)) => LoginStatus::AuthMode(codex_login::AuthMode::ApiKey),",
-        );
+        // Multiplexer::Zellij pattern — no longer needs transform; our stub now uses enum
+        // [stale] from_auth_storage pattern removed — upstream refactored auth
 
         // --- tui/src/chatwidget.rs: fix TerminalName variants ---
         self.string_replace(
@@ -2143,40 +2144,11 @@ impl<T> FileRwLock<T> {
             "/// Thin WatchStream wrapper for our shim watch::Receiver.\nstruct WatchStream<T: Clone>(tokio::sync::watch::Receiver<T>);\nimpl<T: Clone> WatchStream<T> {\n    fn from_changes(rx: tokio::sync::watch::Receiver<T>) -> Self { Self(rx) }\n}\nimpl<T: Clone + Unpin> WatchStream<T> {\n    fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Option<T>> {\n        let this = self.get_mut();\n        match this.0.poll_changed(cx.waker()) {\n            Ok(true) => Poll::Ready(Some(this.0.borrow_and_update().clone())),\n            Ok(false) => Poll::Pending,\n            Err(_) => Poll::Ready(None),\n        }\n    }\n}\n/// Thin BroadcastStream wrapper for our shim broadcast::Receiver.\nstruct BroadcastStream<T: Clone>(tokio::sync::broadcast::Receiver<T>);\nimpl<T: Clone> BroadcastStream<T> {\n    fn new(rx: tokio::sync::broadcast::Receiver<T>) -> Self { Self(rx) }\n}\n#[derive(Debug)]\nenum BroadcastStreamRecvError { Lagged(u64) }\nimpl<T: Clone + Unpin> BroadcastStream<T> {\n    fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Option<Result<T, BroadcastStreamRecvError>>> {\n        match self.get_mut().0.poll_recv(cx.waker()) {\n            Ok(val) => Poll::Ready(Some(Ok(val))),\n            Err(tokio::sync::broadcast::error::TryRecvError::Lagged(n)) => Poll::Ready(Some(Err(BroadcastStreamRecvError::Lagged(n)))),\n            Err(tokio::sync::broadcast::error::TryRecvError::Empty) => Poll::Pending,\n            Err(tokio::sync::broadcast::error::TryRecvError::Closed) => Poll::Ready(None),\n        }\n    }\n}",
         );
 
-        // --- tui/src/chatwidget.rs: stub fetch_rate_limits ---
-        self.string_replace(
-            "tui/src/chatwidget.rs",
-            "async fn fetch_rate_limits(base_url: String, auth: CodexAuth) -> Vec<RateLimitSnapshot> {\n    match BackendClient::from_auth(base_url, &auth) {\n        Ok(client) => match client.get_rate_limits_many().await {\n            Ok(snapshots) => snapshots,",
-            "async fn fetch_rate_limits(base_url: String, auth: CodexAuth) -> Vec<RateLimitSnapshot> {\n    let _ = (base_url, auth);\n    return Vec::new();\n    #[allow(unreachable_code)]\n    match BackendClient::from_auth(String::new(), &CodexAuth::from_api_key(\"\")) {\n        Ok(client) => match client.get_rate_limits_many().await {\n            Ok(_snapshots) => Vec::new(),",
-        );
+        // [stale] fetch_rate_limits and auth_manager.auth_cached patterns removed — upstream refactored rate limits
 
-        // --- tui/src/chatwidget.rs: fix PlanType mismatch ---
-        self.string_replace(
-            "tui/src/chatwidget.rs",
-            "self.auth_manager\n                .auth_cached()\n                .and_then(|auth| auth.account_plan_type()),",
-            "None::<codex_protocol::account::PlanType>,",
-        );
+        // [stale] feedback_diagnostics borrow fix removed — upstream now returns &FeedbackDiagnostics directly
 
-        // --- tui/src/chatwidget.rs: fix feedback_diagnostics borrow ---
-        self.string_replace(
-            "tui/src/chatwidget.rs",
-            "            snapshot.feedback_diagnostics(),\n        );\n        self.bottom_pane.show_selection_view(params);",
-            "            &snapshot.feedback_diagnostics(),\n        );\n        self.bottom_pane.show_selection_view(params);",
-        );
-
-        // --- tui/src/bottom_pane/feedback_view.rs: fix thread_id unwrap ---
-        self.string_replace(
-            "tui/src/bottom_pane/feedback_view.rs",
-            "        let mut thread_id = self.snapshot.thread_id.clone();\n\n        let result = self.snapshot.upload_feedback(",
-            "        let mut thread_id = self.snapshot.thread_id.clone().unwrap_or_default();\n\n        let result = self.snapshot.upload_feedback(",
-        );
-
-        // --- tui/src/bottom_pane/feedback_view.rs: fix None type ---
-        self.string_replace(
-            "tui/src/bottom_pane/feedback_view.rs",
-            "/*logs_override*/ None,",
-            "/*logs_override*/ None::<Vec<u8>>,",
-        );
+        // [stale] feedback_view thread_id and logs_override patterns removed — upstream refactored feedback
 
         // --- tui/src/tui.rs: fix sync_update return type ---
         self.string_replace(
@@ -2220,8 +2192,8 @@ impl<T> FileRwLock<T> {
         // --- core/src/codex.rs: trace after SessionConfigured events sent ---
         self.string_replace(
             "core/src/codex.rs",
-            "        // Start the watcher after SessionConfigured so it cannot emit earlier events.\n        sess.start_file_watcher_listener();",
-            "        console_log::console_log!(\"[diag-trace] codex.rs: SessionConfigured events SENT\");\n        // Start the watcher after SessionConfigured so it cannot emit earlier events.\n        sess.start_file_watcher_listener();",
+            "        // Start the watcher after SessionConfigured so it cannot emit earlier events.\n        sess.start_skills_watcher_listener();",
+            "        console_log::console_log!(\"[diag-trace] codex.rs: SessionConfigured events SENT\");\n        // Start the watcher after SessionConfigured so it cannot emit earlier events.\n        sess.start_skills_watcher_listener();",
         );
 
         // --- core/src/thread_manager.rs: trace spawn_thread_with_source ---
@@ -2237,8 +2209,8 @@ impl<T> FileRwLock<T> {
         );
         self.string_replace(
             "core/src/thread_manager.rs",
-            "        let watch_registration = self\n            .file_watcher\n            .register_config(&config, self.skills_manager.as_ref());\n        let CodexSpawnOk {",
-            "        console_log::console_log!(\"[diag-trace] thread_manager.rs: spawn_thread_with_source ENTERED\");\n        let watch_registration = self\n            .file_watcher\n            .register_config(&config, self.skills_manager.as_ref());\n        let CodexSpawnOk {",
+            "        let watch_registration = self.skills_watcher.register_config(\n            &config,\n            self.skills_manager.as_ref(),\n            self.plugins_manager.as_ref(),\n        );\n        let CodexSpawnOk {",
+            "        console_log::console_log!(\"[diag-trace] thread_manager.rs: spawn_thread_with_source ENTERED\");\n        let watch_registration = self.skills_watcher.register_config(\n            &config,\n            self.skills_manager.as_ref(),\n            self.plugins_manager.as_ref(),\n        );\n        let CodexSpawnOk {",
         );
 
         // --- core/src/thread_manager.rs: trace after Codex::spawn in spawn_thread_with_source ---
@@ -2280,27 +2252,11 @@ impl<T> FileRwLock<T> {
         // DIAGNOSTIC TRACES: Event delivery hang debugging
         // =====================================================================
 
-        // --- tui/src/app.rs: trace enqueue_thread_event entry ---
-        self.string_replace(
-            "tui/src/app.rs",
-            "    async fn enqueue_thread_event(&mut self, thread_id: ThreadId, event: Event) -> Result<()> {\n        let refresh_pending_thread_approvals =",
-            "    async fn enqueue_thread_event(&mut self, thread_id: ThreadId, event: Event) -> Result<()> {\n        console_log::console_log!(\"[event-trace] enqueue_thread_event: thread={} msg={:?} active={:?}\", thread_id, std::mem::discriminant(&event.msg), self.active_thread_id);\n        let refresh_pending_thread_approvals =",
-        );
+        // [stale] enqueue_thread_event trace removed — upstream refactored event handling
 
-        // --- tui/src/app.rs: trace enqueue should_send decision ---
-        self.string_replace(
-            "tui/src/app.rs",
-            "        if should_send {\n            // Never await a bounded channel send on the main TUI loop",
-            "        console_log::console_log!(\"[event-trace] enqueue should_send={} refresh_approvals={}\", should_send, refresh_pending_thread_approvals);\n        if should_send {\n            // Never await a bounded channel send on the main TUI loop",
-        );
+        // [stale] enqueue should_send trace removed — upstream refactored event buffering
 
-        // --- tui/src/app.rs: trace handle_active_thread_event ---
-        self.string_replace(
-            "tui/src/app.rs",
-            "    async fn handle_active_thread_event(&mut self, tui: &mut tui::Tui, event: Event) -> Result<()> {\n        // Capture this before any potential thread switch",
-            "    async fn handle_active_thread_event(&mut self, tui: &mut tui::Tui, event: Event) -> Result<()> {\n        console_log::console_log!(\"[event-trace] handle_active_thread_event: msg={:?}\", std::mem::discriminant(&event.msg));\n        // Capture this before any potential thread switch",
-        );
-
+        // [stale] handle_active_thread_event trace removed — signature changed upstream
 
         // --- core/src/message_history.rs: stub File::try_lock (unsupported in WASI) ---
         // Single-threaded WASM has no contention, so skip the lock and write directly.
@@ -2659,26 +2615,16 @@ impl<T> FileRwLock<T> {
             "// codex-utils-oss stripped for WASM — OSS providers not available\nasync fn ensure_oss_provider_ready(_provider_id: &str, _config: &codex_core::config::Config) -> Result<(), std::io::Error> { Ok(()) }\nfn get_default_model_for_oss_provider(_provider_id: &str) -> Option<&'static str> { None }",
         );
 
-        // 4. cloud_requirements_loader import stub (tui/src/lib.rs)
+        // 4. cloud_requirements_loader_for_storage import stub (tui/src/lib.rs)
         self.replace_in_file(
             "tui/src/lib.rs",
-            "use codex_cloud_requirements::cloud_requirements_loader;",
-            "// codex-cloud-requirements stripped for WASM — cloud config not needed\nfn cloud_requirements_loader(\n    _auth_manager: std::sync::Arc<codex_core::AuthManager>,\n    _chatgpt_base_url: String,\n    _codex_home: std::path::PathBuf,\n) -> codex_core::config_loader::CloudRequirementsLoader {\n    codex_core::config_loader::CloudRequirementsLoader::default()\n}",
+            "use codex_cloud_requirements::cloud_requirements_loader_for_storage;",
+            "// codex-cloud-requirements stripped for WASM — cloud config not needed\nfn cloud_requirements_loader_for_storage(\n    _codex_home: std::path::PathBuf,\n    _enable_codex_api_key_env: bool,\n    _credentials_store_mode: codex_core::auth::AuthCredentialsStoreMode,\n    _chatgpt_base_url: String,\n) -> codex_core::config_loader::CloudRequirementsLoader {\n    codex_core::config_loader::CloudRequirementsLoader::default()\n}",
         );
 
-        // 5. InProcessAppServerClient import stub (tui/src/app.rs)
-        self.replace_in_file(
-            "tui/src/app.rs",
-            "use codex_app_server_client::DEFAULT_IN_PROCESS_CHANNEL_CAPACITY;\nuse codex_app_server_client::InProcessAppServerClient;\nuse codex_app_server_client::InProcessClientStartArgs;",
-            "// codex-app-server-client stripped for WASM\n#[allow(dead_code)]\nconst DEFAULT_IN_PROCESS_CHANNEL_CAPACITY: usize = 64;\n#[allow(dead_code)] struct InProcessAppServerClient;\nimpl InProcessAppServerClient {\n    async fn start(_args: InProcessClientStartArgs) -> color_eyre::Result<Self> { color_eyre::eyre::bail!(\"not available in WASM\") }\n    fn request_handle(&self) -> InProcessRequestHandle { InProcessRequestHandle }\n    async fn shutdown(&self) -> color_eyre::Result<()> { Ok(()) }\n}\n#[allow(dead_code)] struct InProcessRequestHandle;\nimpl InProcessRequestHandle {\n    async fn request_typed<Req: serde::Serialize, Resp: serde::de::DeserializeOwned>(&self, _req: Req) -> color_eyre::Result<Resp> { color_eyre::eyre::bail!(\"not available\") }\n}\n#[allow(dead_code)] struct InProcessClientStartArgs { _private: () }",
-        );
+        // 5. codex-app-server-client: real crate now kept in build — no inline stubs needed
 
-        // 6. BackendClient import stub (tui/src/chatwidget.rs)
-        self.replace_in_file(
-            "tui/src/chatwidget.rs",
-            "use codex_backend_client::Client as BackendClient;",
-            "// codex-backend-client stripped for WASM — rate limit checking not available\n#[allow(dead_code)]\nstruct BackendClient;\nimpl BackendClient {\n    fn from_auth(_base_url: impl AsRef<str>, _auth: &codex_login::CodexAuth) -> Result<Self, std::io::Error> {\n        Err(std::io::Error::other(\"backend client not available in WASM\"))\n    }\n    async fn get_rate_limits_many(&self) -> Result<RateLimitsResponse, std::io::Error> {\n        Err(std::io::Error::other(\"not available in WASM\"))\n    }\n}\n#[allow(dead_code)]\nstruct RateLimitsResponse;\nimpl RateLimitsResponse {\n    fn rate_limits(&self) -> Vec<()> { Vec::new() }\n}",
-        );
+        // [stale] 6. BackendClient import stub removed — upstream removed from chatwidget
 
         // 7. connectors::list_all_connectors_with_options stub (tui/src/chatwidget.rs)
         self.replace_in_file(
@@ -2702,19 +2648,9 @@ impl<T> FileRwLock<T> {
         // 9. set_default_client_residency_requirement: no transform needed — real type now available
         // 10. forced_login_method: no transform needed — using codex_protocol paths directly
 
-        // 11. Multiplexer::Zellij pattern fix (tui/src/lib.rs)
-        self.replace_in_file(
-            "tui/src/lib.rs",
-            "!matches!(terminal_info.multiplexer, Some(Multiplexer::Zellij { .. }))",
-            "!matches!(terminal_info.multiplexer, Some(ref m) if m.name == codex_terminal_detection::MultiplexerName::Zellij)",
-        );
+        // 11. Multiplexer::Zellij — no longer needs transform; our stub now uses enum
 
-        // 12. from_auth_storage stub (tui/src/lib.rs)
-        self.replace_in_file(
-            "tui/src/lib.rs",
-            "match CodexAuth::from_auth_storage(&codex_home, config.cli_auth_credentials_store_mode) {\n            Ok(Some(auth)) => LoginStatus::AuthMode(auth.auth_mode()),",
-            "match CodexAuth::from_auth_storage(&codex_home, config.cli_auth_credentials_store_mode) {\n            Ok(Some(auth)) => LoginStatus::AuthMode(codex_login::AuthMode::ApiKey),",
-        );
+        // [stale] 12. from_auth_storage removed — upstream refactored auth
 
         // 13. TerminalName match simplification (tui/src/chatwidget.rs)
         self.replace_in_file(
@@ -2737,40 +2673,9 @@ impl<T> FileRwLock<T> {
             "/// Thin WatchStream wrapper for our shim watch::Receiver.\nstruct WatchStream<T: Clone>(tokio::sync::watch::Receiver<T>);\nimpl<T: Clone> WatchStream<T> {\n    fn from_changes(rx: tokio::sync::watch::Receiver<T>) -> Self { Self(rx) }\n}\nimpl<T: Clone + Unpin> WatchStream<T> {\n    fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Option<T>> {\n        let this = self.get_mut();\n        match this.0.poll_changed(cx.waker()) {\n            Ok(true) => Poll::Ready(Some(this.0.borrow_and_update().clone())),\n            Ok(false) => Poll::Pending,\n            Err(_) => Poll::Ready(None),\n        }\n    }\n}\n/// Thin BroadcastStream wrapper for our shim broadcast::Receiver.\nstruct BroadcastStream<T: Clone>(tokio::sync::broadcast::Receiver<T>);\nimpl<T: Clone> BroadcastStream<T> {\n    fn new(rx: tokio::sync::broadcast::Receiver<T>) -> Self { Self(rx) }\n}\n#[derive(Debug)]\nenum BroadcastStreamRecvError { Lagged(u64) }\nimpl<T: Clone + Unpin> BroadcastStream<T> {\n    fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Option<Result<T, BroadcastStreamRecvError>>> {\n        match self.get_mut().0.poll_recv(cx.waker()) {\n            Ok(val) => Poll::Ready(Some(Ok(val))),\n            Err(tokio::sync::broadcast::error::TryRecvError::Lagged(n)) => Poll::Ready(Some(Err(BroadcastStreamRecvError::Lagged(n)))),\n            Err(tokio::sync::broadcast::error::TryRecvError::Empty) => Poll::Pending,\n            Err(tokio::sync::broadcast::error::TryRecvError::Closed) => Poll::Ready(None),\n        }\n    }\n}",
         );
 
-        // 16. fetch_rate_limits stub (tui/src/chatwidget.rs)
-        self.replace_in_file(
-            "tui/src/chatwidget.rs",
-            "async fn fetch_rate_limits(base_url: String, auth: CodexAuth) -> Vec<RateLimitSnapshot> {\n    match BackendClient::from_auth(base_url, &auth) {\n        Ok(client) => match client.get_rate_limits_many().await {\n            Ok(snapshots) => snapshots,",
-            "async fn fetch_rate_limits(base_url: String, auth: CodexAuth) -> Vec<RateLimitSnapshot> {\n    let _ = (base_url, auth);\n    return Vec::new();\n    #[allow(unreachable_code)]\n    match BackendClient::from_auth(String::new(), &CodexAuth::from_api_key(\"\")) {\n        Ok(client) => match client.get_rate_limits_many().await {\n            Ok(_snapshots) => Vec::new(),",
-        );
+        // [stale] 16-18. fetch_rate_limits, account_plan_type, feedback_diagnostics removed — upstream refactored
 
-        // 17. account_plan_type None (tui/src/chatwidget.rs)
-        self.replace_in_file(
-            "tui/src/chatwidget.rs",
-            "self.auth_manager\n                .auth_cached()\n                .and_then(|auth| auth.account_plan_type()),",
-            "None::<codex_protocol::account::PlanType>,",
-        );
-
-        // 18. feedback_diagnostics borrow (tui/src/chatwidget.rs)
-        self.replace_in_file(
-            "tui/src/chatwidget.rs",
-            "            snapshot.feedback_diagnostics(),\n        );\n        self.bottom_pane.show_selection_view(params);",
-            "            &snapshot.feedback_diagnostics(),\n        );\n        self.bottom_pane.show_selection_view(params);",
-        );
-
-        // 19. thread_id unwrap_or_default (tui/src/bottom_pane/feedback_view.rs)
-        self.replace_in_file(
-            "tui/src/bottom_pane/feedback_view.rs",
-            "        let mut thread_id = self.snapshot.thread_id.clone();\n\n        let result = self.snapshot.upload_feedback(",
-            "        let mut thread_id = self.snapshot.thread_id.clone().unwrap_or_default();\n\n        let result = self.snapshot.upload_feedback(",
-        );
-
-        // 20. None type inference (tui/src/bottom_pane/feedback_view.rs)
-        self.replace_in_file(
-            "tui/src/bottom_pane/feedback_view.rs",
-            "/*logs_override*/ None,",
-            "/*logs_override*/ None::<Vec<u8>>,",
-        );
+        // [stale] 19-20. feedback_view thread_id and logs_override removed — upstream refactored
 
         // 21. sync_update return type (tui/src/tui.rs)
         self.replace_in_file(
@@ -2789,16 +2694,11 @@ impl<T> FileRwLock<T> {
 
         // 23. webbrowser::open — handled by wasi-webbrowser shim crate (no inline edit needed)
 
-        // 24. InProcessAppServerClient start bail (tui/src/app.rs)
-        self.replace_in_file(
-            "tui/src/app.rs",
-            "    InProcessAppServerClient::start(InProcessClientStartArgs {\n        arg0_paths,\n        config_warnings: config_warning_notifications(&config),\n        config: Arc::new(config),\n        cli_overrides: cli_kv_overrides,\n        loader_overrides,\n        cloud_requirements,\n        feedback,\n        session_source: SessionSource::Cli,\n        enable_codex_api_key_env: false,\n        client_name: \"codex-tui\".to_string(),\n        client_version: env!(\"CARGO_PKG_VERSION\").to_string(),\n        experimental_api: true,\n        opt_out_notification_methods: Vec::new(),\n        channel_capacity: DEFAULT_IN_PROCESS_CHANNEL_CAPACITY,\n    })\n    .await\n    .wrap_err(\"failed to start embedded app server for plugin request\")",
-            "    { let _ = (&arg0_paths, &config, &cli_kv_overrides, &loader_overrides, &cloud_requirements, &feedback); color_eyre::eyre::bail!(\"plugin requests not available in WASM\") }",
-        );
+        // [stale] 24. InProcessAppServerClient start bail removed from app.rs — moved to lib.rs
 
-        // 25. compile_error → create_symlink stub (utils/git/src/platform.rs)
+        // 25. compile_error → create_symlink stub (git-utils/src/platform.rs)
         self.replace_in_file(
-            "utils/git/src/platform.rs",
+            "git-utils/src/platform.rs",
             "#[cfg(not(any(unix, windows)))]\ncompile_error!(\"codex-git symlink support is only implemented for Unix and Windows\");",
             "#[cfg(not(any(unix, windows)))]\npub fn create_symlink(\n    _source: &Path,\n    _link_target: &Path,\n    _destination: &Path,\n) -> Result<(), GitToolingError> {\n    Err(std::io::Error::new(std::io::ErrorKind::Unsupported, \"symlinks not supported on wasm32\").into())\n}",
         );

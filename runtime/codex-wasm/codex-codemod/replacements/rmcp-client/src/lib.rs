@@ -142,6 +142,22 @@ pub fn delete_oauth_tokens(
     Ok(false)
 }
 
+/// Perform OAuth login silently — not available in WASM.
+#[allow(clippy::too_many_arguments)]
+pub async fn perform_oauth_login_silent(
+    _server_name: &str,
+    _server_url: &str,
+    _store_mode: OAuthCredentialsStoreMode,
+    _http_headers: Option<HashMap<String, String>>,
+    _env_http_headers: Option<HashMap<String, String>>,
+    _scopes: &[String],
+    _oauth_resource: Option<&str>,
+    _callback_port: Option<u16>,
+    _callback_url: Option<&str>,
+) -> Result<()> {
+    anyhow::bail!("OAuth login not available in WASM")
+}
+
 /// Perform OAuth login — not available in WASM.
 pub async fn perform_oauth_login(
     _server_name: &str,

@@ -173,5 +173,42 @@ pub fn transforms() -> Vec<Transform> {
             path_suffix: "shell-command/src/bash.rs",
             content: include_str!("../../replacements/shell-command/src/bash.rs"),
         },
+        // ---------------------------------------------------------------
+        // App-server platform-specific edge stubs
+        // ---------------------------------------------------------------
+        Transform::ReplaceFile {
+            path_suffix: "app-server/src/transport/websocket.rs",
+            content: include_str!("../../replacements/app-server/src/transport/websocket.rs"),
+        },
+        Transform::ReplaceFile {
+            path_suffix: "app-server/src/transport/auth.rs",
+            content: include_str!("../../replacements/app-server/src/transport/auth.rs"),
+        },
+        Transform::ReplaceFile {
+            path_suffix: "app-server/src/transport/stdio.rs",
+            content: include_str!("../../replacements/app-server/src/transport/stdio.rs"),
+        },
+        Transform::ReplaceFile {
+            path_suffix: "app-server/src/fs_watch.rs",
+            content: include_str!("../../replacements/app-server/src/fs_watch.rs"),
+        },
+        Transform::ReplaceFile {
+            path_suffix: "app-server/src/command_exec.rs",
+            content: include_str!("../../replacements/app-server/src/command_exec.rs"),
+        },
+        Transform::ReplaceFile {
+            path_suffix: "app-server/src/app_server_tracing.rs",
+            content: include_str!("../../replacements/app-server/src/app_server_tracing.rs"),
+        },
+        // App-server-client remote transport stub
+        Transform::ReplaceFile {
+            path_suffix: "app-server-client/src/remote.rs",
+            content: include_str!("../../replacements/app-server-client/src/remote.rs"),
+        },
+        // Core-skills remote download stub (depends on zip crate)
+        Transform::ReplaceFile {
+            path_suffix: "core-skills/src/remote.rs",
+            content: include_str!("../../replacements/core-skills/src/remote.rs"),
+        },
     ]
 }

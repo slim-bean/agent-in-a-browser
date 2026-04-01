@@ -18,11 +18,12 @@ pub enum TerminalName {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Multiplexer {
-    pub name: MultiplexerName,
-    pub version: Option<String>,
+pub enum Multiplexer {
+    Tmux { version: Option<String> },
+    Zellij {},
 }
 
+// Keep MultiplexerName for backward compat with our codemod transforms
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MultiplexerName { Tmux, Screen, Zellij, Unknown }
 

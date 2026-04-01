@@ -13,7 +13,8 @@ pub struct NetworkProxyConfig {
     pub network: NetworkProxySettings,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct NetworkProxySettings {
     pub enabled: bool,
     pub proxy_url: String,
@@ -24,11 +25,40 @@ pub struct NetworkProxySettings {
     pub dangerously_allow_non_loopback_proxy: bool,
     pub dangerously_allow_all_unix_sockets: bool,
     pub mode: NetworkMode,
-    pub allowed_domains: Vec<String>,
-    pub denied_domains: Vec<String>,
-    pub allow_unix_sockets: Vec<String>,
+    pub domains: Option<NetworkDomainPermissions>,
+    pub unix_sockets: Option<NetworkUnixSocketPermissions>,
     pub allow_local_binding: bool,
     pub mitm: bool,
+}
+
+impl Default for NetworkProxySettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            proxy_url: String::new(),
+            enable_socks5: true,
+            socks_url: String::new(),
+            enable_socks5_udp: true,
+            allow_upstream_proxy: true,
+            dangerously_allow_non_loopback_proxy: false,
+            dangerously_allow_all_unix_sockets: false,
+            mode: NetworkMode::default(),
+            domains: None,
+            unix_sockets: None,
+            allow_local_binding: false,
+            mitm: false,
+        }
+    }
+}
+
+impl NetworkProxySettings {
+    pub fn allowed_domains(&self) -> Option<Vec<String>> { None }
+    pub fn denied_domains(&self) -> Option<Vec<String>> { None }
+    pub fn allow_unix_sockets(&self) -> Vec<String> { vec![] }
+    pub fn set_allowed_domains(&mut self, _domains: Vec<String>) {}
+    pub fn set_denied_domains(&mut self, _domains: Vec<String>) {}
+    pub fn set_allow_unix_sockets(&mut self, _sockets: Vec<String>) {}
+    pub fn upsert_domain_permission(&mut self, _host: String, _permission: NetworkDomainPermission, _normalize: impl Fn(&str) -> String) {}
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -273,6 +303,55 @@ static EMPTY_AUDIT: NetworkProxyAuditMetadata = NetworkProxyAuditMetadata {
     conversation_id: None, app_version: None, user_account_id: None, auth_mode: None,
     originator: None, user_email: None, terminal_type: None, model: None, slug: None,
 };
+
+// Domain/socket permission types
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NetworkDomainPermission { None, Allow, Deny }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NetworkDomainPermissionEntry {
+    pub pattern: String,
+    pub permission: NetworkDomainPermission,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct NetworkDomainPermissions {
+    pub entries: Vec<NetworkDomainPermissionEntry>,
+}
+
+impl NetworkDomainPermissions {
+    pub fn effective_entries(&self) -> Vec<NetworkDomainPermissionEntry> {
+        self.entries.clone()
+    }
+}
+
+impl Serialize for NetworkDomainPermissions {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeMap;
+        let mut map = serializer.serialize_map(Some(self.entries.len()))?;
+        for entry in &self.entries {
+            map.serialize_entry(&entry.pattern, &entry.permission)?;
+        }
+        map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for NetworkDomainPermissions {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let map: HashMap<String, NetworkDomainPermission> = HashMap::deserialize(deserializer)?;
+        let entries = map.into_iter().map(|(pattern, permission)| NetworkDomainPermissionEntry { pattern, permission }).collect();
+        Ok(Self { entries })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NetworkUnixSocketPermission { Allow, None }
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NetworkUnixSocketPermissions {
+    #[serde(flatten)]
+    pub entries: std::collections::BTreeMap<String, NetworkUnixSocketPermission>,
+}
 
 // State types
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]

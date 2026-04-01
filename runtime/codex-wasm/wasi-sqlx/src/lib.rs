@@ -351,6 +351,12 @@ impl IntoQueryParam for &String {
     }
 }
 
+impl IntoQueryParam for &&str {
+    fn into_query_param(self) -> QueryParam {
+        QueryParam::Text((*self).to_string())
+    }
+}
+
 impl<T: IntoQueryParam + Clone> IntoQueryParam for &Option<T> {
     fn into_query_param(self) -> QueryParam {
         match self {
