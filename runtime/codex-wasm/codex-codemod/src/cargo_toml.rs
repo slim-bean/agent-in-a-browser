@@ -26,6 +26,7 @@ const SHIM_REDIRECTS: &[(&str, &str)] = &[
     ("codex-network-proxy", "wasi-network-proxy"),
     ("codex-exec-server", "wasi-exec-server"),
     ("codex-rmcp-client", "wasi-rmcp-client"),
+    ("cpal", "wasi-cpal"),
 ];
 
 /// Per-crate additional deps to strip (crate_dir_name → deps to strip).
@@ -51,6 +52,7 @@ const PER_CRATE_STRIP_DEPS: &[(&str, &[&str])] = &[
     ),
     ("app-server-client", &["tokio-tungstenite", "tungstenite"]),
     ("core", &["notify"]),
+    ("tui", &["hound"]),
     // state: sqlx is now redirected to wasi-sqlx via [patch.crates-io]
     // ("state", &["sqlx"]),
 ];
@@ -74,6 +76,7 @@ const INJECT_DEPS: &[(&str, &[(&str, &str)])] = &[
             ("codex-arg0", "../arg0"),
             ("codex-utils-sleep-inhibitor", "../utils/sleep-inhibitor"),
             ("arboard", "../../../codex-wasm/wasi-arboard"),
+            ("cpal", "../../../codex-wasm/wasi-cpal"),
             ("console-log", "../../../crates/console-log"),
         ],
     ),
@@ -113,7 +116,7 @@ const STRIP_DEPS: &[&str] = &[
     "portable-pty",
     // arboard: redirected to wasi-arboard shim (not stripped)
     // webbrowser: redirected to wasi-webbrowser shim (not stripped)
-    "cpal",
+    // cpal: redirected to wasi-cpal shim (not stripped)
     "hound",
     "windows-sys",
     "winsplit",
@@ -159,7 +162,7 @@ const STRIP_DEPS: &[&str] = &[
     // Non-essential external deps that are problematic in WASM
     "sentry",
     "v8",
-    "cpal",
+    // cpal: redirected to wasi-cpal shim via SHIM_REDIRECTS (not stripped)
     "hound",
     // Websocket deps — use OpenAI patched forks with "proxy" feature
     // that aren't available from crates.io. Websocket support is fully stubbed.

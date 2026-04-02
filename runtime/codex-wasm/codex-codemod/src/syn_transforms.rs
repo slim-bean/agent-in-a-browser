@@ -1247,9 +1247,7 @@ impl<'a> EditCollector<'a> {
         // Check by looking for existing `use tracing` or `tracing::` in the source.
         // This is checked on the ORIGINAL source (before our edits), so the first
         // eprintln→tracing conversion in a file won't bootstrap further conversions.
-        if !self.source.contains("use tracing")
-            && !self.source.contains("tracing::")
-        {
+        if !self.source.contains("use tracing") && !self.source.contains("tracing::") {
             return;
         }
         // Match: the path must be exactly `eprintln` (single segment, no leading `::`)
@@ -2243,6 +2241,11 @@ impl<T> FileRwLock<T> {
             "        let client = reqwest::blocking::Client::builder()\n            .no_proxy()\n            .build()\n            .ok()?;\n        let response = client\n            .get(ANNOUNCEMENT_TIP_URL)\n            .timeout(Duration::from_millis(2000))\n            .send()\n            .ok()?;\n        response.error_for_status().ok()?.text().ok()",
             "        // reqwest::blocking not available in WASM\n        None::<String>",
         );
+
+        // --- tui/src/lib.rs: voice/audio_device cfg gates ---
+        // No longer widening cfg gates to use inline stubs for wasi.
+        // The wasi-cpal shim provides the cpal API surface, so the real
+        // voice.rs and audio_device.rs are used on wasi (same as macOS/Windows).
 
         // --- webbrowser::open is now handled by the wasi-webbrowser shim crate
         // (patched via [patch.crates-io] in codex-wasm-tui/Cargo.toml) ---

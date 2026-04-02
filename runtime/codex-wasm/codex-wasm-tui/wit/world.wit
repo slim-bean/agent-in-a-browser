@@ -98,6 +98,9 @@ world codex-tui {
     // Browser clipboard — read/write text via navigator.clipboard
     import host:browser/clipboard@0.1.0;
 
+    // Browser audio — capture and playback via Web Audio API
+    import host:browser/audio@0.1.0;
+
     // Console logging — route to browser console instead of stderr
     import host:console/logging@0.1.0;
 

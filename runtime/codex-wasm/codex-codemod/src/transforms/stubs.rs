@@ -26,6 +26,10 @@ pub fn transforms() -> Vec<Transform> {
         Transform::StubModule {
             file_name: "windows_sandbox_read_grants_tests.rs",
         },
+        // --- Audio: cpal redirected to wasi-cpal shim ---
+        // The wasi-cpal shim provides the cpal API surface backed by the
+        // host:browser/audio WIT interface. The real voice.rs and
+        // audio_device.rs are used on wasi (not the inline stubs).
         // ---------------------------------------------------------------
         // ReplaceFile — swap entire files with WASM-compatible stubs
         // ---------------------------------------------------------------

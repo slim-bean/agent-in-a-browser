@@ -20,6 +20,7 @@ clap = { version = "4", features = ["derive"] }
 
 webbrowser = { path = "../wasi-webbrowser" }
 arboard = { path = "../wasi-arboard" }
+cpal = { path = "../wasi-cpal" }
 tiny_http = { path = "../wasi-tiny-http" }
 wit-bindgen = "0.36"
 wit-bindgen-rt = "0.36"
@@ -42,6 +43,7 @@ reqwest = { path = "../wasi-reqwest" }
 tokio-util = { path = "../wasi-tokio-util" }
 arboard = { path = "../wasi-arboard" }
 webbrowser = { path = "../wasi-webbrowser" }
+cpal = { path = "../wasi-cpal" }
 os_info = { path = "../wasi-os-info" }
 sqlx = { path = "../wasi-sqlx" }
 tiny_http = { path = "../wasi-tiny-http" }

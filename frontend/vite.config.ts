@@ -119,6 +119,8 @@ export default defineConfig(({ mode }) => ({
             '@tjfontaine/wasi-shims/browser-impl.js',
             // Browser clipboard shim
             '@tjfontaine/wasi-shims/clipboard-impl.js',
+            // Browser audio shim
+            '@tjfontaine/wasi-shims/audio-impl.js',
             // Console logging shim
             '@tjfontaine/wasi-shims/console-logging-impl.js',
         ],
@@ -305,6 +307,7 @@ export default defineConfig(({ mode }) => ({
                     '@tjfontaine/wasi-shims/websocket-impl.js': '/wasi-shims/websocket-impl.js',
                     '@tjfontaine/wasi-shims/browser-impl.js': '/wasi-shims/browser-impl.js',
                     '@tjfontaine/wasi-shims/clipboard-impl.js': '/wasi-shims/clipboard-impl.js',
+                    '@tjfontaine/wasi-shims/audio-impl.js': '/wasi-shims/audio-impl.js',
                     '@tjfontaine/wasi-shims/console-logging-impl.js': '/wasi-shims/console-logging-impl.js',
                     '@tjfontaine/wasm-loader': '/wasm-loader/index.js',
                 },
@@ -391,6 +394,7 @@ export default defineConfig(({ mode }) => ({
                     '@tjfontaine/wasi-shims/websocket-impl.js': '/wasi-shims/websocket-impl.js',
                     '@tjfontaine/wasi-shims/browser-impl.js': '/wasi-shims/browser-impl.js',
                     '@tjfontaine/wasi-shims/clipboard-impl.js': '/wasi-shims/clipboard-impl.js',
+                    '@tjfontaine/wasi-shims/audio-impl.js': '/wasi-shims/audio-impl.js',
                     '@tjfontaine/wasi-shims/console-logging-impl.js': '/wasi-shims/console-logging-impl.js',
                 },
             },

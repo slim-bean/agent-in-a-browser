@@ -92,6 +92,7 @@ tasks:
       - "codex-wasm/wasi-tokio-util/src/**"
       - "codex-wasm/wasi-codex-login/src/**"
       - "codex-wasm/wasi-codex-otel/src/**"
+      - "codex-wasm/wasi-cpal/src/**"
       - "codex-wasm/platform-traits/src/**"
     outputs:
       - "/target/wasm32-wasip2/release/codex_wasm_tui.wasm"

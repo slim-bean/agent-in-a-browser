@@ -33,6 +33,8 @@ fn wasm_yield() {
     // input between poll iterations.
     let duration = bindings::wasi::clocks::monotonic_clock::subscribe_duration(1_000_000); // 1ms in ns
     duration.block();
+    // Poll for captured audio data and feed it to the stored callback.
+    cpal::poll_audio();
 }
 
 /// Initialize backends on first use.
@@ -54,6 +56,45 @@ fn ensure_initialized() {
         });
         arboard::set_write_handler(|text| {
             bindings::host::browser::clipboard::write_text(text).map_err(|e| e.to_string())
+        });
+        // Register audio shims → WIT browser audio binding
+        cpal::set_list_devices_handler(|is_input| {
+            if is_input {
+                bindings::host::browser::audio::list_input_devices()
+            } else {
+                bindings::host::browser::audio::list_output_devices()
+            }
+        });
+        cpal::set_default_config_handler(|is_input| {
+            if is_input {
+                bindings::host::browser::audio::default_input_config()
+            } else {
+                bindings::host::browser::audio::default_output_config()
+            }
+        });
+        cpal::set_start_capture_handler(|device_name, sample_rate, channels| {
+            bindings::host::browser::audio::start_capture(device_name, sample_rate, channels)
+        });
+        cpal::set_read_capture_data_handler(|capture_id| {
+            bindings::host::browser::audio::read_capture_data(capture_id)
+        });
+        cpal::set_get_capture_peak_handler(|capture_id| {
+            bindings::host::browser::audio::get_capture_peak(capture_id)
+        });
+        cpal::set_stop_capture_handler(|capture_id| {
+            bindings::host::browser::audio::stop_capture(capture_id)
+        });
+        cpal::set_start_playback_handler(|device_name, sample_rate, channels| {
+            bindings::host::browser::audio::start_playback(device_name, sample_rate, channels)
+        });
+        cpal::set_enqueue_playback_handler(|player_id, data| {
+            bindings::host::browser::audio::enqueue_playback(player_id, data)
+        });
+        cpal::set_clear_playback_handler(|player_id| {
+            bindings::host::browser::audio::clear_playback(player_id)
+        });
+        cpal::set_stop_playback_handler(|player_id| {
+            bindings::host::browser::audio::stop_playback(player_id)
         });
     });
 }

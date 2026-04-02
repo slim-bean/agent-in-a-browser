@@ -109,6 +109,12 @@ function buildAsyncImports(V) {
         // Browser clipboard
         'host:browser/clipboard@0.1.0#read-text',
         'host:browser/clipboard@0.1.0#write-text',
+        // Browser audio
+        'host:browser/audio@0.1.0#list-input-devices',
+        'host:browser/audio@0.1.0#list-output-devices',
+        'host:browser/audio@0.1.0#start-capture',
+        'host:browser/audio@0.1.0#read-capture-data',
+        'host:browser/audio@0.1.0#start-playback',
     ];
 }
 
@@ -139,6 +145,8 @@ const SHIMS = {
     'host:browser/actions': '@tjfontaine/wasi-shims/browser-impl.js',
     // Browser clipboard — read/write text via navigator.clipboard
     'host:browser/clipboard': '@tjfontaine/wasi-shims/clipboard-impl.js',
+    // Browser audio — capture and playback via Web Audio API
+    'host:browser/audio': '@tjfontaine/wasi-shims/audio-impl.js',
     // Console logging — route to browser console instead of stderr
     'host:console/logging': '@tjfontaine/wasi-shims/console-logging-impl.js',
 };
@@ -242,6 +250,12 @@ const MODULES = {
             // Browser clipboard
             'host:browser/clipboard@0.1.0#read-text',
             'host:browser/clipboard@0.1.0#write-text',
+            // Browser audio
+            'host:browser/audio@0.1.0#list-input-devices',
+            'host:browser/audio@0.1.0#list-output-devices',
+            'host:browser/audio@0.1.0#start-capture',
+            'host:browser/audio@0.1.0#read-capture-data',
+            'host:browser/audio@0.1.0#start-playback',
         ],
     },
 };

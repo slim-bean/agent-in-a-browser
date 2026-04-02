@@ -17,3 +17,48 @@ interface clipboard {
     /// Returns an error if clipboard access is denied or unavailable.
     write-text: func(text: string) -> result<_, string>;
 }
+
+/// Audio capture and playback via the browser's Web Audio API.
+interface audio {
+    /// List available audio input device names.
+    list-input-devices: func() -> result<list<string>, string>;
+
+    /// List available audio output device names.
+    list-output-devices: func() -> result<list<string>, string>;
+
+    /// Get the default audio configuration for input.
+    /// Returns (sample-rate, channels, sample-format) where sample-format is
+    /// 0=I16, 1=U16, 2=F32.
+    default-input-config: func() -> result<tuple<u32, u16, u8>, string>;
+
+    /// Get the default audio configuration for output.
+    /// Returns (sample-rate, channels, sample-format).
+    default-output-config: func() -> result<tuple<u32, u16, u8>, string>;
+
+    /// Start capturing audio from a device.
+    /// Returns a capture-id that can be used with other capture functions.
+    start-capture: func(device-name: option<string>, sample-rate: u32, channels: u16) -> result<u32, string>;
+
+    /// Read captured PCM audio data (16-bit LE).
+    /// Returns accumulated audio data since last read, or empty if none available.
+    read-capture-data: func(capture-id: u32) -> result<list<u8>, string>;
+
+    /// Get the current peak level (0-32767) for a running capture.
+    get-capture-peak: func(capture-id: u32) -> u16;
+
+    /// Stop a running capture.
+    stop-capture: func(capture-id: u32) -> result<_, string>;
+
+    /// Start audio playback on a device.
+    /// Returns a player-id.
+    start-playback: func(device-name: option<string>, sample-rate: u32, channels: u16) -> result<u32, string>;
+
+    /// Enqueue PCM audio data (16-bit LE) for playback.
+    enqueue-playback: func(player-id: u32, data: list<u8>) -> result<_, string>;
+
+    /// Clear the playback buffer.
+    clear-playback: func(player-id: u32) -> result<_, string>;
+
+    /// Stop playback.
+    stop-playback: func(player-id: u32) -> result<_, string>;
+}

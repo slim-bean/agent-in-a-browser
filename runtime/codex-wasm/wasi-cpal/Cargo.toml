@@ -1,0 +1,12 @@
+[package]
+name = "cpal"
+version = "0.15.3"
+edition = "2021"
+description = "WASM shim for cpal — audio via WIT host:browser/audio interface"
+
+[lib]
+name = "cpal"
+path = "src/lib.rs"
+
+# Standalone — not part of the upstream workspace
+[workspace]
