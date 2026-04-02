@@ -54,6 +54,7 @@ codex-utils-pty = { path = "../wasi-pty" }
 codex-network-proxy = { path = "../wasi-network-proxy" }
 codex-exec-server = { path = "../wasi-exec-server" }
 codex-rmcp-client = { path = "../wasi-rmcp-client" }
+futures-util = { path = "../patches/futures-util" }
 
 [package.metadata.component]
 package = "codex:tui"
