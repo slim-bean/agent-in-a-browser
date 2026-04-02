@@ -106,6 +106,9 @@ function buildAsyncImports(V) {
         'shell:unix/command@0.1.0#run',
         // Browser actions
         'host:browser/actions@0.1.0#open-url',
+        // Browser clipboard
+        'host:browser/clipboard@0.1.0#read-text',
+        'host:browser/clipboard@0.1.0#write-text',
     ];
 }
 
@@ -134,6 +137,8 @@ const SHIMS = {
     'ios:bridge/*': '@tjfontaine/wasi-shims/ios-bridge-stub.js#*',
     // Browser actions — open URLs in new tabs
     'host:browser/actions': '@tjfontaine/wasi-shims/browser-impl.js',
+    // Browser clipboard — read/write text via navigator.clipboard
+    'host:browser/clipboard': '@tjfontaine/wasi-shims/clipboard-impl.js',
     // Console logging — route to browser console instead of stderr
     'host:console/logging': '@tjfontaine/wasi-shims/console-logging-impl.js',
 };
@@ -234,6 +239,9 @@ const MODULES = {
             'wasi:http/outgoing-handler@0.2.9#handle',
             // Browser actions
             'host:browser/actions@0.1.0#open-url',
+            // Browser clipboard
+            'host:browser/clipboard@0.1.0#read-text',
+            'host:browser/clipboard@0.1.0#write-text',
         ],
     },
 };

@@ -9,7 +9,7 @@
 
 use crate::bindings::wasi::http::{
     outgoing_handler,
-    types::{Fields, OutgoingRequest, Scheme},
+    types::{Fields, OutgoingRequest, RequestOptions, Scheme},
 };
 use reqwest::backend::{
     BodyChunkReader, HttpBackend, RawRequest, RawResponse, RawStreamingResponse,
@@ -72,9 +72,20 @@ fn send_request(
             .map_err(|_| "Failed to finish outgoing body")?;
     }
 
+    // Build request options with timeout if specified
+    let options = request.timeout_ms.map(|ms| {
+        let opts = RequestOptions::new();
+        let nanos = ms * 1_000_000;
+        // Apply timeout as both connect and first-byte timeouts
+        let _ = opts.set_connect_timeout(Some(nanos));
+        let _ = opts.set_first_byte_timeout(Some(nanos));
+        let _ = opts.set_between_bytes_timeout(Some(nanos));
+        opts
+    });
+
     // Send request and wait for response headers
     console_log::console_log!("[wasi-http] waiting for response headers...");
-    let future_response = outgoing_handler::handle(outgoing_request, None)
+    let future_response = outgoing_handler::handle(outgoing_request, options)
         .map_err(|e| format!("HTTP request failed: {e:?}"))?;
 
     let mut poll_count = 0u32;

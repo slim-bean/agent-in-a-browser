@@ -378,9 +378,27 @@ export function clearCliConfig(): void {
     configuredCwd = null;
 }
 
+// Detect the user's IANA timezone from the browser environment.
+// This is injected into the WASI environment as TZ so that crates like
+// iana-time-zone (which reads TZ on wasm32-wasi) return the correct zone.
+const detectedTimezone: string = (() => {
+    try {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch {
+        return 'Etc/UTC';
+    }
+})();
+
 // Environment stub (uses configured values when set)
 export const environment = {
-    getEnvironment: () => configuredEnv ?? ([] as [string, string][]),
+    getEnvironment: (): [string, string][] => {
+        const base: [string, string][] = configuredEnv ?? [];
+        // Inject TZ if not already provided by the caller
+        if (!base.some(([key]) => key === 'TZ')) {
+            return [...base, ['TZ', detectedTimezone]];
+        }
+        return base;
+    },
     getArguments: () => configuredArgs ?? ([] as string[]),
     initialCwd: () => configuredCwd ?? '/',
 };

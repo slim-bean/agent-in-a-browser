@@ -807,6 +807,7 @@ dependencies = [
  "anyhow",
  "similar",
  "thiserror 2.0.18",
+ "tracing",
 ]
 
 [[package]]
@@ -821,6 +822,7 @@ dependencies = [
  "dotenvy",
  "tempfile",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -1017,18 +1019,12 @@ dependencies = [
 name = "codex-exec-server"
 version = "0.0.0"
 dependencies = [
- "arc-swap",
+ "anyhow",
  "async-trait",
- "base64 0.22.1",
- "codex-app-server-protocol",
  "codex-utils-absolute-path",
- "codex-utils-pty",
- "futures",
  "serde",
  "serde_json",
- "thiserror 2.0.18",
  "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -1133,9 +1129,6 @@ dependencies = [
 [[package]]
 name = "codex-keyring-store"
 version = "0.0.0"
-dependencies = [
- "tracing",
-]
 
 [[package]]
 name = "codex-login"
@@ -1174,13 +1167,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "codex-utils-absolute-path",
- "codex-utils-home-dir",
  "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -1231,19 +1218,13 @@ name = "codex-rmcp-client"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "codex-keyring-store",
  "codex-protocol",
- "codex-utils-pty",
  "futures",
- "reqwest",
  "rmcp",
  "schemars 0.8.22",
  "serde",
  "serde_json",
- "thiserror 2.0.18",
  "tokio",
- "tracing",
- "webbrowser",
 ]
 
 [[package]]
@@ -1324,12 +1305,7 @@ dependencies = [
  "async-trait",
  "codex-protocol",
  "codex-utils-absolute-path",
- "libc",
- "serde",
- "serde_json",
- "tokio",
  "tokio-util",
- "tracing",
 ]
 
 [[package]]
@@ -1365,9 +1341,6 @@ dependencies = [
 [[package]]
 name = "codex-terminal-detection"
 version = "0.0.0"
-dependencies = [
- "tracing",
-]
 
 [[package]]
 name = "codex-tools"
@@ -1603,6 +1576,7 @@ version = "0.0.0"
 name = "codex-wasm-tui"
 version = "0.1.0"
 dependencies = [
+ "arboard",
  "clap",
  "codex-arg0",
  "codex-core",
@@ -4158,6 +4132,9 @@ dependencies = [
  "http",
  "serde",
  "serde_json",
+ "serde_urlencoded",
+ "tokio",
+ "tracing",
  "url",
 ]
 
@@ -4627,6 +4604,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "876ac351060d4f882bb1032b6369eb0aef79ad9df1ea8bc404874d8cc3d0cd98"
 dependencies = [
  "serde_core",
+]
+
+[[package]]
+name = "serde_urlencoded"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3491c14715ca2294c4d6a88f15e84739788c1d030eed8c110436aafdaa2f3fd"
+dependencies = [
+ "form_urlencoded",
+ "itoa",
+ "ryu",
+ "serde",
 ]
 
 [[package]]

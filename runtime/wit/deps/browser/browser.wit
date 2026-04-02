@@ -6,3 +6,14 @@ interface actions {
     /// The host must never replace the current page.
     open-url: func(url: string) -> result<_, string>;
 }
+
+/// System clipboard — read/write text via the browser's navigator.clipboard API.
+interface clipboard {
+    /// Read text from the system clipboard.
+    /// Returns an error if clipboard access is denied or unavailable.
+    read-text: func() -> result<string, string>;
+
+    /// Write text to the system clipboard.
+    /// Returns an error if clipboard access is denied or unavailable.
+    write-text: func(text: string) -> result<_, string>;
+}

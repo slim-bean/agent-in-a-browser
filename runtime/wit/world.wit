@@ -49,6 +49,9 @@ world ts-runtime-mcp {
   // Browser actions — open URLs in new tabs
   import host:browser/actions@0.1.0;
 
+  // Browser clipboard — system clipboard read/write
+  import host:browser/clipboard@0.1.0;
+
   // Console logging — route to browser console instead of stderr
   import host:console/logging@0.1.0;
   

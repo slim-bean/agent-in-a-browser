@@ -353,7 +353,7 @@ pub mod auth {
         }
 
         pub fn applicability_reason(&self) -> &'static str {
-            "wasm_stub"
+            "unauthorized recovery is not available in WASM"
         }
 
         pub fn has_next(&self) -> bool {
@@ -361,15 +361,15 @@ pub mod auth {
         }
 
         pub fn unavailable_reason(&self) -> &'static str {
-            "wasm_stub"
+            "unauthorized recovery is not available in WASM"
         }
 
         pub fn mode_name(&self) -> &'static str {
-            "stub"
+            "not available in WASM"
         }
 
         pub fn step_name(&self) -> &'static str {
-            "done"
+            "not available in WASM"
         }
 
         pub async fn next(&mut self) -> Result<UnauthorizedRecoveryStepResult, RefreshTokenError> {
@@ -725,8 +725,8 @@ impl LoginServer {
                     return Ok(());
                 }
             }
-            // Sleep 500ms using WASI clocks
-            std::thread::sleep(std::time::Duration::from_millis(500));
+            // Sleep 500ms — yield to the async runtime instead of blocking
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         }
 
         // Timeout — clean up pending file

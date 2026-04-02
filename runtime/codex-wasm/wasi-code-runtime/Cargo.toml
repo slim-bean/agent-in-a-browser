@@ -1,0 +1,13 @@
+[package]
+name = "wasi-code-runtime"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs.git", rev = "b2275cb", features = [
+    "futures",
+    "macro",
+] }
+futures-lite = "2"

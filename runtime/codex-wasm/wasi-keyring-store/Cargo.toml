@@ -1,0 +1,13 @@
+[package]
+name = "codex-keyring-store"
+version = "0.0.0"
+edition = "2021"
+description = "wasip2-compatible shim for codex-keyring-store — in-memory credential store"
+
+[lib]
+name = "codex_keyring_store"
+path = "src/lib.rs"
+
+[dependencies]
+
+[workspace]

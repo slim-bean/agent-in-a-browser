@@ -36,30 +36,14 @@ pub fn transforms() -> Vec<Transform> {
             path_suffix: "code-mode/src/runtime/mod.rs",
             content: include_str!("../../replacements/code-mode/src/runtime/mod.rs"),
         },
-        Transform::ReplaceFile {
-            path_suffix: "keyring-store/src/lib.rs",
-            content: include_str!("../../replacements/keyring-store/src/lib.rs"),
-        },
-        Transform::ReplaceFile {
-            path_suffix: "network-proxy/src/lib.rs",
-            content: include_str!("../../replacements/network-proxy/src/lib.rs"),
-        },
-        Transform::ReplaceFile {
-            path_suffix: "shell-escalation/src/lib.rs",
-            content: include_str!("../../replacements/shell-escalation/src/lib.rs"),
-        },
-        Transform::ReplaceFile {
-            path_suffix: "exec-server/src/lib.rs",
-            content: include_str!("../../replacements/exec-server/src/lib.rs"),
-        },
-        Transform::ReplaceFile {
-            path_suffix: "utils/pty/src/lib.rs",
-            content: include_str!("../../replacements/utils/pty/src/lib.rs"),
-        },
-        Transform::ReplaceFile {
-            path_suffix: "terminal-detection/src/lib.rs",
-            content: include_str!("../../replacements/terminal-detection/src/lib.rs"),
-        },
+        // Migrated to proper shim crates. Redirected via SHIM_REDIRECTS in cargo_toml.rs:
+        // - keyring-store → wasi-keyring-store
+        // - network-proxy → wasi-network-proxy
+        // - shell-escalation → wasi-shell-escalation
+        // - exec-server → wasi-exec-server
+        // - utils/pty → wasi-pty
+        // - terminal-detection → wasi-terminal-detection
+        // - rmcp-client → wasi-rmcp-client
         Transform::ReplaceFile {
             path_suffix: "codex-api/src/endpoint/realtime_websocket/mod.rs",
             content: include_str!(

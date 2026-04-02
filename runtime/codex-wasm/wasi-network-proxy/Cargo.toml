@@ -1,0 +1,16 @@
+[package]
+name = "codex-network-proxy"
+version = "0.0.0"
+edition = "2021"
+description = "wasip2-compatible shim for codex-network-proxy — stub network proxy types"
+
+[lib]
+name = "codex_network_proxy"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1"
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+
+[workspace]

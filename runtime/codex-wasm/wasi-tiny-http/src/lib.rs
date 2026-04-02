@@ -1,30 +1,115 @@
 #![allow(dead_code)]
-//! WASM shim for tiny_http — provides type stubs for codex-login server.rs.
-//! The actual HTTP server functionality is handled by the WASM incoming-handler.
+//! WASM shim for tiny_http — channel-based bridge for incoming HTTP requests.
+//!
+//! The host's `wasi:http/incoming-handler` export pushes requests into a global
+//! channel via [`push_incoming_request`].  The login server (or any consumer)
+//! calls [`Server::recv()`] which blocks on the channel receiver.  In
+//! wasm32-wasip2 with JSPI the block transparently suspends until data arrives.
 
 use std::io;
+use std::sync::mpsc;
+use std::sync::{Mutex, OnceLock};
+
+// ---------------------------------------------------------------------------
+// Global channel
+// ---------------------------------------------------------------------------
+
+/// Incoming HTTP request delivered from the host's incoming-handler export.
+pub struct IncomingRequest {
+    method: String,
+    path: String,
+    headers: Vec<(String, String)>,
+    body: Vec<u8>,
+}
+
+type Channel = (
+    Mutex<mpsc::Sender<IncomingRequest>>,
+    Mutex<mpsc::Receiver<IncomingRequest>>,
+);
+
+static INCOMING_CHANNEL: OnceLock<Channel> = OnceLock::new();
+
+fn channel() -> &'static Channel {
+    INCOMING_CHANNEL.get_or_init(|| {
+        let (tx, rx) = mpsc::channel();
+        (Mutex::new(tx), Mutex::new(rx))
+    })
+}
+
+/// Push an HTTP request into the channel so that [`Server::recv()`] can
+/// consume it.  Called by the main component's incoming-handler export.
+pub fn push_incoming_request(
+    method: &str,
+    path: &str,
+    headers: Vec<(String, String)>,
+    body: Vec<u8>,
+) {
+    let (tx_lock, _) = channel();
+    if let Ok(tx) = tx_lock.lock() {
+        let _ = tx.send(IncomingRequest {
+            method: method.to_string(),
+            path: path.to_string(),
+            headers,
+            body,
+        });
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Server
+// ---------------------------------------------------------------------------
 
 pub struct Server;
 
 impl Server {
+    /// Create a new server.  The address is ignored in WASM — all requests
+    /// arrive through the incoming-handler channel.
     pub fn http<A: std::net::ToSocketAddrs>(_addr: A) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        Err("HTTP server not available in WASM (use incoming-handler)".into())
+        // Ensure the channel is initialised.
+        let _ = channel();
+        Ok(Server)
     }
 
     pub fn server_addr(&self) -> ListenAddr {
         ListenAddr
     }
 
+    /// Block until the next HTTP request is available.
+    ///
+    /// In wasm32-wasip2 with JSPI this will suspend the WASM instance until
+    /// [`push_incoming_request`] delivers a request.
     pub fn recv(&self) -> Result<Request, io::Error> {
-        Err(io::Error::other("not available in WASM"))
+        let (_, rx_lock) = channel();
+        let rx = rx_lock
+            .lock()
+            .map_err(|e| io::Error::other(format!("channel lock poisoned: {e}")))?;
+        let incoming = rx
+            .recv()
+            .map_err(|e| io::Error::other(format!("channel recv failed: {e}")))?;
+        Ok(Request::from_incoming(incoming))
     }
 
+    /// Non-blocking receive — returns `Ok(None)` when no request is queued.
     pub fn try_recv(&self) -> Result<Option<Request>, io::Error> {
-        Ok(None)
+        let (_, rx_lock) = channel();
+        let rx = rx_lock
+            .lock()
+            .map_err(|e| io::Error::other(format!("channel lock poisoned: {e}")))?;
+        match rx.try_recv() {
+            Ok(incoming) => Ok(Some(Request::from_incoming(incoming))),
+            Err(mpsc::TryRecvError::Empty) => Ok(None),
+            Err(mpsc::TryRecvError::Disconnected) => {
+                Err(io::Error::other("channel disconnected"))
+            }
+        }
     }
 
     pub fn unblock(&self) {}
 }
+
+// ---------------------------------------------------------------------------
+// ListenAddr
+// ---------------------------------------------------------------------------
 
 pub struct ListenAddr;
 
@@ -34,17 +119,64 @@ impl ListenAddr {
     }
 }
 
-pub struct Request;
+// ---------------------------------------------------------------------------
+// Request
+// ---------------------------------------------------------------------------
+
+pub struct Request {
+    method: Method,
+    path: String,
+    headers: Vec<Header>,
+    body: Vec<u8>,
+}
 
 impl Request {
+    fn from_incoming(inc: IncomingRequest) -> Self {
+        let method = match inc.method.to_uppercase().as_str() {
+            "GET" => Method::Get,
+            "POST" => Method::Post,
+            other => Method::Other(other.to_string()),
+        };
+        let headers = inc
+            .headers
+            .into_iter()
+            .map(|(k, v)| Header {
+                field: HeaderField(k),
+                value: v,
+            })
+            .collect();
+        Self {
+            method,
+            path: inc.path,
+            headers,
+            body: inc.body,
+        }
+    }
+
     pub fn url(&self) -> &str {
-        "/"
+        &self.path
     }
 
     pub fn method(&self) -> &Method {
-        &Method::Get
+        &self.method
     }
 
+    pub fn headers(&self) -> &[Header] {
+        &self.headers
+    }
+
+    /// Content length derived from the body bytes we already have.
+    pub fn body_length(&self) -> Option<usize> {
+        Some(self.body.len())
+    }
+
+    /// Return an `io::Read` reader over the request body.
+    pub fn as_reader(&self) -> impl io::Read + '_ {
+        io::Cursor::new(&self.body)
+    }
+
+    /// Accept a `Response` — in this shim the actual HTTP response is handled
+    /// by the host's incoming-handler, so this is a no-op.
     pub fn respond<R: io::Read>(&self, _response: Response<R>) -> io::Result<()> {
         Ok(())
     }
@@ -53,6 +185,10 @@ impl Request {
         ResponseWriter
     }
 }
+
+// ---------------------------------------------------------------------------
+// ResponseWriter
+// ---------------------------------------------------------------------------
 
 pub struct ResponseWriter;
 
@@ -65,12 +201,20 @@ impl io::Write for ResponseWriter {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Method
+// ---------------------------------------------------------------------------
+
 #[derive(Debug, PartialEq)]
 pub enum Method {
     Get,
     Post,
     Other(String),
 }
+
+// ---------------------------------------------------------------------------
+// Response
+// ---------------------------------------------------------------------------
 
 pub struct Response<R> {
     _reader: Option<R>,
@@ -97,17 +241,17 @@ impl Response<io::Cursor<Vec<u8>>> {
             _headers: Vec::new(),
         }
     }
-}
 
-impl<R: io::Read> Response<R> {
-    pub fn from_data(data: R) -> Self {
+    pub fn from_data(data: Vec<u8>) -> Self {
         Response {
-            _reader: Some(data),
+            _reader: Some(io::Cursor::new(data)),
             _status_code: StatusCode(200),
             _headers: Vec::new(),
         }
     }
+}
 
+impl<R: io::Read> Response<R> {
     pub fn with_status_code(mut self, code: impl Into<StatusCode>) -> Self {
         self._status_code = code.into();
         self
@@ -118,6 +262,10 @@ impl<R: io::Read> Response<R> {
         self
     }
 }
+
+// ---------------------------------------------------------------------------
+// StatusCode
+// ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy)]
 pub struct StatusCode(pub u16);
@@ -147,6 +295,10 @@ impl StatusCode {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Header / HeaderField
+// ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone)]
 pub struct HeaderField(String);

@@ -79,7 +79,6 @@ tasks:
   # then commit the result in the submodule fork.
   build-codex-tui:
     script: |
-      git submodule update --init codex-upstream &&
       cargo component build --manifest-path codex-wasm/codex-wasm-tui/Cargo.toml --release --target wasm32-wasip2 &&
       cp codex-wasm/codex-wasm-tui/target/wasm32-wasip2/release/codex_wasm_tui.wasm ../target/wasm32-wasip2/release/codex_wasm_tui.wasm
     inputs:

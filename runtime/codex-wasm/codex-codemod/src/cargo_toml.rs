@@ -19,48 +19,24 @@ const SHIM_REDIRECTS: &[(&str, &str)] = &[
     // codex-login: use upstream (not redirected to stub)
     // libc: use real crate (0.2.x has wasm32-wasip2 support)
     ("os_info", "wasi-os-info"),
+    ("codex-keyring-store", "wasi-keyring-store"),
+    ("codex-terminal-detection", "wasi-terminal-detection"),
+    ("codex-shell-escalation", "wasi-shell-escalation"),
+    ("codex-utils-pty", "wasi-pty"),
+    ("codex-network-proxy", "wasi-network-proxy"),
+    ("codex-exec-server", "wasi-exec-server"),
+    ("codex-rmcp-client", "wasi-rmcp-client"),
 ];
 
 /// Per-crate additional deps to strip (crate_dir_name → deps to strip).
 /// These are stripped ON TOP OF the global STRIP_DEPS list.
 const PER_CRATE_STRIP_DEPS: &[(&str, &[&str])] = &[
-    (
-        "rmcp-client",
-        &[
-            "oauth2",
-            "axum",
-            "sse-stream",
-            "tiny_http",
-            "sha2",
-            "urlencoding",
-            "codex-client",
-            "codex-utils-home-dir",
-        ],
-    ),
+    // rmcp-client: migrated to wasi-rmcp-client shim crate
+    // network-proxy: migrated to wasi-network-proxy shim crate
+    // shell-escalation: migrated to wasi-shell-escalation shim crate
+    // exec-server: migrated to wasi-exec-server shim crate
+    // pty: migrated to wasi-pty shim crate
     // ("login", &["tiny_http"]),  // tiny_http now shimmed via wasi-tiny-http
-    (
-        "network-proxy",
-        &[
-            "rama-core",
-            "rama-http",
-            "rama-http-backend",
-            "rama-net",
-            "rama-socks5",
-            "rama-tcp",
-            "rama-tls-rustls",
-            "globset",
-            "clap",
-            "chrono",
-            "time",
-            "url",
-            "socket2",
-        ],
-    ),
-    (
-        "shell-escalation",
-        &["clap", "socket2", "tracing-subscriber"],
-    ),
-    ("exec-server", &["clap"]),
     (
         "app-server",
         &[
@@ -74,8 +50,7 @@ const PER_CRATE_STRIP_DEPS: &[(&str, &[&str])] = &[
         ],
     ),
     ("app-server-client", &["tokio-tungstenite", "tungstenite"]),
-    ("core", &["image", "notify"]),
-    ("pty", &["portable-pty", "windows-sys"]),
+    ("core", &["notify"]),
     // state: sqlx is now redirected to wasi-sqlx via [patch.crates-io]
     // ("state", &["sqlx"]),
 ];
@@ -121,6 +96,10 @@ const INJECT_DEPS: &[(&str, &[(&str, &str)])] = &[
     // state: sqlx is stripped globally but state's runtime.rs uses it;
     // inject the wasi-sqlx shim path so it resolves via [patch.crates-io]
     ("state", &[("sqlx", "../../../codex-wasm/wasi-sqlx")]),
+    (
+        "code-mode",
+        &[("wasi-code-runtime", "../../../codex-wasm/wasi-code-runtime")],
+    ),
 ];
 
 /// Dependencies to strip entirely (platform-specific or from removed members).
@@ -144,12 +123,12 @@ const STRIP_DEPS: &[&str] = &[
     "codex-windows-sandbox",
     "codex-linux-sandbox",
     "codex-process-hardening",
-    // codex-network-proxy: kept (stubbed via REPLACE_FILES)
+    // codex-network-proxy: redirected to wasi-network-proxy shim via SHIM_REDIRECTS
     // codex-otel and codex-login: redirected to shim crates, not stripped
     "codex-lmstudio",
     "codex-ollama",
-    // codex-terminal-detection: kept (stubbed via REPLACE_FILES)
-    // codex-utils-pty: kept (stubbed via REPLACE_FILES)
+    // codex-terminal-detection: redirected to wasi-terminal-detection shim via SHIM_REDIRECTS
+    // codex-utils-pty: redirected to wasi-pty shim via SHIM_REDIRECTS
     // codex-utils-sleep-inhibitor: kept — used by TUI (no-op dummy backend on WASM)
     "codex-chatgpt",
     "codex-feedback",
@@ -168,7 +147,7 @@ const STRIP_DEPS: &[&str] = &[
     "codex-exec",
     // codex-arg0: kept — used by TUI for Arg0DispatchPaths
     "codex-mcp-server",
-    // codex-exec-server: kept (stubbed via REPLACE_FILES)
+    // codex-exec-server: redirected to wasi-exec-server shim via SHIM_REDIRECTS
     // codex-app-server: kept — in-process path works in WASM
     // codex-app-server-client: kept — provides AppServerClient types
     "codex-app-server-test-client",

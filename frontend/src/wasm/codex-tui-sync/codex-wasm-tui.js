@@ -30,7 +30,8 @@ const { getDirectories } = preopens;
 const { Descriptor,
   DirectoryEntryStream } = types;
 const { insecureSeed } = insecureSeed$1;
-const { getRandomU64 } = random;
+const { getRandomBytes,
+  getRandomU64 } = random;
 const { handle } = outgoingHandler;
 
 let dv = new DataView(new ArrayBuffer());
@@ -965,15 +966,15 @@ function trampoline4(arg0) {
   return handle3;
 }
 
-const handleTable3 = [T_FLAG, 0];
-const captureTable3= new Map();
-let captureCnt3 = 0;
-handleTables[3] = handleTable3;
+const handleTable2 = [T_FLAG, 0];
+const captureTable2= new Map();
+let captureCnt2 = 0;
+handleTables[2] = handleTable2;
 
 function trampoline5(arg0) {
   var handle1 = arg0;
-  var rep2 = handleTable3[(handle1 << 1) + 1] & ~T_FLAG;
-  var rsc0 = captureTable3.get(rep2);
+  var rep2 = handleTable2[(handle1 << 1) + 1] & ~T_FLAG;
+  var rsc0 = captureTable2.get(rep2);
   if (!rsc0) {
     rsc0 = Object.create(OutputStream.prototype);
     Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
@@ -1012,10 +1013,210 @@ const captureTable9= new Map();
 let captureCnt9 = 0;
 handleTables[9] = handleTable9;
 
-function trampoline6(arg0) {
+function trampoline6() {
+  _debugLog('[iface="wasi:http/types@0.2.9", function="[constructor]request-options"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, '[constructor]request-options');
+  const ret = new RequestOptions();
+  _debugLog('[iface="wasi:http/types@0.2.9", function="[constructor]request-options"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  if (!(ret instanceof RequestOptions)) {
+    throw new TypeError('Resource error: Not a valid "RequestOptions" resource.');
+  }
+  var handle0 = ret[symbolRscHandle];
+  if (!handle0) {
+    const rep = ret[symbolRscRep] || ++captureCnt9;
+    captureTable9.set(rep, ret);
+    handle0 = rscTableCreateOwn(handleTable9, rep);
+  }
+  _debugLog('[iface="wasi:http/types@0.2.9", function="[constructor]request-options"][Instruction::Return]', {
+    funcName: '[constructor]request-options',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  return handle0;
+}
+
+
+function trampoline7(arg0, arg1, arg2) {
   var handle1 = arg0;
   var rep2 = handleTable9[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable9.get(rep2);
+  if (!rsc0) {
+    rsc0 = Object.create(RequestOptions.prototype);
+    Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
+    Object.defineProperty(rsc0, symbolRscRep, { writable: true, value: rep2});
+  }
+  curResourceBorrows.push(rsc0);
+  let variant3;
+  if (arg1) {
+    variant3 = BigInt.asUintN(64, arg2);
+  } else {
+    variant3 = undefined;
+  }
+  _debugLog('[iface="wasi:http/types@0.2.9", function="[method]request-options.set-connect-timeout"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, '[method]request-options.set-connect-timeout');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: rsc0.setConnectTimeout(variant3)};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="wasi:http/types@0.2.9", function="[method]request-options.set-connect-timeout"] [Instruction::CallInterface] (sync, @ post-call)');
+  for (const rsc of curResourceBorrows) {
+    rsc[symbolRscHandle] = undefined;
+  }
+  curResourceBorrows = [];
+  endCurrentTask(0);
+  var variant4 = ret;
+  let variant4_0;
+  switch (variant4.tag) {
+    case 'ok': {
+      const e = variant4.val;
+      variant4_0 = 0;
+      break;
+    }
+    case 'err': {
+      const e = variant4.val;
+      variant4_0 = 1;
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="wasi:http/types@0.2.9", function="[method]request-options.set-connect-timeout"][Instruction::Return]', {
+    funcName: '[method]request-options.set-connect-timeout',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  return variant4_0;
+}
+
+
+function trampoline8(arg0, arg1, arg2) {
+  var handle1 = arg0;
+  var rep2 = handleTable9[(handle1 << 1) + 1] & ~T_FLAG;
+  var rsc0 = captureTable9.get(rep2);
+  if (!rsc0) {
+    rsc0 = Object.create(RequestOptions.prototype);
+    Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
+    Object.defineProperty(rsc0, symbolRscRep, { writable: true, value: rep2});
+  }
+  curResourceBorrows.push(rsc0);
+  let variant3;
+  if (arg1) {
+    variant3 = BigInt.asUintN(64, arg2);
+  } else {
+    variant3 = undefined;
+  }
+  _debugLog('[iface="wasi:http/types@0.2.9", function="[method]request-options.set-first-byte-timeout"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, '[method]request-options.set-first-byte-timeout');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: rsc0.setFirstByteTimeout(variant3)};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="wasi:http/types@0.2.9", function="[method]request-options.set-first-byte-timeout"] [Instruction::CallInterface] (sync, @ post-call)');
+  for (const rsc of curResourceBorrows) {
+    rsc[symbolRscHandle] = undefined;
+  }
+  curResourceBorrows = [];
+  endCurrentTask(0);
+  var variant4 = ret;
+  let variant4_0;
+  switch (variant4.tag) {
+    case 'ok': {
+      const e = variant4.val;
+      variant4_0 = 0;
+      break;
+    }
+    case 'err': {
+      const e = variant4.val;
+      variant4_0 = 1;
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="wasi:http/types@0.2.9", function="[method]request-options.set-first-byte-timeout"][Instruction::Return]', {
+    funcName: '[method]request-options.set-first-byte-timeout',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  return variant4_0;
+}
+
+
+function trampoline9(arg0, arg1, arg2) {
+  var handle1 = arg0;
+  var rep2 = handleTable9[(handle1 << 1) + 1] & ~T_FLAG;
+  var rsc0 = captureTable9.get(rep2);
+  if (!rsc0) {
+    rsc0 = Object.create(RequestOptions.prototype);
+    Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
+    Object.defineProperty(rsc0, symbolRscRep, { writable: true, value: rep2});
+  }
+  curResourceBorrows.push(rsc0);
+  let variant3;
+  if (arg1) {
+    variant3 = BigInt.asUintN(64, arg2);
+  } else {
+    variant3 = undefined;
+  }
+  _debugLog('[iface="wasi:http/types@0.2.9", function="[method]request-options.set-between-bytes-timeout"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, '[method]request-options.set-between-bytes-timeout');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: rsc0.setBetweenBytesTimeout(variant3)};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="wasi:http/types@0.2.9", function="[method]request-options.set-between-bytes-timeout"] [Instruction::CallInterface] (sync, @ post-call)');
+  for (const rsc of curResourceBorrows) {
+    rsc[symbolRscHandle] = undefined;
+  }
+  curResourceBorrows = [];
+  endCurrentTask(0);
+  var variant4 = ret;
+  let variant4_0;
+  switch (variant4.tag) {
+    case 'ok': {
+      const e = variant4.val;
+      variant4_0 = 0;
+      break;
+    }
+    case 'err': {
+      const e = variant4.val;
+      variant4_0 = 1;
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="wasi:http/types@0.2.9", function="[method]request-options.set-between-bytes-timeout"][Instruction::Return]', {
+    funcName: '[method]request-options.set-between-bytes-timeout',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  return variant4_0;
+}
+
+const handleTable10 = [T_FLAG, 0];
+const captureTable10= new Map();
+let captureCnt10 = 0;
+handleTables[10] = handleTable10;
+
+function trampoline11(arg0) {
+  var handle1 = arg0;
+  var rep2 = handleTable10[(handle1 << 1) + 1] & ~T_FLAG;
+  var rsc0 = captureTable10.get(rep2);
   if (!rsc0) {
     rsc0 = Object.create(FutureIncomingResponse.prototype);
     Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
@@ -1049,15 +1250,15 @@ function trampoline6(arg0) {
   return handle3;
 }
 
-const handleTable10 = [T_FLAG, 0];
-const captureTable10= new Map();
-let captureCnt10 = 0;
-handleTables[10] = handleTable10;
+const handleTable11 = [T_FLAG, 0];
+const captureTable11= new Map();
+let captureCnt11 = 0;
+handleTables[11] = handleTable11;
 
-function trampoline8(arg0) {
+function trampoline13(arg0) {
   var handle1 = arg0;
-  var rep2 = handleTable10[(handle1 << 1) + 1] & ~T_FLAG;
-  var rsc0 = captureTable10.get(rep2);
+  var rep2 = handleTable11[(handle1 << 1) + 1] & ~T_FLAG;
+  var rsc0 = captureTable11.get(rep2);
   if (!rsc0) {
     rsc0 = Object.create(IncomingResponse.prototype);
     Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
@@ -1092,7 +1293,7 @@ function trampoline8(arg0) {
 }
 
 
-function trampoline9(arg0) {
+function trampoline14(arg0) {
   var handle1 = arg0;
   var rep2 = handleTable1[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable1.get(rep2);
@@ -1120,10 +1321,10 @@ function trampoline9(arg0) {
 }
 
 
-function trampoline10(arg0) {
+function trampoline15(arg0) {
   var handle1 = arg0;
-  var rep2 = handleTable10[(handle1 << 1) + 1] & ~T_FLAG;
-  var rsc0 = captureTable10.get(rep2);
+  var rep2 = handleTable11[(handle1 << 1) + 1] & ~T_FLAG;
+  var rsc0 = captureTable11.get(rep2);
   if (!rsc0) {
     rsc0 = Object.create(IncomingResponse.prototype);
     Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
@@ -1149,7 +1350,7 @@ function trampoline10(arg0) {
 }
 
 
-function trampoline20() {
+function trampoline25() {
   _debugLog('[iface="wasi:random/random@0.2.9", function="get-random-u64"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-random-u64');
   const ret = getRandomU64();
@@ -1165,7 +1366,7 @@ function trampoline20() {
 }
 
 
-function trampoline25(arg0) {
+function trampoline30(arg0) {
   let variant0;
   if (arg0) {
     variant0= {
@@ -1191,15 +1392,15 @@ function trampoline25(arg0) {
   });
 }
 
-const handleTable2 = [T_FLAG, 0];
-const captureTable2= new Map();
-let captureCnt2 = 0;
-handleTables[2] = handleTable2;
+const handleTable3 = [T_FLAG, 0];
+const captureTable3= new Map();
+let captureCnt3 = 0;
+handleTables[3] = handleTable3;
 
-function trampoline26(arg0) {
+function trampoline31(arg0) {
   var handle1 = arg0;
-  var rep2 = handleTable2[(handle1 << 1) + 1] & ~T_FLAG;
-  var rsc0 = captureTable2.get(rep2);
+  var rep2 = handleTable3[(handle1 << 1) + 1] & ~T_FLAG;
+  var rsc0 = captureTable3.get(rep2);
   if (!rsc0) {
     rsc0 = Object.create(InputStream.prototype);
     Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
@@ -1234,7 +1435,7 @@ function trampoline26(arg0) {
 }
 
 
-function trampoline27() {
+function trampoline32() {
   _debugLog('[iface="wasi:cli/stdin@0.2.9", function="get-stdin"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-stdin');
   const ret = getStdin();
@@ -1245,9 +1446,9 @@ function trampoline27() {
   }
   var handle0 = ret[symbolRscHandle];
   if (!handle0) {
-    const rep = ret[symbolRscRep] || ++captureCnt2;
-    captureTable2.set(rep, ret);
-    handle0 = rscTableCreateOwn(handleTable2, rep);
+    const rep = ret[symbolRscRep] || ++captureCnt3;
+    captureTable3.set(rep, ret);
+    handle0 = rscTableCreateOwn(handleTable3, rep);
   }
   _debugLog('[iface="wasi:cli/stdin@0.2.9", function="get-stdin"][Instruction::Return]', {
     funcName: 'get-stdin',
@@ -1259,7 +1460,7 @@ function trampoline27() {
 }
 
 
-function trampoline28() {
+function trampoline33() {
   _debugLog('[iface="wasi:cli/stdout@0.2.9", function="get-stdout"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-stdout');
   const ret = getStdout();
@@ -1270,9 +1471,9 @@ function trampoline28() {
   }
   var handle0 = ret[symbolRscHandle];
   if (!handle0) {
-    const rep = ret[symbolRscRep] || ++captureCnt3;
-    captureTable3.set(rep, ret);
-    handle0 = rscTableCreateOwn(handleTable3, rep);
+    const rep = ret[symbolRscRep] || ++captureCnt2;
+    captureTable2.set(rep, ret);
+    handle0 = rscTableCreateOwn(handleTable2, rep);
   }
   _debugLog('[iface="wasi:cli/stdout@0.2.9", function="get-stdout"][Instruction::Return]', {
     funcName: 'get-stdout',
@@ -1284,7 +1485,7 @@ function trampoline28() {
 }
 
 
-function trampoline29() {
+function trampoline34() {
   _debugLog('[iface="wasi:cli/stderr@0.2.9", function="get-stderr"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-stderr');
   const ret = getStderr();
@@ -1295,9 +1496,9 @@ function trampoline29() {
   }
   var handle0 = ret[symbolRscHandle];
   if (!handle0) {
-    const rep = ret[symbolRscRep] || ++captureCnt3;
-    captureTable3.set(rep, ret);
-    handle0 = rscTableCreateOwn(handleTable3, rep);
+    const rep = ret[symbolRscRep] || ++captureCnt2;
+    captureTable2.set(rep, ret);
+    handle0 = rscTableCreateOwn(handleTable2, rep);
   }
   _debugLog('[iface="wasi:cli/stderr@0.2.9", function="get-stderr"][Instruction::Return]', {
     funcName: 'get-stderr',
@@ -1309,7 +1510,7 @@ function trampoline29() {
 }
 
 
-function trampoline30() {
+function trampoline35() {
   _debugLog('[iface="wasi:clocks/monotonic-clock@0.2.9", function="now"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'now');
   const ret = now();
@@ -1325,7 +1526,7 @@ function trampoline30() {
 }
 
 
-function trampoline31(arg0) {
+function trampoline36(arg0) {
   _debugLog('[iface="wasi:clocks/monotonic-clock@0.2.9", function="subscribe-instant"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'subscribe-instant');
   const ret = subscribeInstant(BigInt.asUintN(64, arg0));
@@ -1350,10 +1551,12 @@ function trampoline31(arg0) {
 }
 
 let exports1;
+let exports2;
 let memory0;
 let realloc0;
+let realloc1;
 
-function trampoline32(arg0, arg1) {
+function trampoline37(arg0, arg1) {
   var ptr0 = arg0;
   var len0 = arg1;
   var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -1371,7 +1574,7 @@ function trampoline32(arg0, arg1) {
 }
 
 
-function trampoline33(arg0, arg1) {
+function trampoline38(arg0, arg1) {
   var ptr0 = arg0;
   var len0 = arg1;
   var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -1389,7 +1592,7 @@ function trampoline33(arg0, arg1) {
 }
 
 
-function trampoline34(arg0, arg1) {
+function trampoline39(arg0, arg1) {
   var ptr0 = arg0;
   var len0 = arg1;
   var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -1406,251 +1609,8 @@ function trampoline34(arg0, arg1) {
   });
 }
 
-const handleTable0 = [T_FLAG, 0];
-const captureTable0= new Map();
-let captureCnt0 = 0;
-handleTables[0] = handleTable0;
 
-function trampoline35(arg0, arg1, arg2) {
-  var handle1 = arg0;
-  var rep2 = handleTable2[(handle1 << 1) + 1] & ~T_FLAG;
-  var rsc0 = captureTable2.get(rep2);
-  if (!rsc0) {
-    rsc0 = Object.create(InputStream.prototype);
-    Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
-    Object.defineProperty(rsc0, symbolRscRep, { writable: true, value: rep2});
-  }
-  curResourceBorrows.push(rsc0);
-  _debugLog('[iface="wasi:io/streams@0.2.9", function="[method]input-stream.blocking-read"] [Instruction::CallInterface] (async? sync, @ enter)');
-  const _interface_call_currentTaskID = startCurrentTask(0, false, '[method]input-stream.blocking-read');
-  let ret;
-  try {
-    ret = { tag: 'ok', val: rsc0.blockingRead(BigInt.asUintN(64, arg1))};
-  } catch (e) {
-    ret = { tag: 'err', val: getErrorPayload(e) };
-  }
-  _debugLog('[iface="wasi:io/streams@0.2.9", function="[method]input-stream.blocking-read"] [Instruction::CallInterface] (sync, @ post-call)');
-  for (const rsc of curResourceBorrows) {
-    rsc[symbolRscHandle] = undefined;
-  }
-  curResourceBorrows = [];
-  endCurrentTask(0);
-  var variant6 = ret;
-  switch (variant6.tag) {
-    case 'ok': {
-      const e = variant6.val;
-      dataView(memory0).setInt8(arg2 + 0, 0, true);
-      var val3 = e;
-      var len3 = val3.byteLength;
-      var ptr3 = realloc0(0, 0, 1, len3 * 1);
-      var src3 = new Uint8Array(val3.buffer || val3, val3.byteOffset, len3 * 1);
-      (new Uint8Array(memory0.buffer, ptr3, len3 * 1)).set(src3);
-      dataView(memory0).setUint32(arg2 + 8, len3, true);
-      dataView(memory0).setUint32(arg2 + 4, ptr3, true);
-      break;
-    }
-    case 'err': {
-      const e = variant6.val;
-      dataView(memory0).setInt8(arg2 + 0, 1, true);
-      var variant5 = e;
-      switch (variant5.tag) {
-        case 'last-operation-failed': {
-          const e = variant5.val;
-          dataView(memory0).setInt8(arg2 + 4, 0, true);
-          if (!(e instanceof Error$1)) {
-            throw new TypeError('Resource error: Not a valid "Error" resource.');
-          }
-          var handle4 = e[symbolRscHandle];
-          if (!handle4) {
-            const rep = e[symbolRscRep] || ++captureCnt0;
-            captureTable0.set(rep, e);
-            handle4 = rscTableCreateOwn(handleTable0, rep);
-          }
-          dataView(memory0).setInt32(arg2 + 8, handle4, true);
-          break;
-        }
-        case 'closed': {
-          dataView(memory0).setInt8(arg2 + 4, 1, true);
-          break;
-        }
-        default: {
-          throw new TypeError(`invalid variant tag value \`${JSON.stringify(variant5.tag)}\` (received \`${variant5}\`) specified for \`StreamError\``);
-        }
-      }
-      break;
-    }
-    default: {
-      throw new TypeError('invalid variant specified for result');
-    }
-  }
-  _debugLog('[iface="wasi:io/streams@0.2.9", function="[method]input-stream.blocking-read"][Instruction::Return]', {
-    funcName: '[method]input-stream.blocking-read',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-}
-
-
-function trampoline36(arg0, arg1, arg2) {
-  var handle1 = arg0;
-  var rep2 = handleTable2[(handle1 << 1) + 1] & ~T_FLAG;
-  var rsc0 = captureTable2.get(rep2);
-  if (!rsc0) {
-    rsc0 = Object.create(InputStream.prototype);
-    Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
-    Object.defineProperty(rsc0, symbolRscRep, { writable: true, value: rep2});
-  }
-  curResourceBorrows.push(rsc0);
-  _debugLog('[iface="wasi:io/streams@0.2.9", function="[method]input-stream.read"] [Instruction::CallInterface] (async? sync, @ enter)');
-  const _interface_call_currentTaskID = startCurrentTask(0, false, '[method]input-stream.read');
-  let ret;
-  try {
-    ret = { tag: 'ok', val: rsc0.read(BigInt.asUintN(64, arg1))};
-  } catch (e) {
-    ret = { tag: 'err', val: getErrorPayload(e) };
-  }
-  _debugLog('[iface="wasi:io/streams@0.2.9", function="[method]input-stream.read"] [Instruction::CallInterface] (sync, @ post-call)');
-  for (const rsc of curResourceBorrows) {
-    rsc[symbolRscHandle] = undefined;
-  }
-  curResourceBorrows = [];
-  endCurrentTask(0);
-  var variant6 = ret;
-  switch (variant6.tag) {
-    case 'ok': {
-      const e = variant6.val;
-      dataView(memory0).setInt8(arg2 + 0, 0, true);
-      var val3 = e;
-      var len3 = val3.byteLength;
-      var ptr3 = realloc0(0, 0, 1, len3 * 1);
-      var src3 = new Uint8Array(val3.buffer || val3, val3.byteOffset, len3 * 1);
-      (new Uint8Array(memory0.buffer, ptr3, len3 * 1)).set(src3);
-      dataView(memory0).setUint32(arg2 + 8, len3, true);
-      dataView(memory0).setUint32(arg2 + 4, ptr3, true);
-      break;
-    }
-    case 'err': {
-      const e = variant6.val;
-      dataView(memory0).setInt8(arg2 + 0, 1, true);
-      var variant5 = e;
-      switch (variant5.tag) {
-        case 'last-operation-failed': {
-          const e = variant5.val;
-          dataView(memory0).setInt8(arg2 + 4, 0, true);
-          if (!(e instanceof Error$1)) {
-            throw new TypeError('Resource error: Not a valid "Error" resource.');
-          }
-          var handle4 = e[symbolRscHandle];
-          if (!handle4) {
-            const rep = e[symbolRscRep] || ++captureCnt0;
-            captureTable0.set(rep, e);
-            handle4 = rscTableCreateOwn(handleTable0, rep);
-          }
-          dataView(memory0).setInt32(arg2 + 8, handle4, true);
-          break;
-        }
-        case 'closed': {
-          dataView(memory0).setInt8(arg2 + 4, 1, true);
-          break;
-        }
-        default: {
-          throw new TypeError(`invalid variant tag value \`${JSON.stringify(variant5.tag)}\` (received \`${variant5}\`) specified for \`StreamError\``);
-        }
-      }
-      break;
-    }
-    default: {
-      throw new TypeError('invalid variant specified for result');
-    }
-  }
-  _debugLog('[iface="wasi:io/streams@0.2.9", function="[method]input-stream.read"][Instruction::Return]', {
-    funcName: '[method]input-stream.read',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-}
-
-
-function trampoline37(arg0, arg1, arg2, arg3) {
-  var handle1 = arg0;
-  var rep2 = handleTable3[(handle1 << 1) + 1] & ~T_FLAG;
-  var rsc0 = captureTable3.get(rep2);
-  if (!rsc0) {
-    rsc0 = Object.create(OutputStream.prototype);
-    Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
-    Object.defineProperty(rsc0, symbolRscRep, { writable: true, value: rep2});
-  }
-  curResourceBorrows.push(rsc0);
-  var ptr3 = arg1;
-  var len3 = arg2;
-  var result3 = new Uint8Array(memory0.buffer.slice(ptr3, ptr3 + len3 * 1));
-  _debugLog('[iface="wasi:io/streams@0.2.9", function="[method]output-stream.write"] [Instruction::CallInterface] (async? sync, @ enter)');
-  const _interface_call_currentTaskID = startCurrentTask(0, false, '[method]output-stream.write');
-  let ret;
-  try {
-    ret = { tag: 'ok', val: rsc0.write(result3)};
-  } catch (e) {
-    ret = { tag: 'err', val: getErrorPayload(e) };
-  }
-  _debugLog('[iface="wasi:io/streams@0.2.9", function="[method]output-stream.write"] [Instruction::CallInterface] (sync, @ post-call)');
-  for (const rsc of curResourceBorrows) {
-    rsc[symbolRscHandle] = undefined;
-  }
-  curResourceBorrows = [];
-  endCurrentTask(0);
-  var variant6 = ret;
-  switch (variant6.tag) {
-    case 'ok': {
-      const e = variant6.val;
-      dataView(memory0).setInt8(arg3 + 0, 0, true);
-      break;
-    }
-    case 'err': {
-      const e = variant6.val;
-      dataView(memory0).setInt8(arg3 + 0, 1, true);
-      var variant5 = e;
-      switch (variant5.tag) {
-        case 'last-operation-failed': {
-          const e = variant5.val;
-          dataView(memory0).setInt8(arg3 + 4, 0, true);
-          if (!(e instanceof Error$1)) {
-            throw new TypeError('Resource error: Not a valid "Error" resource.');
-          }
-          var handle4 = e[symbolRscHandle];
-          if (!handle4) {
-            const rep = e[symbolRscRep] || ++captureCnt0;
-            captureTable0.set(rep, e);
-            handle4 = rscTableCreateOwn(handleTable0, rep);
-          }
-          dataView(memory0).setInt32(arg3 + 8, handle4, true);
-          break;
-        }
-        case 'closed': {
-          dataView(memory0).setInt8(arg3 + 4, 1, true);
-          break;
-        }
-        default: {
-          throw new TypeError(`invalid variant tag value \`${JSON.stringify(variant5.tag)}\` (received \`${variant5}\`) specified for \`StreamError\``);
-        }
-      }
-      break;
-    }
-    default: {
-      throw new TypeError('invalid variant specified for result');
-    }
-  }
-  _debugLog('[iface="wasi:io/streams@0.2.9", function="[method]output-stream.write"][Instruction::Return]', {
-    funcName: '[method]output-stream.write',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-}
-
-
-function trampoline38(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13) {
+function trampoline40(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13) {
   var ptr0 = arg0;
   var len0 = arg1;
   var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -1753,7 +1713,7 @@ function trampoline38(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9
 }
 
 
-function trampoline39(arg0, arg1) {
+function trampoline41(arg0, arg1) {
   _debugLog('[iface="codex:tui/websocket@0.1.0", function="recv"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'recv');
   let ret;
@@ -1804,7 +1764,7 @@ function trampoline39(arg0, arg1) {
 }
 
 
-function trampoline40(arg0, arg1, arg2, arg3) {
+function trampoline42(arg0, arg1, arg2, arg3) {
   var ptr0 = arg1;
   var len0 = arg2;
   var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -1847,7 +1807,7 @@ function trampoline40(arg0, arg1, arg2, arg3) {
 }
 
 
-function trampoline41(arg0, arg1, arg2, arg3, arg4) {
+function trampoline43(arg0, arg1, arg2, arg3, arg4) {
   var ptr0 = arg0;
   var len0 = arg1;
   var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -1901,7 +1861,7 @@ function trampoline41(arg0, arg1, arg2, arg3, arg4) {
 }
 
 
-function trampoline42(arg0, arg1, arg2, arg3, arg4, arg5) {
+function trampoline44(arg0, arg1, arg2, arg3, arg4, arg5) {
   var handle1 = arg0;
   var rep2 = handleTable6[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable6.get(rep2);
@@ -1974,7 +1934,7 @@ function trampoline42(arg0, arg1, arg2, arg3, arg4, arg5) {
 }
 
 
-function trampoline43(arg0, arg1, arg2, arg3) {
+function trampoline45(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable7[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable7.get(rep2);
@@ -2092,7 +2052,7 @@ function trampoline43(arg0, arg1, arg2, arg3) {
 }
 
 
-function trampoline44(arg0, arg1, arg2, arg3, arg4) {
+function trampoline46(arg0, arg1, arg2, arg3, arg4) {
   var handle1 = arg0;
   var rep2 = handleTable7[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable7.get(rep2);
@@ -2174,7 +2134,7 @@ function trampoline44(arg0, arg1, arg2, arg3, arg4) {
 }
 
 
-function trampoline45(arg0, arg1, arg2, arg3) {
+function trampoline47(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable7[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable7.get(rep2);
@@ -2234,7 +2194,7 @@ function trampoline45(arg0, arg1, arg2, arg3) {
 }
 
 
-function trampoline46(arg0, arg1, arg2, arg3) {
+function trampoline48(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable7[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable7.get(rep2);
@@ -2298,7 +2258,7 @@ const captureTable8= new Map();
 let captureCnt8 = 0;
 handleTables[8] = handleTable8;
 
-function trampoline47(arg0, arg1) {
+function trampoline49(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable7[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable7.get(rep2);
@@ -2357,7 +2317,7 @@ function trampoline47(arg0, arg1) {
 }
 
 
-function trampoline48(arg0, arg1) {
+function trampoline50(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable8[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable8.get(rep2);
@@ -2391,9 +2351,9 @@ function trampoline48(arg0, arg1) {
       }
       var handle3 = e[symbolRscHandle];
       if (!handle3) {
-        const rep = e[symbolRscRep] || ++captureCnt3;
-        captureTable3.set(rep, e);
-        handle3 = rscTableCreateOwn(handleTable3, rep);
+        const rep = e[symbolRscRep] || ++captureCnt2;
+        captureTable2.set(rep, e);
+        handle3 = rscTableCreateOwn(handleTable2, rep);
       }
       dataView(memory0).setInt32(arg1 + 4, handle3, true);
       break;
@@ -2416,7 +2376,7 @@ function trampoline48(arg0, arg1) {
 }
 
 
-function trampoline49(arg0, arg1, arg2, arg3) {
+function trampoline51(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable8[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable8.get(rep2);
@@ -2867,10 +2827,10 @@ function trampoline49(arg0, arg1, arg2, arg3) {
 }
 
 
-function trampoline50(arg0, arg1) {
+function trampoline52(arg0, arg1) {
   var handle1 = arg0;
-  var rep2 = handleTable9[(handle1 << 1) + 1] & ~T_FLAG;
-  var rsc0 = captureTable9.get(rep2);
+  var rep2 = handleTable10[(handle1 << 1) + 1] & ~T_FLAG;
+  var rsc0 = captureTable10.get(rep2);
   if (!rsc0) {
     rsc0 = Object.create(FutureIncomingResponse.prototype);
     Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
@@ -2907,9 +2867,9 @@ function trampoline50(arg0, arg1) {
             }
             var handle3 = e[symbolRscHandle];
             if (!handle3) {
-              const rep = e[symbolRscRep] || ++captureCnt10;
-              captureTable10.set(rep, e);
-              handle3 = rscTableCreateOwn(handleTable10, rep);
+              const rep = e[symbolRscRep] || ++captureCnt11;
+              captureTable11.set(rep, e);
+              handle3 = rscTableCreateOwn(handleTable11, rep);
             }
             dataView(memory0).setInt32(arg1 + 24, handle3, true);
             break;
@@ -3329,7 +3289,7 @@ function trampoline50(arg0, arg1) {
 }
 
 
-function trampoline51(arg0, arg1) {
+function trampoline53(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable6[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable6.get(rep2);
@@ -3376,15 +3336,15 @@ function trampoline51(arg0, arg1) {
   });
 }
 
-const handleTable11 = [T_FLAG, 0];
-const captureTable11= new Map();
-let captureCnt11 = 0;
-handleTables[11] = handleTable11;
+const handleTable12 = [T_FLAG, 0];
+const captureTable12= new Map();
+let captureCnt12 = 0;
+handleTables[12] = handleTable12;
 
-function trampoline52(arg0, arg1) {
+function trampoline54(arg0, arg1) {
   var handle1 = arg0;
-  var rep2 = handleTable11[(handle1 << 1) + 1] & ~T_FLAG;
-  var rsc0 = captureTable11.get(rep2);
+  var rep2 = handleTable12[(handle1 << 1) + 1] & ~T_FLAG;
+  var rsc0 = captureTable12.get(rep2);
   if (!rsc0) {
     rsc0 = Object.create(IncomingBody.prototype);
     Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
@@ -3415,9 +3375,9 @@ function trampoline52(arg0, arg1) {
       }
       var handle3 = e[symbolRscHandle];
       if (!handle3) {
-        const rep = e[symbolRscRep] || ++captureCnt2;
-        captureTable2.set(rep, e);
-        handle3 = rscTableCreateOwn(handleTable2, rep);
+        const rep = e[symbolRscRep] || ++captureCnt3;
+        captureTable3.set(rep, e);
+        handle3 = rscTableCreateOwn(handleTable3, rep);
       }
       dataView(memory0).setInt32(arg1 + 4, handle3, true);
       break;
@@ -3440,10 +3400,10 @@ function trampoline52(arg0, arg1) {
 }
 
 
-function trampoline53(arg0, arg1) {
+function trampoline55(arg0, arg1) {
   var handle1 = arg0;
-  var rep2 = handleTable10[(handle1 << 1) + 1] & ~T_FLAG;
-  var rsc0 = captureTable10.get(rep2);
+  var rep2 = handleTable11[(handle1 << 1) + 1] & ~T_FLAG;
+  var rsc0 = captureTable11.get(rep2);
   if (!rsc0) {
     rsc0 = Object.create(IncomingResponse.prototype);
     Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
@@ -3474,9 +3434,9 @@ function trampoline53(arg0, arg1) {
       }
       var handle3 = e[symbolRscHandle];
       if (!handle3) {
-        const rep = e[symbolRscRep] || ++captureCnt11;
-        captureTable11.set(rep, e);
-        handle3 = rscTableCreateOwn(handleTable11, rep);
+        const rep = e[symbolRscRep] || ++captureCnt12;
+        captureTable12.set(rep, e);
+        handle3 = rscTableCreateOwn(handleTable12, rep);
       }
       dataView(memory0).setInt32(arg1 + 4, handle3, true);
       break;
@@ -3498,12 +3458,170 @@ function trampoline53(arg0, arg1) {
   });
 }
 
-const handleTable12 = [T_FLAG, 0];
-const captureTable12= new Map();
-let captureCnt12 = 0;
-handleTables[12] = handleTable12;
+const handleTable0 = [T_FLAG, 0];
+const captureTable0= new Map();
+let captureCnt0 = 0;
+handleTables[0] = handleTable0;
 
-function trampoline54(arg0, arg1, arg2, arg3) {
+function trampoline56(arg0, arg1, arg2, arg3) {
+  var handle1 = arg0;
+  var rep2 = handleTable2[(handle1 << 1) + 1] & ~T_FLAG;
+  var rsc0 = captureTable2.get(rep2);
+  if (!rsc0) {
+    rsc0 = Object.create(OutputStream.prototype);
+    Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
+    Object.defineProperty(rsc0, symbolRscRep, { writable: true, value: rep2});
+  }
+  curResourceBorrows.push(rsc0);
+  var ptr3 = arg1;
+  var len3 = arg2;
+  var result3 = new Uint8Array(memory0.buffer.slice(ptr3, ptr3 + len3 * 1));
+  _debugLog('[iface="wasi:io/streams@0.2.9", function="[method]output-stream.write"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, '[method]output-stream.write');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: rsc0.write(result3)};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="wasi:io/streams@0.2.9", function="[method]output-stream.write"] [Instruction::CallInterface] (sync, @ post-call)');
+  for (const rsc of curResourceBorrows) {
+    rsc[symbolRscHandle] = undefined;
+  }
+  curResourceBorrows = [];
+  endCurrentTask(0);
+  var variant6 = ret;
+  switch (variant6.tag) {
+    case 'ok': {
+      const e = variant6.val;
+      dataView(memory0).setInt8(arg3 + 0, 0, true);
+      break;
+    }
+    case 'err': {
+      const e = variant6.val;
+      dataView(memory0).setInt8(arg3 + 0, 1, true);
+      var variant5 = e;
+      switch (variant5.tag) {
+        case 'last-operation-failed': {
+          const e = variant5.val;
+          dataView(memory0).setInt8(arg3 + 4, 0, true);
+          if (!(e instanceof Error$1)) {
+            throw new TypeError('Resource error: Not a valid "Error" resource.');
+          }
+          var handle4 = e[symbolRscHandle];
+          if (!handle4) {
+            const rep = e[symbolRscRep] || ++captureCnt0;
+            captureTable0.set(rep, e);
+            handle4 = rscTableCreateOwn(handleTable0, rep);
+          }
+          dataView(memory0).setInt32(arg3 + 8, handle4, true);
+          break;
+        }
+        case 'closed': {
+          dataView(memory0).setInt8(arg3 + 4, 1, true);
+          break;
+        }
+        default: {
+          throw new TypeError(`invalid variant tag value \`${JSON.stringify(variant5.tag)}\` (received \`${variant5}\`) specified for \`StreamError\``);
+        }
+      }
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="wasi:io/streams@0.2.9", function="[method]output-stream.write"][Instruction::Return]', {
+    funcName: '[method]output-stream.write',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+
+
+function trampoline57(arg0, arg1, arg2) {
+  var handle1 = arg0;
+  var rep2 = handleTable3[(handle1 << 1) + 1] & ~T_FLAG;
+  var rsc0 = captureTable3.get(rep2);
+  if (!rsc0) {
+    rsc0 = Object.create(InputStream.prototype);
+    Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
+    Object.defineProperty(rsc0, symbolRscRep, { writable: true, value: rep2});
+  }
+  curResourceBorrows.push(rsc0);
+  _debugLog('[iface="wasi:io/streams@0.2.9", function="[method]input-stream.blocking-read"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, '[method]input-stream.blocking-read');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: rsc0.blockingRead(BigInt.asUintN(64, arg1))};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="wasi:io/streams@0.2.9", function="[method]input-stream.blocking-read"] [Instruction::CallInterface] (sync, @ post-call)');
+  for (const rsc of curResourceBorrows) {
+    rsc[symbolRscHandle] = undefined;
+  }
+  curResourceBorrows = [];
+  endCurrentTask(0);
+  var variant6 = ret;
+  switch (variant6.tag) {
+    case 'ok': {
+      const e = variant6.val;
+      dataView(memory0).setInt8(arg2 + 0, 0, true);
+      var val3 = e;
+      var len3 = val3.byteLength;
+      var ptr3 = realloc0(0, 0, 1, len3 * 1);
+      var src3 = new Uint8Array(val3.buffer || val3, val3.byteOffset, len3 * 1);
+      (new Uint8Array(memory0.buffer, ptr3, len3 * 1)).set(src3);
+      dataView(memory0).setUint32(arg2 + 8, len3, true);
+      dataView(memory0).setUint32(arg2 + 4, ptr3, true);
+      break;
+    }
+    case 'err': {
+      const e = variant6.val;
+      dataView(memory0).setInt8(arg2 + 0, 1, true);
+      var variant5 = e;
+      switch (variant5.tag) {
+        case 'last-operation-failed': {
+          const e = variant5.val;
+          dataView(memory0).setInt8(arg2 + 4, 0, true);
+          if (!(e instanceof Error$1)) {
+            throw new TypeError('Resource error: Not a valid "Error" resource.');
+          }
+          var handle4 = e[symbolRscHandle];
+          if (!handle4) {
+            const rep = e[symbolRscRep] || ++captureCnt0;
+            captureTable0.set(rep, e);
+            handle4 = rscTableCreateOwn(handleTable0, rep);
+          }
+          dataView(memory0).setInt32(arg2 + 8, handle4, true);
+          break;
+        }
+        case 'closed': {
+          dataView(memory0).setInt8(arg2 + 4, 1, true);
+          break;
+        }
+        default: {
+          throw new TypeError(`invalid variant tag value \`${JSON.stringify(variant5.tag)}\` (received \`${variant5}\`) specified for \`StreamError\``);
+        }
+      }
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="wasi:io/streams@0.2.9", function="[method]input-stream.blocking-read"][Instruction::Return]', {
+    funcName: '[method]input-stream.blocking-read',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+
+
+function trampoline58(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable7[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable7.get(rep2);
@@ -3519,17 +3637,17 @@ function trampoline54(arg0, arg1, arg2, arg3) {
   let variant6;
   if (arg1) {
     var handle4 = arg2;
-    var rep5 = handleTable12[(handle4 << 1) + 1] & ~T_FLAG;
-    var rsc3 = captureTable12.get(rep5);
+    var rep5 = handleTable9[(handle4 << 1) + 1] & ~T_FLAG;
+    var rsc3 = captureTable9.get(rep5);
     if (!rsc3) {
       rsc3 = Object.create(RequestOptions.prototype);
       Object.defineProperty(rsc3, symbolRscHandle, { writable: true, value: handle4});
       Object.defineProperty(rsc3, symbolRscRep, { writable: true, value: rep5});
     }
     else {
-      captureTable12.delete(rep5);
+      captureTable9.delete(rep5);
     }
-    rscTableRemove(handleTable12, handle4);
+    rscTableRemove(handleTable9, handle4);
     variant6 = rsc3;
   } else {
     variant6 = undefined;
@@ -3554,9 +3672,9 @@ function trampoline54(arg0, arg1, arg2, arg3) {
       }
       var handle7 = e[symbolRscHandle];
       if (!handle7) {
-        const rep = e[symbolRscRep] || ++captureCnt9;
-        captureTable9.set(rep, e);
-        handle7 = rscTableCreateOwn(handleTable9, rep);
+        const rep = e[symbolRscRep] || ++captureCnt10;
+        captureTable10.set(rep, e);
+        handle7 = rscTableCreateOwn(handleTable10, rep);
       }
       dataView(memory0).setInt32(arg3 + 8, handle7, true);
       break;
@@ -3964,7 +4082,7 @@ function trampoline54(arg0, arg1, arg2, arg3) {
 }
 
 
-function trampoline55(arg0, arg1, arg2) {
+function trampoline59(arg0, arg1, arg2) {
   var ptr0 = arg0;
   var len0 = arg1;
   var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -4007,7 +4125,7 @@ function trampoline55(arg0, arg1, arg2) {
 }
 
 
-function trampoline56(arg0) {
+function trampoline60(arg0) {
   _debugLog('[iface="wasi:cli/environment@0.2.9", function="get-arguments"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-arguments');
   const ret = getArguments();
@@ -4034,7 +4152,7 @@ function trampoline56(arg0) {
 }
 
 
-function trampoline57(arg0) {
+function trampoline61(arg0) {
   _debugLog('[iface="wasi:random/insecure-seed@0.2.9", function="insecure-seed"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'insecure-seed');
   const ret = insecureSeed();
@@ -4052,10 +4170,10 @@ function trampoline57(arg0) {
 }
 
 
-function trampoline58(arg0, arg1) {
+function trampoline62(arg0, arg1) {
   var handle1 = arg0;
-  var rep2 = handleTable3[(handle1 << 1) + 1] & ~T_FLAG;
-  var rsc0 = captureTable3.get(rep2);
+  var rep2 = handleTable2[(handle1 << 1) + 1] & ~T_FLAG;
+  var rsc0 = captureTable2.get(rep2);
   if (!rsc0) {
     rsc0 = Object.create(OutputStream.prototype);
     Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
@@ -4127,10 +4245,10 @@ function trampoline58(arg0, arg1) {
 }
 
 
-function trampoline59(arg0, arg1) {
+function trampoline63(arg0, arg1) {
   var handle1 = arg0;
-  var rep2 = handleTable3[(handle1 << 1) + 1] & ~T_FLAG;
-  var rsc0 = captureTable3.get(rep2);
+  var rep2 = handleTable2[(handle1 << 1) + 1] & ~T_FLAG;
+  var rsc0 = captureTable2.get(rep2);
   if (!rsc0) {
     rsc0 = Object.create(OutputStream.prototype);
     Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
@@ -4205,7 +4323,7 @@ const captureTable13= new Map();
 let captureCnt13 = 0;
 handleTables[13] = handleTable13;
 
-function trampoline60(arg0, arg1, arg2) {
+function trampoline64(arg0, arg1, arg2) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -4239,9 +4357,9 @@ function trampoline60(arg0, arg1, arg2) {
       }
       var handle3 = e[symbolRscHandle];
       if (!handle3) {
-        const rep = e[symbolRscRep] || ++captureCnt2;
-        captureTable2.set(rep, e);
-        handle3 = rscTableCreateOwn(handleTable2, rep);
+        const rep = e[symbolRscRep] || ++captureCnt3;
+        captureTable3.set(rep, e);
+        handle3 = rscTableCreateOwn(handleTable3, rep);
       }
       dataView(memory0).setInt32(arg2 + 4, handle3, true);
       break;
@@ -4421,7 +4539,7 @@ function trampoline60(arg0, arg1, arg2) {
 }
 
 
-function trampoline61(arg0, arg1, arg2) {
+function trampoline65(arg0, arg1, arg2) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -4455,9 +4573,9 @@ function trampoline61(arg0, arg1, arg2) {
       }
       var handle3 = e[symbolRscHandle];
       if (!handle3) {
-        const rep = e[symbolRscRep] || ++captureCnt3;
-        captureTable3.set(rep, e);
-        handle3 = rscTableCreateOwn(handleTable3, rep);
+        const rep = e[symbolRscRep] || ++captureCnt2;
+        captureTable2.set(rep, e);
+        handle3 = rscTableCreateOwn(handleTable2, rep);
       }
       dataView(memory0).setInt32(arg2 + 4, handle3, true);
       break;
@@ -4637,7 +4755,7 @@ function trampoline61(arg0, arg1, arg2) {
 }
 
 
-function trampoline62(arg0, arg1) {
+function trampoline66(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -4671,9 +4789,9 @@ function trampoline62(arg0, arg1) {
       }
       var handle3 = e[symbolRscHandle];
       if (!handle3) {
-        const rep = e[symbolRscRep] || ++captureCnt3;
-        captureTable3.set(rep, e);
-        handle3 = rscTableCreateOwn(handleTable3, rep);
+        const rep = e[symbolRscRep] || ++captureCnt2;
+        captureTable2.set(rep, e);
+        handle3 = rscTableCreateOwn(handleTable2, rep);
       }
       dataView(memory0).setInt32(arg1 + 4, handle3, true);
       break;
@@ -4853,7 +4971,7 @@ function trampoline62(arg0, arg1) {
 }
 
 
-function trampoline63(arg0, arg1) {
+function trampoline67(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -5066,7 +5184,7 @@ function trampoline63(arg0, arg1) {
 }
 
 
-function trampoline64(arg0, arg1, arg2) {
+function trampoline68(arg0, arg1, arg2) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -5271,12 +5389,268 @@ function trampoline64(arg0, arg1, arg2) {
   });
 }
 
+
+function trampoline69(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
+  var handle1 = arg0;
+  var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
+  var rsc0 = captureTable13.get(rep2);
+  if (!rsc0) {
+    rsc0 = Object.create(Descriptor.prototype);
+    Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
+    Object.defineProperty(rsc0, symbolRscRep, { writable: true, value: rep2});
+  }
+  curResourceBorrows.push(rsc0);
+  let variant3;
+  switch (arg1) {
+    case 0: {
+      variant3= {
+        tag: 'no-change',
+      };
+      break;
+    }
+    case 1: {
+      variant3= {
+        tag: 'now',
+      };
+      break;
+    }
+    case 2: {
+      variant3= {
+        tag: 'timestamp',
+        val: {
+          seconds: BigInt.asUintN(64, arg2),
+          nanoseconds: arg3 >>> 0,
+        }
+      };
+      break;
+    }
+  }
+  let variant4;
+  switch (arg4) {
+    case 0: {
+      variant4= {
+        tag: 'no-change',
+      };
+      break;
+    }
+    case 1: {
+      variant4= {
+        tag: 'now',
+      };
+      break;
+    }
+    case 2: {
+      variant4= {
+        tag: 'timestamp',
+        val: {
+          seconds: BigInt.asUintN(64, arg5),
+          nanoseconds: arg6 >>> 0,
+        }
+      };
+      break;
+    }
+  }
+  _debugLog('[iface="wasi:filesystem/types@0.2.9", function="[method]descriptor.set-times"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, '[method]descriptor.set-times');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: rsc0.setTimes(variant3, variant4)};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="wasi:filesystem/types@0.2.9", function="[method]descriptor.set-times"] [Instruction::CallInterface] (sync, @ post-call)');
+  for (const rsc of curResourceBorrows) {
+    rsc[symbolRscHandle] = undefined;
+  }
+  curResourceBorrows = [];
+  endCurrentTask(0);
+  var variant6 = ret;
+  switch (variant6.tag) {
+    case 'ok': {
+      const e = variant6.val;
+      dataView(memory0).setInt8(arg7 + 0, 0, true);
+      break;
+    }
+    case 'err': {
+      const e = variant6.val;
+      dataView(memory0).setInt8(arg7 + 0, 1, true);
+      var val5 = e;
+      let enum5;
+      switch (val5) {
+        case 'access': {
+          enum5 = 0;
+          break;
+        }
+        case 'would-block': {
+          enum5 = 1;
+          break;
+        }
+        case 'already': {
+          enum5 = 2;
+          break;
+        }
+        case 'bad-descriptor': {
+          enum5 = 3;
+          break;
+        }
+        case 'busy': {
+          enum5 = 4;
+          break;
+        }
+        case 'deadlock': {
+          enum5 = 5;
+          break;
+        }
+        case 'quota': {
+          enum5 = 6;
+          break;
+        }
+        case 'exist': {
+          enum5 = 7;
+          break;
+        }
+        case 'file-too-large': {
+          enum5 = 8;
+          break;
+        }
+        case 'illegal-byte-sequence': {
+          enum5 = 9;
+          break;
+        }
+        case 'in-progress': {
+          enum5 = 10;
+          break;
+        }
+        case 'interrupted': {
+          enum5 = 11;
+          break;
+        }
+        case 'invalid': {
+          enum5 = 12;
+          break;
+        }
+        case 'io': {
+          enum5 = 13;
+          break;
+        }
+        case 'is-directory': {
+          enum5 = 14;
+          break;
+        }
+        case 'loop': {
+          enum5 = 15;
+          break;
+        }
+        case 'too-many-links': {
+          enum5 = 16;
+          break;
+        }
+        case 'message-size': {
+          enum5 = 17;
+          break;
+        }
+        case 'name-too-long': {
+          enum5 = 18;
+          break;
+        }
+        case 'no-device': {
+          enum5 = 19;
+          break;
+        }
+        case 'no-entry': {
+          enum5 = 20;
+          break;
+        }
+        case 'no-lock': {
+          enum5 = 21;
+          break;
+        }
+        case 'insufficient-memory': {
+          enum5 = 22;
+          break;
+        }
+        case 'insufficient-space': {
+          enum5 = 23;
+          break;
+        }
+        case 'not-directory': {
+          enum5 = 24;
+          break;
+        }
+        case 'not-empty': {
+          enum5 = 25;
+          break;
+        }
+        case 'not-recoverable': {
+          enum5 = 26;
+          break;
+        }
+        case 'unsupported': {
+          enum5 = 27;
+          break;
+        }
+        case 'no-tty': {
+          enum5 = 28;
+          break;
+        }
+        case 'no-such-device': {
+          enum5 = 29;
+          break;
+        }
+        case 'overflow': {
+          enum5 = 30;
+          break;
+        }
+        case 'not-permitted': {
+          enum5 = 31;
+          break;
+        }
+        case 'pipe': {
+          enum5 = 32;
+          break;
+        }
+        case 'read-only': {
+          enum5 = 33;
+          break;
+        }
+        case 'invalid-seek': {
+          enum5 = 34;
+          break;
+        }
+        case 'text-file-busy': {
+          enum5 = 35;
+          break;
+        }
+        case 'cross-device': {
+          enum5 = 36;
+          break;
+        }
+        default: {
+          
+          throw new TypeError(`"${val5}" is not one of the cases of error-code`);
+        }
+      }
+      dataView(memory0).setInt8(arg7 + 1, enum5, true);
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="wasi:filesystem/types@0.2.9", function="[method]descriptor.set-times"][Instruction::Return]', {
+    funcName: '[method]descriptor.set-times',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+
 const handleTable14 = [T_FLAG, 0];
 const captureTable14= new Map();
 let captureCnt14 = 0;
 handleTables[14] = handleTable14;
 
-function trampoline65(arg0, arg1) {
+function trampoline70(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -5492,7 +5866,7 @@ function trampoline65(arg0, arg1) {
 }
 
 
-function trampoline66(arg0, arg1) {
+function trampoline71(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -5698,7 +6072,7 @@ function trampoline66(arg0, arg1) {
 }
 
 
-function trampoline67(arg0, arg1, arg2, arg3) {
+function trampoline72(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -5907,7 +6281,7 @@ function trampoline67(arg0, arg1, arg2, arg3) {
 }
 
 
-function trampoline68(arg0, arg1) {
+function trampoline73(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -6187,7 +6561,7 @@ function trampoline68(arg0, arg1) {
 }
 
 
-function trampoline69(arg0, arg1, arg2, arg3, arg4) {
+function trampoline74(arg0, arg1, arg2, arg3, arg4) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -6473,7 +6847,7 @@ function trampoline69(arg0, arg1, arg2, arg3, arg4) {
 }
 
 
-function trampoline70(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10) {
+function trampoline75(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -6735,7 +7109,7 @@ function trampoline70(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9
 }
 
 
-function trampoline71(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
+function trampoline76(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -6971,7 +7345,7 @@ function trampoline71(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
 }
 
 
-function trampoline72(arg0, arg1, arg2, arg3) {
+function trampoline77(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -7184,7 +7558,7 @@ function trampoline72(arg0, arg1, arg2, arg3) {
 }
 
 
-function trampoline73(arg0, arg1, arg2, arg3) {
+function trampoline78(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -7393,7 +7767,7 @@ function trampoline73(arg0, arg1, arg2, arg3) {
 }
 
 
-function trampoline74(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
+function trampoline79(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -7614,7 +7988,7 @@ function trampoline74(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
 }
 
 
-function trampoline75(arg0, arg1, arg2, arg3) {
+function trampoline80(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -7823,7 +8197,7 @@ function trampoline75(arg0, arg1, arg2, arg3) {
 }
 
 
-function trampoline76(arg0, arg1) {
+function trampoline81(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -8032,7 +8406,7 @@ function trampoline76(arg0, arg1) {
 }
 
 
-function trampoline77(arg0, arg1, arg2, arg3, arg4) {
+function trampoline82(arg0, arg1, arg2, arg3, arg4) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -8247,7 +8621,7 @@ function trampoline77(arg0, arg1, arg2, arg3, arg4) {
 }
 
 
-function trampoline78(arg0, arg1) {
+function trampoline83(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable14[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable14.get(rep2);
@@ -8506,7 +8880,7 @@ function trampoline78(arg0, arg1) {
 }
 
 
-function trampoline79(arg0) {
+function trampoline84(arg0) {
   _debugLog('[iface="wasi:cli/environment@0.2.9", function="get-environment"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-environment');
   const ret = getEnvironment();
@@ -8542,7 +8916,7 @@ const captureTable4= new Map();
 let captureCnt4 = 0;
 handleTables[4] = handleTable4;
 
-function trampoline80(arg0) {
+function trampoline85(arg0) {
   _debugLog('[iface="wasi:cli/terminal-stdin@0.2.9", function="get-terminal-stdin"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-terminal-stdin');
   const ret = getTerminalStdin();
@@ -8578,7 +8952,7 @@ const captureTable5= new Map();
 let captureCnt5 = 0;
 handleTables[5] = handleTable5;
 
-function trampoline81(arg0) {
+function trampoline86(arg0) {
   _debugLog('[iface="wasi:cli/terminal-stdout@0.2.9", function="get-terminal-stdout"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-terminal-stdout');
   const ret = getTerminalStdout();
@@ -8610,7 +8984,7 @@ function trampoline81(arg0) {
 }
 
 
-function trampoline82(arg0) {
+function trampoline87(arg0) {
   _debugLog('[iface="wasi:cli/terminal-stderr@0.2.9", function="get-terminal-stderr"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-terminal-stderr');
   const ret = getTerminalStderr();
@@ -8642,7 +9016,7 @@ function trampoline82(arg0) {
 }
 
 
-function trampoline83(arg0) {
+function trampoline88(arg0) {
   _debugLog('[iface="wasi:clocks/wall-clock@0.2.9", function="now"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'now');
   const ret = now$1();
@@ -8660,7 +9034,7 @@ function trampoline83(arg0) {
 }
 
 
-function trampoline84(arg0) {
+function trampoline89(arg0) {
   _debugLog('[iface="wasi:filesystem/preopens@0.2.9", function="get-directories"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-directories');
   const ret = getDirectories();
@@ -8697,8 +9071,107 @@ function trampoline84(arg0) {
   });
 }
 
-let exports2;
-function trampoline7(handle) {
+
+function trampoline90(arg0, arg1, arg2, arg3) {
+  var handle1 = arg0;
+  var rep2 = handleTable2[(handle1 << 1) + 1] & ~T_FLAG;
+  var rsc0 = captureTable2.get(rep2);
+  if (!rsc0) {
+    rsc0 = Object.create(OutputStream.prototype);
+    Object.defineProperty(rsc0, symbolRscHandle, { writable: true, value: handle1});
+    Object.defineProperty(rsc0, symbolRscRep, { writable: true, value: rep2});
+  }
+  curResourceBorrows.push(rsc0);
+  var ptr3 = arg1;
+  var len3 = arg2;
+  var result3 = new Uint8Array(memory0.buffer.slice(ptr3, ptr3 + len3 * 1));
+  _debugLog('[iface="wasi:io/streams@0.2.9", function="[method]output-stream.blocking-write-and-flush"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, '[method]output-stream.blocking-write-and-flush');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: rsc0.blockingWriteAndFlush(result3)};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="wasi:io/streams@0.2.9", function="[method]output-stream.blocking-write-and-flush"] [Instruction::CallInterface] (sync, @ post-call)');
+  for (const rsc of curResourceBorrows) {
+    rsc[symbolRscHandle] = undefined;
+  }
+  curResourceBorrows = [];
+  endCurrentTask(0);
+  var variant6 = ret;
+  switch (variant6.tag) {
+    case 'ok': {
+      const e = variant6.val;
+      dataView(memory0).setInt8(arg3 + 0, 0, true);
+      break;
+    }
+    case 'err': {
+      const e = variant6.val;
+      dataView(memory0).setInt8(arg3 + 0, 1, true);
+      var variant5 = e;
+      switch (variant5.tag) {
+        case 'last-operation-failed': {
+          const e = variant5.val;
+          dataView(memory0).setInt8(arg3 + 4, 0, true);
+          if (!(e instanceof Error$1)) {
+            throw new TypeError('Resource error: Not a valid "Error" resource.');
+          }
+          var handle4 = e[symbolRscHandle];
+          if (!handle4) {
+            const rep = e[symbolRscRep] || ++captureCnt0;
+            captureTable0.set(rep, e);
+            handle4 = rscTableCreateOwn(handleTable0, rep);
+          }
+          dataView(memory0).setInt32(arg3 + 8, handle4, true);
+          break;
+        }
+        case 'closed': {
+          dataView(memory0).setInt8(arg3 + 4, 1, true);
+          break;
+        }
+        default: {
+          throw new TypeError(`invalid variant tag value \`${JSON.stringify(variant5.tag)}\` (received \`${variant5}\`) specified for \`StreamError\``);
+        }
+      }
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="wasi:io/streams@0.2.9", function="[method]output-stream.blocking-write-and-flush"][Instruction::Return]', {
+    funcName: '[method]output-stream.blocking-write-and-flush',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+
+
+function trampoline91(arg0, arg1) {
+  _debugLog('[iface="wasi:random/random@0.2.9", function="get-random-bytes"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-random-bytes');
+  const ret = getRandomBytes(BigInt.asUintN(64, arg0));
+  _debugLog('[iface="wasi:random/random@0.2.9", function="get-random-bytes"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  var val0 = ret;
+  var len0 = val0.byteLength;
+  var ptr0 = realloc1(0, 0, 1, len0 * 1);
+  var src0 = new Uint8Array(val0.buffer || val0, val0.byteOffset, len0 * 1);
+  (new Uint8Array(memory0.buffer, ptr0, len0 * 1)).set(src0);
+  dataView(memory0).setUint32(arg1 + 4, len0, true);
+  dataView(memory0).setUint32(arg1 + 0, ptr0, true);
+  _debugLog('[iface="wasi:random/random@0.2.9", function="get-random-bytes"][Instruction::Return]', {
+    funcName: 'get-random-bytes',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+
+let exports3;
+function trampoline10(handle) {
   const handleEntry = rscTableRemove(handleTable9, handle);
   if (handleEntry.own) {
     
@@ -8706,12 +9179,25 @@ function trampoline7(handle) {
     if (rsc) {
       if (rsc[symbolDispose]) rsc[symbolDispose]();
       captureTable9.delete(handleEntry.rep);
+    } else if (RequestOptions[symbolCabiDispose]) {
+      RequestOptions[symbolCabiDispose](handleEntry.rep);
+    }
+  }
+}
+function trampoline12(handle) {
+  const handleEntry = rscTableRemove(handleTable10, handle);
+  if (handleEntry.own) {
+    
+    const rsc = captureTable10.get(handleEntry.rep);
+    if (rsc) {
+      if (rsc[symbolDispose]) rsc[symbolDispose]();
+      captureTable10.delete(handleEntry.rep);
     } else if (FutureIncomingResponse[symbolCabiDispose]) {
       FutureIncomingResponse[symbolCabiDispose](handleEntry.rep);
     }
   }
 }
-function trampoline11(handle) {
+function trampoline16(handle) {
   const handleEntry = rscTableRemove(handleTable1, handle);
   if (handleEntry.own) {
     
@@ -8724,7 +9210,7 @@ function trampoline11(handle) {
     }
   }
 }
-function trampoline12(handle) {
+function trampoline17(handle) {
   const handleEntry = rscTableRemove(handleTable6, handle);
   if (handleEntry.own) {
     
@@ -8737,20 +9223,20 @@ function trampoline12(handle) {
     }
   }
 }
-function trampoline13(handle) {
-  const handleEntry = rscTableRemove(handleTable2, handle);
+function trampoline18(handle) {
+  const handleEntry = rscTableRemove(handleTable3, handle);
   if (handleEntry.own) {
     
-    const rsc = captureTable2.get(handleEntry.rep);
+    const rsc = captureTable3.get(handleEntry.rep);
     if (rsc) {
       if (rsc[symbolDispose]) rsc[symbolDispose]();
-      captureTable2.delete(handleEntry.rep);
+      captureTable3.delete(handleEntry.rep);
     } else if (InputStream[symbolCabiDispose]) {
       InputStream[symbolCabiDispose](handleEntry.rep);
     }
   }
 }
-function trampoline14(handle) {
+function trampoline19(handle) {
   const handleEntry = rscTableRemove(handleTable0, handle);
   if (handleEntry.own) {
     
@@ -8763,20 +9249,20 @@ function trampoline14(handle) {
     }
   }
 }
-function trampoline15(handle) {
-  const handleEntry = rscTableRemove(handleTable11, handle);
+function trampoline20(handle) {
+  const handleEntry = rscTableRemove(handleTable12, handle);
   if (handleEntry.own) {
     
-    const rsc = captureTable11.get(handleEntry.rep);
+    const rsc = captureTable12.get(handleEntry.rep);
     if (rsc) {
       if (rsc[symbolDispose]) rsc[symbolDispose]();
-      captureTable11.delete(handleEntry.rep);
+      captureTable12.delete(handleEntry.rep);
     } else if (IncomingBody[symbolCabiDispose]) {
       IncomingBody[symbolCabiDispose](handleEntry.rep);
     }
   }
 }
-function trampoline16(handle) {
+function trampoline21(handle) {
   const handleEntry = rscTableRemove(handleTable8, handle);
   if (handleEntry.own) {
     
@@ -8789,20 +9275,20 @@ function trampoline16(handle) {
     }
   }
 }
-function trampoline17(handle) {
-  const handleEntry = rscTableRemove(handleTable3, handle);
+function trampoline22(handle) {
+  const handleEntry = rscTableRemove(handleTable2, handle);
   if (handleEntry.own) {
     
-    const rsc = captureTable3.get(handleEntry.rep);
+    const rsc = captureTable2.get(handleEntry.rep);
     if (rsc) {
       if (rsc[symbolDispose]) rsc[symbolDispose]();
-      captureTable3.delete(handleEntry.rep);
+      captureTable2.delete(handleEntry.rep);
     } else if (OutputStream[symbolCabiDispose]) {
       OutputStream[symbolCabiDispose](handleEntry.rep);
     }
   }
 }
-function trampoline18(handle) {
+function trampoline23(handle) {
   const handleEntry = rscTableRemove(handleTable7, handle);
   if (handleEntry.own) {
     
@@ -8815,20 +9301,20 @@ function trampoline18(handle) {
     }
   }
 }
-function trampoline19(handle) {
-  const handleEntry = rscTableRemove(handleTable10, handle);
+function trampoline24(handle) {
+  const handleEntry = rscTableRemove(handleTable11, handle);
   if (handleEntry.own) {
     
-    const rsc = captureTable10.get(handleEntry.rep);
+    const rsc = captureTable11.get(handleEntry.rep);
     if (rsc) {
       if (rsc[symbolDispose]) rsc[symbolDispose]();
-      captureTable10.delete(handleEntry.rep);
+      captureTable11.delete(handleEntry.rep);
     } else if (IncomingResponse[symbolCabiDispose]) {
       IncomingResponse[symbolCabiDispose](handleEntry.rep);
     }
   }
 }
-function trampoline21(handle) {
+function trampoline26(handle) {
   const handleEntry = rscTableRemove(handleTable4, handle);
   if (handleEntry.own) {
     
@@ -8841,7 +9327,7 @@ function trampoline21(handle) {
     }
   }
 }
-function trampoline22(handle) {
+function trampoline27(handle) {
   const handleEntry = rscTableRemove(handleTable5, handle);
   if (handleEntry.own) {
     
@@ -8854,7 +9340,7 @@ function trampoline22(handle) {
     }
   }
 }
-function trampoline23(handle) {
+function trampoline28(handle) {
   const handleEntry = rscTableRemove(handleTable13, handle);
   if (handleEntry.own) {
     
@@ -8867,7 +9353,7 @@ function trampoline23(handle) {
     }
   }
 }
-function trampoline24(handle) {
+function trampoline29(handle) {
   const handleEntry = rscTableRemove(handleTable14, handle);
   if (handleEntry.own) {
     
@@ -8906,22 +9392,23 @@ let _initialized = false;
 export const $init = (() => {
   let gen = (function* _initGenerator () {
     const module0 = fetchCompile(new URL('./codex-wasm-tui.core.wasm', import.meta.url));
-    const module1 = base64Compile('AGFzbQEAAAABhgEQYAJ/fwBgA39+fwBgBH9/f38AYA5/f39/f39/f39/f39/fwBgAn9/AGAFf39/f38AYAZ/f39/f38AYAR/f39/AX9gBX9/f39/AX9gBH9/f38AYAN/f38AYAF/AGAFf39/f38AYAt/f39/f35/f35/fwBgB39/f39/f38AYAd/f39/f39/AAM2NQAAAAEBAgMEAgUGBwgHBwQECQQEBAQJCgsLBAQBAQQEAQQEAgQMDQ4CAg8CBAwECwsLCwsLBAUBcAE1NQeLAjYBMAAAATEAAQEyAAIBMwADATQABAE1AAUBNgAGATcABwE4AAgBOQAJAjEwAAoCMTEACwIxMgAMAjEzAA0CMTQADgIxNQAPAjE2ABACMTcAEQIxOAASAjE5ABMCMjAAFAIyMQAVAjIyABYCMjMAFwIyNAAYAjI1ABkCMjYAGgIyNwAbAjI4ABwCMjkAHQIzMAAeAjMxAB8CMzIAIAIzMwAhAjM0ACICMzUAIwIzNgAkAjM3ACUCMzgAJgIzOQAnAjQwACgCNDEAKQI0MgAqAjQzACsCNDQALAI0NQAtAjQ2AC4CNDcALwI0OAAwAjQ5ADECNTAAMgI1MQAzAjUyADQIJGltcG9ydHMBAAqDBjULACAAIAFBABEAAAsLACAAIAFBAREAAAsLACAAIAFBAhEAAAsNACAAIAEgAkEDEQEACw0AIAAgASACQQQRAQALDwAgACABIAIgA0EFEQIACyMAIAAgASACIAMgBCAFIAYgByAIIAkgCiALIAwgDUEGEQMACwsAIAAgAUEHEQQACw8AIAAgASACIANBCBECAAsRACAAIAEgAiADIARBCREFAAsTACAAIAEgAiADIAQgBUEKEQYACw8AIAAgASACIANBCxEHAAsRACAAIAEgAiADIARBDBEIAAsPACAAIAEgAiADQQ0RBwALDwAgACABIAIgA0EOEQcACwsAIAAgAUEPEQQACwsAIAAgAUEQEQQACw8AIAAgASACIANBEREJAAsLACAAIAFBEhEEAAsLACAAIAFBExEEAAsLACAAIAFBFBEEAAsLACAAIAFBFREEAAsPACAAIAEgAiADQRYRCQALDQAgACABIAJBFxEKAAsJACAAQRgRCwALCQAgAEEZEQsACwsAIAAgAUEaEQQACwsAIAAgAUEbEQQACw0AIAAgASACQRwRAQALDQAgACABIAJBHREBAAsLACAAIAFBHhEEAAsLACAAIAFBHxEEAAsNACAAIAEgAkEgEQEACwsAIAAgAUEhEQQACwsAIAAgAUEiEQQACw8AIAAgASACIANBIxECAAsLACAAIAFBJBEEAAsRACAAIAEgAiADIARBJREMAAsdACAAIAEgAiADIAQgBSAGIAcgCCAJIApBJhENAAsVACAAIAEgAiADIAQgBSAGQScRDgALDwAgACABIAIgA0EoEQIACw8AIAAgASACIANBKRECAAsVACAAIAEgAiADIAQgBSAGQSoRDwALDwAgACABIAIgA0ErEQIACwsAIAAgAUEsEQQACxEAIAAgASACIAMgBEEtEQwACwsAIAAgAUEuEQQACwkAIABBLxELAAsJACAAQTARCwALCQAgAEExEQsACwkAIABBMhELAAsJACAAQTMRCwALCQAgAEE0EQsACwAvCXByb2R1Y2VycwEMcHJvY2Vzc2VkLWJ5AQ13aXQtY29tcG9uZW50BzAuMjQzLjA');
-    const module2 = base64Compile('AGFzbQEAAAABhgEQYAJ/fwBgA39+fwBgBH9/f38AYA5/f39/f39/f39/f39/fwBgAn9/AGAFf39/f38AYAZ/f39/f38AYAR/f39/AX9gBX9/f39/AX9gBH9/f38AYAN/f38AYAF/AGAFf39/f38AYAt/f39/f35/f35/fwBgB39/f39/f38AYAd/f39/f39/AALEAjYAATAAAAABMQAAAAEyAAAAATMAAQABNAABAAE1AAIAATYAAwABNwAEAAE4AAIAATkABQACMTAABgACMTEABwACMTIACAACMTMABwACMTQABwACMTUABAACMTYABAACMTcACQACMTgABAACMTkABAACMjAABAACMjEABAACMjIACQACMjMACgACMjQACwACMjUACwACMjYABAACMjcABAACMjgAAQACMjkAAQACMzAABAACMzEABAACMzIAAQACMzMABAACMzQABAACMzUAAgACMzYABAACMzcADAACMzgADQACMzkADgACNDAAAgACNDEAAgACNDIADwACNDMAAgACNDQABAACNDUADAACNDYABAACNDcACwACNDgACwACNDkACwACNTAACwACNTEACwACNTIACwAIJGltcG9ydHMBcAE1NQk7AQBBAAs1AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQALwlwcm9kdWNlcnMBDHByb2Nlc3NlZC1ieQENd2l0LWNvbXBvbmVudAcwLjI0My4w');
-    ({ exports: exports0 } = yield instantiateCore(yield module1));
+    const module1 = base64Compile('AGFzbQEAAAABMglgAn9/AGAEf39/fwBgAX8AYAR/f39/AX9gAn5/AGAAAX9gA39/fwF/YAJ/fwF/YAAAAqQCBwNlbnYGbWVtb3J5AgAAE3dhc2k6aW8vZXJyb3JAMC4yLjYUW3Jlc291cmNlLWRyb3BdZXJyb3IAAg9fX21haW5fbW9kdWxlX18MY2FiaV9yZWFsbG9jAAMVd2FzaTppby9zdHJlYW1zQDAuMi42HFtyZXNvdXJjZS1kcm9wXW91dHB1dC1zdHJlYW0AAhh3YXNpOnJhbmRvbS9yYW5kb21AMC4yLjYQZ2V0LXJhbmRvbS1ieXRlcwAEFXdhc2k6Y2xpL3N0ZGVyckAwLjIuNgpnZXQtc3RkZXJyAAUVd2FzaTppby9zdHJlYW1zQDAuMi42LlttZXRob2Rdb3V0cHV0LXN0cmVhbS5ibG9ja2luZy13cml0ZS1hbmQtZmx1c2gAAQMREAIAAgEFBQYDBwICBQIFAggGEAN/AUEAC38BQQALfwFBAAsHJAITY2FiaV9pbXBvcnRfcmVhbGxvYwANCnJhbmRvbV9nZXQADgqNDxBxAQF/IwBBMGsiASQAIAFBIDoALyABQezSuasGNgArIAFC4ciFg8eumbkgNwAjIAFC9eiVo4akmLogNwAbIAFC4tiVg9KM3rLjADcAEyABQvXcyauW7Ji04QA3AAsgAUELakElEAcgABAPIAFBMGokAAthAQF/IwBBEGsiAiQAIAIQBDYCDCACQQRqIAJBDGogACABEAkCQCACKAIEIgFBAkYNACABDQAgAigCCCIBQX9GDQAgARAACwJAIAIoAgwiAUF/Rg0AIAEQAgsgAkEQaiQAC2IBAX8jAEEwayIBJAAgAUEgOgAvIAFC9MrJg8KtmrflADcAJyABQqDC0YOSjNmw8AA3AB8gAULuwJiLlo3bsuQANwAXIAFC4ebNq6aO3bTvADcADyABQQ9qQSEQByAAEBAAC1ICAX8BfiMAQRBrIgQkACABKAIAIAIgAyAEQQRqEAUCQAJAIAQtAAQNAEICIQUMAQtCASAENQIMQiCGIAQtAAgbIQULIAAgBTcCACAEQRBqJAALfwEBfwJAEBNBAkcNAEEDEBRBAEEAQQhBgIAEEAEhAEEEEBQgAEEANgLw/wMgAEECNgKkMCAAQQA2AhggAEL1zqGLwgA3AwACQEElRQ0AIABByP8DakEAQSX8CwALIABB9c6hiwI2Avz/AyAAQa7cADsB+P8DIAAPC0GVFhAIAAsVAQF/AkAQESIADQAQCiIAEBILIAALmQMBA38jAEEgayIDJAACQAJAAkAgAWlBAUcNACAAKAIEIgQgASAAKAIAIgVqQX9qQQAgAWtxIAVrIgFJDQEgBCABayIEIAJPDQJBwgMQBiADQbrAADsAAyADQQNqQQIQByADQQo6AB8gA0Hh5J2rBjYAGyADQunmgaH37ZuQ7AA3ABMgA0Lv3IGZl83esiA3AAsgA0Lh2LH7tqyYuukANwADIANBA2pBHRAHIANBCjoAAyADQQNqQQEQBwALQcwDEAYgA0G6wAA7AAMgA0EDakECEAcgA0H0FDsAEyADQuHYpbvmrduy7gA3AAsgA0Lp3NmLxq2asiA3AAMgA0EDakESEAcgA0EKOgADIANBA2pBARAHAAtB0AMQBiADQbrAADsAAyADQQNqQQIQByADQQo6ABUgA0H0ygE7ABMgA0LvwITjxu3bseEANwALIANC5sKl49aMmZD0ADcAAyADQQNqQRMQByADQQo6AAMgA0EDakEBEAcACyAAIAQgAms2AgQgACAFIAFqIgEgAmo2AgAgA0EgaiQAIAELsAQCAn8BfhAVIwBBMGsiBCQAAkACQAJAAkACQAJAAkACQAJAAkAQCyIFKAIAQfXOoYsCRw0AIAUoAvz/A0H1zqGLAkcNASAFKQIEIQYgBUEENgIEIARBEGogBUEUaigCADYCACAEQQhqIAVBDGopAgA3AwAgBCAGNwMAIABFDQIgASADTQ0DIAJBAUYNCUGDAxAIAAtB9RUQCAALQfYVEAgACyAEKAIADgUFAwIBBAULQYIDEAgACyAEQQxqIQACQCACQQFGDQAgACACIAMQDCEADAULIAQgBCgCBCICQQFqNgIEAkAgAiAEKAIIRg0AIAQgBCkCDDcCGCAEQRhqQQEgAxAMIQAMBQsgAEEBIAMQDCEADAQLAkAgAkEBRg0AIARBDGogAiADEAwhAAwECyAEQQRyQQEgA0EBahAMIQAMAwsCQCACQQFGDQAgBEEIaiACIAMQDCEADAMLIAQgBCgCBCADajYCBCAEIAQpAwg3AhggBEEYakEBIAMQDCEADAILQawDEAYgBEG6wAA7ABggBEEYakECEAcgBELm0p2rp66Zsgo3ACggBELh6L2Th+TYt+4ANwAgIARC7t6BicaN27fjADcAGCAEQRhqQRgQByAEQQo6ABggBEEYakEBEAcACyAEQQRyIAIgAxAMIQAgBEEENgIACyAFQQRqIgUgBCkDADcCACAFQRBqIARBEGooAgA2AgAgBUEIaiAEQQhqKQMANwIAIARBMGokACAAC5gCAQN/EBUjAEEgayICJAACQAJAAkACQAJAAkAQE0F+ag4DAAEAAQsQCyIDKAIAQfXOoYsCRw0BIAMoAvz/A0H1zqGLAkcNAiADIAE2AgwgAyAANgIIIAMoAgQhBCADQQA2AgQgBEEERw0DIAJCADcDACABrSACEAMgAigCACEBIANBBDYCBCABIABHDQQLIAJBIGokAEEADwtB9RUQCAALQfYVEAgAC0GCFxAGIAJBusAAOwAAIAJBAhAHIAJBCjoAHCACQaDmlaMHNgAYIAJCoMKxk9esmLL5ADcAECACQuzYvZuWjN238gA3AAggAkLp2sH7po6dkOEANwAAIAJBHRAHIAJBCjoAACACQQEQBwALQcMSEAgACz8BAn8jAEEQayIBJAACQCAARQ0AIABBCm4iAhAPIAEgAkH2AWwgAGpBMHI6AA8gAUEPakEBEAcLIAFBEGokAAsGACAAEA8LBAAjAQsGACAAJAELBAAjAgsGACAAJAILJQAjAkEARgRAQQEkAkEAQQBBCEGAgAQQAUGAgARqJABBAiQCCwsAvQwEbmFtZQH7CxYApAFfWk4xMjhfJExUJHdhc2lfc25hcHNob3RfcHJldmlldzEuLmJpbmRpbmdzLi53YXNpLi5pby4uZXJyb3IuLkVycm9yJHUyMCRhcyR1MjAkd2FzaV9zbmFwc2hvdF9wcmV2aWV3MS4uYmluZGluZ3MuLl9ydC4uV2FzbVJlc291cmNlJEdUJDRkcm9wNGRyb3AxN2hlMTc3MTdiNmYzYzQ1NGMyRQFHX1pOMjJ3YXNpX3NuYXBzaG90X3ByZXZpZXcxNVN0YXRlM25ldzEyY2FiaV9yZWFsbG9jMTdoM2JkMDMwOTAyNTUwNzE1NEUCrQFfWk4xMzdfJExUJHdhc2lfc25hcHNob3RfcHJldmlldzEuLmJpbmRpbmdzLi53YXNpLi5pby4uc3RyZWFtcy4uT3V0cHV0U3RyZWFtJHUyMCRhcyR1MjAkd2FzaV9zbmFwc2hvdF9wcmV2aWV3MS4uYmluZGluZ3MuLl9ydC4uV2FzbVJlc291cmNlJEdUJDRkcm9wNGRyb3AxN2hkMmZkZGI4NWYyNTM3NTZkRQNqX1pOMjJ3YXNpX3NuYXBzaG90X3ByZXZpZXcxOGJpbmRpbmdzNHdhc2k2cmFuZG9tNnJhbmRvbTE2Z2V0X3JhbmRvbV9ieXRlczExd2l0X2ltcG9ydDExN2g0OTk2NGJjZjVmMTNjYjg3RQRhX1pOMjJ3YXNpX3NuYXBzaG90X3ByZXZpZXcxOGJpbmRpbmdzNHdhc2kzY2xpNnN0ZGVycjEwZ2V0X3N0ZGVycjExd2l0X2ltcG9ydDAxN2g0NzQxNGFmNzNiMmI4MmQ5RQV9X1pOMjJ3YXNpX3NuYXBzaG90X3ByZXZpZXcxOGJpbmRpbmdzNHdhc2kyaW83c3RyZWFtczEyT3V0cHV0U3RyZWFtMjRibG9ja2luZ193cml0ZV9hbmRfZmx1c2gxMXdpdF9pbXBvcnQyMTdoMzEyZGJmZTQzZTBlYjA0ZEUGSl9aTjIyd2FzaV9zbmFwc2hvdF9wcmV2aWV3MTZtYWNyb3MxOGVwcmludF91bnJlYWNoYWJsZTE3aDQ1YWQxMTY5NDI3YzQ3NzFFBzxfWk4yMndhc2lfc25hcHNob3RfcHJldmlldzE2bWFjcm9zNXByaW50MTdoZjNmYzNiYTBjNGI4N2E4MkUIQ19aTjIyd2FzaV9zbmFwc2hvdF9wcmV2aWV3MTZtYWNyb3MxMWFzc2VydF9mYWlsMTdoMDM0YmU5OTAxYTYwM2VlY0UJcF9aTjIyd2FzaV9zbmFwc2hvdF9wcmV2aWV3MThiaW5kaW5nczR3YXNpMmlvN3N0cmVhbXMxMk91dHB1dFN0cmVhbTI0YmxvY2tpbmdfd3JpdGVfYW5kX2ZsdXNoMTdoZTc3MzRkM2I2YjQ4NzUyZEUKOV9aTjIyd2FzaV9zbmFwc2hvdF9wcmV2aWV3MTVTdGF0ZTNuZXcxN2g0Zjg2NGMxYjRkNjRlNTMwRQs5X1pOMjJ3YXNpX3NuYXBzaG90X3ByZXZpZXcxNVN0YXRlM3B0cjE3aDBkZTgyMDM4NTk1ZDk5NTFFDD9fWk4yMndhc2lfc25hcHNob3RfcHJldmlldzE5QnVtcEFsbG9jNWFsbG9jMTdoOWFmNDM5MzgwNDc1OWE5YUUNE2NhYmlfaW1wb3J0X3JlYWxsb2MOCnJhbmRvbV9nZXQPU19aTjIyd2FzaV9zbmFwc2hvdF9wcmV2aWV3MTZtYWNyb3MxMGVwcmludF91MzIxNWVwcmludF91MzJfaW1wbDE3aDY0ZWY2MDg4NGY2OWQyOTFFEEJfWk4yMndhc2lfc25hcHNob3RfcHJldmlldzE2bWFjcm9zMTBlcHJpbnRfdTMyMTdoOTk2YmU5ZmE3ZmVkYzkzOEURDWdldF9zdGF0ZV9wdHISDXNldF9zdGF0ZV9wdHITFGdldF9hbGxvY2F0aW9uX3N0YXRlFBRzZXRfYWxsb2NhdGlvbl9zdGF0ZRUOYWxsb2NhdGVfc3RhY2sHOAMAD19fc3RhY2tfcG9pbnRlcgESaW50ZXJuYWxfc3RhdGVfcHRyAhBhbGxvY2F0aW9uX3N0YXRlAE0JcHJvZHVjZXJzAghsYW5ndWFnZQEEUnVzdAAMcHJvY2Vzc2VkLWJ5AQVydXN0Yx0xLjkxLjAgKGY4Mjk3ZTM1MSAyMDI1LTEwLTI4KQ');
+    const module2 = base64Compile('AGFzbQEAAAABnAETYAJ/fwBgDn9/f39/f39/f39/f39/AGACf38AYAR/f39/AGAFf39/f38AYAZ/f39/f38AYAR/f39/AX9gBX9/f39/AX9gBH9/f38AYAN/fn8AYAN/f38AYAF/AGACf38Bf2AIf39+f39+f38AYAV/f39/fwBgC39/f39/fn9/fn9/AGAHf39/f39/fwBgB39/f39/f38AYAJ+fwADOTgAAAABAgMEBQYHBgYCAggCAgICAwkICgsLDAICCQkCAgkNAgIDAg4PEAMDEQMCDgILCwsLCwsDEgQFAXABODgHmgI5ATAAAAExAAEBMgACATMAAwE0AAQBNQAFATYABgE3AAcBOAAIATkACQIxMAAKAjExAAsCMTIADAIxMwANAjE0AA4CMTUADwIxNgAQAjE3ABECMTgAEgIxOQATAjIwABQCMjEAFQIyMgAWAjIzABcCMjQAGAIyNQAZAjI2ABoCMjcAGwIyOAAcAjI5AB0CMzAAHgIzMQAfAjMyACACMzMAIQIzNAAiAjM1ACMCMzYAJAIzNwAlAjM4ACYCMzkAJwI0MAAoAjQxACkCNDIAKgI0MwArAjQ0ACwCNDUALQI0NgAuAjQ3AC8CNDgAMAI0OQAxAjUwADICNTEAMwI1MgA0AjUzADUCNTQANgI1NQA3CCRpbXBvcnRzAQAKtQY4CwAgACABQQARAAALCwAgACABQQERAAALCwAgACABQQIRAAALIwAgACABIAIgAyAEIAUgBiAHIAggCSAKIAsgDCANQQMRAQALCwAgACABQQQRAgALDwAgACABIAIgA0EFEQMACxEAIAAgASACIAMgBEEGEQQACxMAIAAgASACIAMgBCAFQQcRBQALDwAgACABIAIgA0EIEQYACxEAIAAgASACIAMgBEEJEQcACw8AIAAgASACIANBChEGAAsPACAAIAEgAiADQQsRBgALCwAgACABQQwRAgALCwAgACABQQ0RAgALDwAgACABIAIgA0EOEQgACwsAIAAgAUEPEQIACwsAIAAgAUEQEQIACwsAIAAgAUEREQIACwsAIAAgAUESEQIACw8AIAAgASACIANBExEDAAsNACAAIAEgAkEUEQkACw8AIAAgASACIANBFREIAAsNACAAIAEgAkEWEQoACwkAIABBFxELAAsJACAAQRgRCwALCwAgACABQRkRDAALCwAgACABQRoRAgALCwAgACABQRsRAgALDQAgACABIAJBHBEJAAsNACAAIAEgAkEdEQkACwsAIAAgAUEeEQIACwsAIAAgAUEfEQIACw0AIAAgASACQSARCQALFwAgACABIAIgAyAEIAUgBiAHQSERDQALCwAgACABQSIRAgALCwAgACABQSMRAgALDwAgACABIAIgA0EkEQMACwsAIAAgAUElEQIACxEAIAAgASACIAMgBEEmEQ4ACx0AIAAgASACIAMgBCAFIAYgByAIIAkgCkEnEQ8ACxUAIAAgASACIAMgBCAFIAZBKBEQAAsPACAAIAEgAiADQSkRAwALDwAgACABIAIgA0EqEQMACxUAIAAgASACIAMgBCAFIAZBKxERAAsPACAAIAEgAiADQSwRAwALCwAgACABQS0RAgALEQAgACABIAIgAyAEQS4RDgALCwAgACABQS8RAgALCQAgAEEwEQsACwkAIABBMRELAAsJACAAQTIRCwALCQAgAEEzEQsACwkAIABBNBELAAsJACAAQTURCwALDwAgACABIAIgA0E2EQMACwsAIAAgAUE3ERIACwAvCXByb2R1Y2VycwEMcHJvY2Vzc2VkLWJ5AQ13aXQtY29tcG9uZW50BzAuMjQzLjA');
+    const module3 = base64Compile('AGFzbQEAAAABnAETYAJ/fwBgDn9/f39/f39/f39/f39/AGACf38AYAR/f39/AGAFf39/f38AYAZ/f39/f38AYAR/f39/AX9gBX9/f39/AX9gBH9/f38AYAN/fn8AYAN/f38AYAF/AGACf38Bf2AIf39+f39+f38AYAV/f39/fwBgC39/f39/fn9/fn9/AGAHf39/f39/fwBgB39/f39/f38AYAJ+fwAC1gI5AAEwAAAAATEAAAABMgAAAAEzAAEAATQAAgABNQADAAE2AAQAATcABQABOAAGAAE5AAcAAjEwAAYAAjExAAYAAjEyAAIAAjEzAAIAAjE0AAgAAjE1AAIAAjE2AAIAAjE3AAIAAjE4AAIAAjE5AAMAAjIwAAkAAjIxAAgAAjIyAAoAAjIzAAsAAjI0AAsAAjI1AAwAAjI2AAIAAjI3AAIAAjI4AAkAAjI5AAkAAjMwAAIAAjMxAAIAAjMyAAkAAjMzAA0AAjM0AAIAAjM1AAIAAjM2AAMAAjM3AAIAAjM4AA4AAjM5AA8AAjQwABAAAjQxAAMAAjQyAAMAAjQzABEAAjQ0AAMAAjQ1AAIAAjQ2AA4AAjQ3AAIAAjQ4AAsAAjQ5AAsAAjUwAAsAAjUxAAsAAjUyAAsAAjUzAAsAAjU0AAMAAjU1ABIACCRpbXBvcnRzAXABODgJPgEAQQALOAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3AC8JcHJvZHVjZXJzAQxwcm9jZXNzZWQtYnkBDXdpdC1jb21wb25lbnQHMC4yNDMuMA');
+    ({ exports: exports0 } = yield instantiateCore(yield module2));
     ({ exports: exports1 } = yield instantiateCore(yield module0, {
       'codex:tui/shell-exec@0.1.0': {
-        exec: exports0['6'],
+        exec: exports0['3'],
       },
       'codex:tui/websocket@0.1.0': {
         close: trampoline0,
-        connect: exports0['9'],
+        connect: exports0['6'],
         'is-closed': trampoline1,
-        recv: exports0['7'],
-        send: exports0['8'],
+        recv: exports0['4'],
+        send: exports0['5'],
       },
       'host:browser/actions@0.1.0': {
-        'open-url': exports0['23'],
+        'open-url': exports0['22'],
       },
       'host:console/logging@0.1.0': {
         error: exports0['1'],
@@ -8929,200 +9416,233 @@ export const $init = (() => {
         warn: exports0['2'],
       },
       'wasi:cli/environment@0.2.0': {
-        'get-environment': exports0['47'],
+        'get-environment': exports0['48'],
       },
       'wasi:cli/environment@0.2.9': {
-        'get-arguments': exports0['24'],
+        'get-arguments': exports0['23'],
       },
       'wasi:cli/exit@0.2.0': {
-        exit: trampoline25,
+        exit: trampoline30,
       },
       'wasi:cli/stderr@0.2.0': {
-        'get-stderr': trampoline29,
+        'get-stderr': trampoline34,
       },
       'wasi:cli/stdin@0.2.0': {
-        'get-stdin': trampoline27,
+        'get-stdin': trampoline32,
       },
       'wasi:cli/stdout@0.2.0': {
-        'get-stdout': trampoline28,
+        'get-stdout': trampoline33,
       },
       'wasi:cli/terminal-input@0.2.0': {
-        '[resource-drop]terminal-input': trampoline21,
+        '[resource-drop]terminal-input': trampoline26,
       },
       'wasi:cli/terminal-output@0.2.0': {
-        '[resource-drop]terminal-output': trampoline22,
+        '[resource-drop]terminal-output': trampoline27,
       },
       'wasi:cli/terminal-stderr@0.2.0': {
-        'get-terminal-stderr': exports0['50'],
+        'get-terminal-stderr': exports0['51'],
       },
       'wasi:cli/terminal-stdin@0.2.0': {
-        'get-terminal-stdin': exports0['48'],
+        'get-terminal-stdin': exports0['49'],
       },
       'wasi:cli/terminal-stdout@0.2.0': {
-        'get-terminal-stdout': exports0['49'],
+        'get-terminal-stdout': exports0['50'],
       },
       'wasi:clocks/monotonic-clock@0.2.0': {
-        now: trampoline30,
+        now: trampoline35,
         'subscribe-duration': trampoline2,
-        'subscribe-instant': trampoline31,
+        'subscribe-instant': trampoline36,
       },
       'wasi:clocks/monotonic-clock@0.2.9': {
         'subscribe-duration': trampoline2,
       },
       'wasi:clocks/wall-clock@0.2.0': {
-        now: exports0['51'],
+        now: exports0['52'],
       },
       'wasi:filesystem/preopens@0.2.0': {
-        'get-directories': exports0['52'],
+        'get-directories': exports0['53'],
       },
       'wasi:filesystem/types@0.2.0': {
         '[method]descriptor.append-via-stream': exports0['30'],
-        '[method]descriptor.create-directory-at': exports0['35'],
+        '[method]descriptor.create-directory-at': exports0['36'],
         '[method]descriptor.get-flags': exports0['31'],
-        '[method]descriptor.metadata-hash': exports0['44'],
-        '[method]descriptor.metadata-hash-at': exports0['45'],
-        '[method]descriptor.open-at': exports0['39'],
-        '[method]descriptor.read-directory': exports0['33'],
+        '[method]descriptor.metadata-hash': exports0['45'],
+        '[method]descriptor.metadata-hash-at': exports0['46'],
+        '[method]descriptor.open-at': exports0['40'],
+        '[method]descriptor.read-directory': exports0['34'],
         '[method]descriptor.read-via-stream': exports0['28'],
-        '[method]descriptor.readlink-at': exports0['40'],
-        '[method]descriptor.remove-directory-at': exports0['41'],
-        '[method]descriptor.rename-at': exports0['42'],
+        '[method]descriptor.readlink-at': exports0['41'],
+        '[method]descriptor.remove-directory-at': exports0['42'],
+        '[method]descriptor.rename-at': exports0['43'],
         '[method]descriptor.set-size': exports0['32'],
-        '[method]descriptor.set-times-at': exports0['38'],
-        '[method]descriptor.stat': exports0['36'],
-        '[method]descriptor.stat-at': exports0['37'],
-        '[method]descriptor.sync': exports0['34'],
-        '[method]descriptor.unlink-file-at': exports0['43'],
+        '[method]descriptor.set-times': exports0['33'],
+        '[method]descriptor.set-times-at': exports0['39'],
+        '[method]descriptor.stat': exports0['37'],
+        '[method]descriptor.stat-at': exports0['38'],
+        '[method]descriptor.sync': exports0['35'],
+        '[method]descriptor.unlink-file-at': exports0['44'],
         '[method]descriptor.write-via-stream': exports0['29'],
-        '[method]directory-entry-stream.read-directory-entry': exports0['46'],
-        '[resource-drop]descriptor': trampoline23,
-        '[resource-drop]directory-entry-stream': trampoline24,
+        '[method]directory-entry-stream.read-directory-entry': exports0['47'],
+        '[resource-drop]descriptor': trampoline28,
+        '[resource-drop]directory-entry-stream': trampoline29,
       },
       'wasi:http/outgoing-handler@0.2.9': {
-        handle: exports0['22'],
+        handle: exports0['21'],
       },
       'wasi:http/types@0.2.9': {
         '[constructor]fields': trampoline3,
         '[constructor]outgoing-request': trampoline4,
-        '[method]fields.append': exports0['10'],
-        '[method]fields.entries': exports0['19'],
-        '[method]future-incoming-response.get': exports0['18'],
-        '[method]future-incoming-response.subscribe': trampoline6,
-        '[method]incoming-body.stream': exports0['20'],
-        '[method]incoming-response.consume': exports0['21'],
-        '[method]incoming-response.headers': trampoline8,
-        '[method]incoming-response.status': trampoline10,
-        '[method]outgoing-body.write': exports0['16'],
-        '[method]outgoing-request.body': exports0['15'],
-        '[method]outgoing-request.set-authority': exports0['13'],
-        '[method]outgoing-request.set-method': exports0['11'],
-        '[method]outgoing-request.set-path-with-query': exports0['14'],
-        '[method]outgoing-request.set-scheme': exports0['12'],
-        '[resource-drop]fields': trampoline12,
-        '[resource-drop]future-incoming-response': trampoline7,
-        '[resource-drop]incoming-body': trampoline15,
-        '[resource-drop]incoming-response': trampoline19,
-        '[resource-drop]outgoing-body': trampoline16,
-        '[resource-drop]outgoing-request': trampoline18,
-        '[static]outgoing-body.finish': exports0['17'],
+        '[constructor]request-options': trampoline6,
+        '[method]fields.append': exports0['7'],
+        '[method]fields.entries': exports0['16'],
+        '[method]future-incoming-response.get': exports0['15'],
+        '[method]future-incoming-response.subscribe': trampoline11,
+        '[method]incoming-body.stream': exports0['17'],
+        '[method]incoming-response.consume': exports0['18'],
+        '[method]incoming-response.headers': trampoline13,
+        '[method]incoming-response.status': trampoline15,
+        '[method]outgoing-body.write': exports0['13'],
+        '[method]outgoing-request.body': exports0['12'],
+        '[method]outgoing-request.set-authority': exports0['10'],
+        '[method]outgoing-request.set-method': exports0['8'],
+        '[method]outgoing-request.set-path-with-query': exports0['11'],
+        '[method]outgoing-request.set-scheme': exports0['9'],
+        '[method]request-options.set-between-bytes-timeout': trampoline9,
+        '[method]request-options.set-connect-timeout': trampoline7,
+        '[method]request-options.set-first-byte-timeout': trampoline8,
+        '[resource-drop]fields': trampoline17,
+        '[resource-drop]future-incoming-response': trampoline12,
+        '[resource-drop]incoming-body': trampoline20,
+        '[resource-drop]incoming-response': trampoline24,
+        '[resource-drop]outgoing-body': trampoline21,
+        '[resource-drop]outgoing-request': trampoline23,
+        '[resource-drop]request-options': trampoline10,
+        '[static]outgoing-body.finish': exports0['14'],
       },
       'wasi:io/error@0.2.0': {
-        '[resource-drop]error': trampoline14,
+        '[resource-drop]error': trampoline19,
       },
       'wasi:io/error@0.2.9': {
-        '[resource-drop]error': trampoline14,
+        '[resource-drop]error': trampoline19,
       },
       'wasi:io/poll@0.2.0': {
-        '[method]pollable.block': trampoline9,
-        '[resource-drop]pollable': trampoline11,
+        '[method]pollable.block': trampoline14,
+        '[resource-drop]pollable': trampoline16,
       },
       'wasi:io/poll@0.2.9': {
-        '[method]pollable.block': trampoline9,
-        '[resource-drop]pollable': trampoline11,
+        '[method]pollable.block': trampoline14,
+        '[resource-drop]pollable': trampoline16,
       },
       'wasi:io/streams@0.2.0': {
-        '[method]input-stream.blocking-read': exports0['3'],
-        '[method]input-stream.subscribe': trampoline26,
+        '[method]input-stream.blocking-read': exports0['20'],
+        '[method]input-stream.subscribe': trampoline31,
         '[method]output-stream.blocking-flush': exports0['27'],
         '[method]output-stream.check-write': exports0['26'],
         '[method]output-stream.subscribe': trampoline5,
-        '[method]output-stream.write': exports0['5'],
-        '[resource-drop]input-stream': trampoline13,
-        '[resource-drop]output-stream': trampoline17,
+        '[method]output-stream.write': exports0['19'],
+        '[resource-drop]input-stream': trampoline18,
+        '[resource-drop]output-stream': trampoline22,
       },
       'wasi:io/streams@0.2.9': {
-        '[method]input-stream.blocking-read': exports0['3'],
-        '[method]input-stream.read': exports0['4'],
+        '[method]input-stream.blocking-read': exports0['20'],
         '[method]output-stream.subscribe': trampoline5,
-        '[method]output-stream.write': exports0['5'],
-        '[resource-drop]input-stream': trampoline13,
-        '[resource-drop]output-stream': trampoline17,
+        '[method]output-stream.write': exports0['19'],
+        '[resource-drop]input-stream': trampoline18,
+        '[resource-drop]output-stream': trampoline22,
       },
       'wasi:random/insecure-seed@0.2.4': {
-        'insecure-seed': exports0['25'],
+        'insecure-seed': exports0['24'],
       },
       'wasi:random/random@0.2.9': {
-        'get-random-u64': trampoline20,
+        'get-random-u64': trampoline25,
+      },
+      wasi_snapshot_preview1: {
+        random_get: exports0['25'],
+      },
+    }));
+    ({ exports: exports2 } = yield instantiateCore(yield module1, {
+      __main_module__: {
+        cabi_realloc: exports1.cabi_realloc,
+      },
+      env: {
+        memory: exports1.memory,
+      },
+      'wasi:cli/stderr@0.2.6': {
+        'get-stderr': trampoline34,
+      },
+      'wasi:io/error@0.2.6': {
+        '[resource-drop]error': trampoline19,
+      },
+      'wasi:io/streams@0.2.6': {
+        '[method]output-stream.blocking-write-and-flush': exports0['54'],
+        '[resource-drop]output-stream': trampoline22,
+      },
+      'wasi:random/random@0.2.6': {
+        'get-random-bytes': exports0['55'],
       },
     }));
     memory0 = exports1.memory;
     realloc0 = exports1.cabi_realloc;
-    ({ exports: exports2 } = yield instantiateCore(yield module2, {
+    realloc1 = exports2.cabi_import_realloc;
+    ({ exports: exports3 } = yield instantiateCore(yield module3, {
       '': {
         $imports: exports0.$imports,
-        '0': trampoline32,
-        '1': trampoline33,
-        '10': trampoline42,
-        '11': trampoline43,
-        '12': trampoline44,
-        '13': trampoline45,
-        '14': trampoline46,
-        '15': trampoline47,
-        '16': trampoline48,
-        '17': trampoline49,
-        '18': trampoline50,
-        '19': trampoline51,
-        '2': trampoline34,
-        '20': trampoline52,
-        '21': trampoline53,
-        '22': trampoline54,
-        '23': trampoline55,
-        '24': trampoline56,
-        '25': trampoline57,
-        '26': trampoline58,
-        '27': trampoline59,
-        '28': trampoline60,
-        '29': trampoline61,
-        '3': trampoline35,
-        '30': trampoline62,
-        '31': trampoline63,
-        '32': trampoline64,
-        '33': trampoline65,
-        '34': trampoline66,
-        '35': trampoline67,
-        '36': trampoline68,
-        '37': trampoline69,
-        '38': trampoline70,
-        '39': trampoline71,
-        '4': trampoline36,
-        '40': trampoline72,
-        '41': trampoline73,
-        '42': trampoline74,
-        '43': trampoline75,
-        '44': trampoline76,
-        '45': trampoline77,
-        '46': trampoline78,
-        '47': trampoline79,
-        '48': trampoline80,
-        '49': trampoline81,
-        '5': trampoline37,
-        '50': trampoline82,
-        '51': trampoline83,
-        '52': trampoline84,
-        '6': trampoline38,
-        '7': trampoline39,
-        '8': trampoline40,
-        '9': trampoline41,
+        '0': trampoline37,
+        '1': trampoline38,
+        '10': trampoline47,
+        '11': trampoline48,
+        '12': trampoline49,
+        '13': trampoline50,
+        '14': trampoline51,
+        '15': trampoline52,
+        '16': trampoline53,
+        '17': trampoline54,
+        '18': trampoline55,
+        '19': trampoline56,
+        '2': trampoline39,
+        '20': trampoline57,
+        '21': trampoline58,
+        '22': trampoline59,
+        '23': trampoline60,
+        '24': trampoline61,
+        '25': exports2.random_get,
+        '26': trampoline62,
+        '27': trampoline63,
+        '28': trampoline64,
+        '29': trampoline65,
+        '3': trampoline40,
+        '30': trampoline66,
+        '31': trampoline67,
+        '32': trampoline68,
+        '33': trampoline69,
+        '34': trampoline70,
+        '35': trampoline71,
+        '36': trampoline72,
+        '37': trampoline73,
+        '38': trampoline74,
+        '39': trampoline75,
+        '4': trampoline41,
+        '40': trampoline76,
+        '41': trampoline77,
+        '42': trampoline78,
+        '43': trampoline79,
+        '44': trampoline80,
+        '45': trampoline81,
+        '46': trampoline82,
+        '47': trampoline83,
+        '48': trampoline84,
+        '49': trampoline85,
+        '5': trampoline42,
+        '50': trampoline86,
+        '51': trampoline87,
+        '52': trampoline88,
+        '53': trampoline89,
+        '54': trampoline90,
+        '55': trampoline91,
+        '6': trampoline43,
+        '7': trampoline44,
+        '8': trampoline45,
+        '9': trampoline46,
       },
     }));
     _initialized = true;

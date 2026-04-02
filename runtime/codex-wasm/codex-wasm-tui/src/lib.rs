@@ -48,6 +48,13 @@ fn ensure_initialized() {
         webbrowser::set_open_handler(|url| {
             bindings::host::browser::actions::open_url(url).map_err(|e| e.to_string())
         });
+        // Register clipboard shims → WIT clipboard binding
+        arboard::set_read_handler(|| {
+            bindings::host::browser::clipboard::read_text().map_err(|e| e.to_string())
+        });
+        arboard::set_write_handler(|text| {
+            bindings::host::browser::clipboard::write_text(text).map_err(|e| e.to_string())
+        });
     });
 }
 

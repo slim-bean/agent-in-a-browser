@@ -19,6 +19,7 @@ tokio = { path = "../wasi-tokio" }
 clap = { version = "4", features = ["derive"] }
 
 webbrowser = { path = "../wasi-webbrowser" }
+arboard = { path = "../wasi-arboard" }
 wit-bindgen = "0.36"
 wit-bindgen-rt = "0.36"
 console-log = { path = "../../crates/console-log" }
@@ -43,6 +44,13 @@ webbrowser = { path = "../wasi-webbrowser" }
 os_info = { path = "../wasi-os-info" }
 sqlx = { path = "../wasi-sqlx" }
 tiny_http = { path = "../wasi-tiny-http" }
+codex-keyring-store = { path = "../wasi-keyring-store" }
+codex-terminal-detection = { path = "../wasi-terminal-detection" }
+codex-shell-escalation = { path = "../wasi-shell-escalation" }
+codex-utils-pty = { path = "../wasi-pty" }
+codex-network-proxy = { path = "../wasi-network-proxy" }
+codex-exec-server = { path = "../wasi-exec-server" }
+codex-rmcp-client = { path = "../wasi-rmcp-client" }
 
 [package.metadata.component]
 package = "codex:tui"

@@ -14,6 +14,9 @@ pub struct RawRequest {
     pub url: String,
     pub headers: Vec<(String, String)>,
     pub body: Option<Vec<u8>>,
+    /// Request timeout in milliseconds. None means no timeout.
+    /// The backend should abort the request if this duration elapses.
+    pub timeout_ms: Option<u64>,
 }
 
 /// Raw HTTP response from the backend (fully buffered body).

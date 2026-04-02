@@ -88,6 +88,18 @@ export interface DescriptorFlags {
   requestedWriteSync?: boolean,
   mutateDirectory?: boolean,
 }
+export type Datetime = import('./wasi-clocks-wall-clock.js').Datetime;
+export type NewTimestamp = NewTimestampNoChange | NewTimestampNow | NewTimestampTimestamp;
+export interface NewTimestampNoChange {
+  tag: 'no-change',
+}
+export interface NewTimestampNow {
+  tag: 'now',
+}
+export interface NewTimestampTimestamp {
+  tag: 'timestamp',
+  val: Datetime,
+}
 /**
  * # Variants
  * 
@@ -109,7 +121,6 @@ export interface DescriptorFlags {
  */
 export type DescriptorType = 'unknown' | 'block-device' | 'character-device' | 'directory' | 'fifo' | 'symbolic-link' | 'regular-file' | 'socket';
 export type LinkCount = bigint;
-export type Datetime = import('./wasi-clocks-wall-clock.js').Datetime;
 export interface DescriptorStat {
   type: DescriptorType,
   linkCount: LinkCount,
@@ -120,17 +131,6 @@ export interface DescriptorStat {
 }
 export interface PathFlags {
   symlinkFollow?: boolean,
-}
-export type NewTimestamp = NewTimestampNoChange | NewTimestampNow | NewTimestampTimestamp;
-export interface NewTimestampNoChange {
-  tag: 'no-change',
-}
-export interface NewTimestampNow {
-  tag: 'now',
-}
-export interface NewTimestampTimestamp {
-  tag: 'timestamp',
-  val: Datetime,
 }
 export interface OpenFlags {
   create?: boolean,
@@ -157,6 +157,7 @@ export class Descriptor {
   appendViaStream(): OutputStream;
   getFlags(): DescriptorFlags;
   setSize(size: Filesize): void;
+  setTimes(dataAccessTimestamp: NewTimestamp, dataModificationTimestamp: NewTimestamp): void;
   readDirectory(): DirectoryEntryStream;
   sync(): void;
   createDirectoryAt(path: string): void;

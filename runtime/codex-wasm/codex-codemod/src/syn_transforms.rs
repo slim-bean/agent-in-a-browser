@@ -88,6 +88,7 @@ const PREPEND_TEXT: &[(&str, &str)] = &[
     ("file-search/src/lib.rs", "#![allow(unused_imports, dead_code, unused_variables, unreachable_code)]\n"),
     ("core/src/lib.rs", "#![allow(unreachable_code, unused_variables, unused_mut, dead_code, unused_imports, unused_assignments)]\n"),
     ("async-utils/src/lib.rs", "#![allow(unused_variables, unused_imports)]\n"),
+    ("apply-patch/src/lib.rs", "#![allow(unused_variables, unused_imports)]\n"),
     ("arg0/src/lib.rs", "#![allow(dead_code, unused_variables, unused_imports)]\n"),
     ("feedback/src/lib.rs", "#![allow(dead_code, unused_imports)]\n"),
     ("rollout/src/lib.rs", "#![allow(unused_imports)]\n"),
@@ -554,6 +555,10 @@ impl<'a> Visit<'a> for EditCollector<'a> {
         // Rewrite which::which(...) and which::which_in(...) call expressions
         if let Expr::Call(call) = expr {
             self.rewrite_which_calls(call);
+            // [codex-codemod] std::process::exit(N) → panic!("process::exit(N)")
+            // WASM has no process model; exit() would trap. panic!() surfaces the
+            // error message to the JS host via the WASM trap.
+            self.rewrite_process_exit_to_panic(call);
         }
 
         // --- tui/src/app.rs: instrument the main select! loop ---
@@ -574,8 +579,8 @@ impl<'a> Visit<'a> for EditCollector<'a> {
         syn::visit::visit_expr(self, expr);
     }
 
-    // --- All macros: select! body cleaning ---
-    // Using visit_macro catches select! in ALL positions (expression, statement, item).
+    // --- All macros: select! body cleaning + eprintln! → tracing::error! ---
+    // Using visit_macro catches macros in ALL positions (expression, statement, item).
     // We work on the raw source text to preserve formatting.
     fn visit_macro(&mut self, mac: &'a syn::Macro) {
         if is_select_macro_path(&mac.path) {
@@ -585,6 +590,12 @@ impl<'a> Visit<'a> for EditCollector<'a> {
                 self.collect_select_body_edits(body_text, body_start);
             }
         }
+
+        // [codex-codemod] eprintln! → tracing::error!
+        // In WASM, stderr does not exist; tracing routes through
+        // console_log::MakeConsoleWriter to the browser console.
+        self.rewrite_eprintln_to_tracing(mac);
+
         syn::visit::visit_macro(self, mac);
     }
 
@@ -1217,6 +1228,106 @@ impl<'a> EditCollector<'a> {
     }
 
     // -----------------------------------------------------------------------
+    // eprintln! → tracing::error!  (AST-based, applies globally)
+    // -----------------------------------------------------------------------
+
+    /// Rewrite `eprintln!(...)` macro invocations to `tracing::error!(...)`.
+    ///
+    /// In WASM, stderr does not exist. The tracing subscriber is already
+    /// configured (by an earlier codemod transform) to route through
+    /// `console_log::MakeConsoleWriter`, so `tracing::error!` output
+    /// lands in the browser console.
+    ///
+    /// Works by replacing just the macro path span (`eprintln`) with
+    /// `tracing::error`, preserving the `!(...)` delimiter and body.
+    fn rewrite_eprintln_to_tracing(&mut self, mac: &syn::Macro) {
+        // Match: the path must be exactly `eprintln` (single segment, no leading `::`)
+        if mac.path.leading_colon.is_some() {
+            return;
+        }
+        let segments = &mac.path.segments;
+        if segments.len() != 1 {
+            return;
+        }
+        let seg = &segments[0];
+        if seg.ident != "eprintln" {
+            return;
+        }
+        // Replace the path span with `tracing::error`
+        let (start, end) = self.span_range(seg.ident.span());
+        if start < end {
+            self.edits.push(Edit {
+                start,
+                end,
+                replacement: "tracing::error".to_string(),
+            });
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // std::process::exit(N) → panic!("process::exit(N)")  (AST-based, global)
+    // -----------------------------------------------------------------------
+
+    /// Rewrite `std::process::exit(expr)` call expressions to
+    /// `panic!("process::exit called — cannot exit in WASM")`.
+    ///
+    /// WASM has no process model; `exit()` would trap with an unhelpful
+    /// error. `panic!()` surfaces a meaningful message to the JS host.
+    ///
+    /// Matches any call whose function path ends with `process::exit`
+    /// (with or without a leading `std::`), regardless of the argument.
+    fn rewrite_process_exit_to_panic(&mut self, call: &syn::ExprCall) {
+        let path = match &*call.func {
+            Expr::Path(expr_path) => &expr_path.path,
+            _ => return,
+        };
+
+        let segments: Vec<&PathSegment> = path.segments.iter().collect();
+
+        // Match std::process::exit or process::exit
+        let is_process_exit = match segments.len() {
+            3 => {
+                segments[0].ident == "std"
+                    && segments[1].ident == "process"
+                    && segments[2].ident == "exit"
+            }
+            2 => segments[0].ident == "process" && segments[1].ident == "exit",
+            _ => false,
+        };
+
+        if !is_process_exit {
+            return;
+        }
+
+        // Extract the argument source text for the panic message
+        let arg_text = if call.args.len() == 1 {
+            let arg = &call.args[0];
+            let (arg_start, arg_end) = self.span_range(arg_span(arg));
+            if arg_start < arg_end {
+                self.source[arg_start..arg_end].to_string()
+            } else {
+                "?".to_string()
+            }
+        } else {
+            "?".to_string()
+        };
+
+        // Replace the entire call expression with panic!
+        let (start, _) = self.span_range(segments.first().unwrap().ident.span());
+        let end = self.source_map.offset(call.paren_token.span.close().end());
+
+        if start < end {
+            self.edits.push(Edit {
+                start,
+                end,
+                replacement: format!(
+                    "panic!(\"process::exit({arg_text}) called — cannot exit in WASM\")"
+                ),
+            });
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // File-specific use statement rewrites
     // -----------------------------------------------------------------------
 
@@ -1806,13 +1917,6 @@ impl<T> FileRwLock<T> {
             "trait Absolutize {\n    fn absolutize(&self) -> std::io::Result<std::borrow::Cow<'_, std::path::Path>>;\n    fn absolutize_from<P: AsRef<std::path::Path>>(&self, base: P) -> std::io::Result<std::borrow::Cow<'_, std::path::Path>>;\n}\nimpl Absolutize for std::path::PathBuf {\n    fn absolutize(&self) -> std::io::Result<std::borrow::Cow<'_, std::path::Path>> {\n        if self.is_absolute() { Ok(std::borrow::Cow::Borrowed(self)) } else { Ok(std::borrow::Cow::Owned(std::env::current_dir()?.join(self))) }\n    }\n    fn absolutize_from<P: AsRef<std::path::Path>>(&self, base: P) -> std::io::Result<std::borrow::Cow<'_, std::path::Path>> {\n        if self.is_absolute() { Ok(std::borrow::Cow::Borrowed(self)) } else { Ok(std::borrow::Cow::Owned(base.as_ref().join(self))) }\n    }\n}",
         );
 
-        // --- core/src/context_manager/history.rs: stub image::load_from_memory ---
-        self.string_replace(
-            "core/src/context_manager/history.rs",
-            "        let dynamic = match image::load_from_memory(&bytes) {\n            Ok(dynamic) => dynamic,\n            Err(error) => {\n                tracing::trace!(\"failed to decode original-detail image bytes: {error}\");\n                return None;\n            }\n        };\n        let width = i64::from(dynamic.width());\n        let height = i64::from(dynamic.height());",
-            "        // image crate not available in WASM — skip image dimension estimation\n        let _ = &bytes;\n        let width: i64 = 1024;\n        let height: i64 = 1024;",
-        );
-
         // --- core/src/client.rs: re-use tungstenite stub types ---
         self.string_replace(
             "core/src/client.rs",
@@ -2309,7 +2413,6 @@ impl<T> FileRwLock<T> {
         }
 
         self.replace_zstd_compression();
-        self.replace_image_dimension_estimation();
         self.replace_zip_extraction();
         self.replace_arboard_clipboard();
         self.replace_reqwest_blocking();
@@ -2341,25 +2444,7 @@ impl<T> FileRwLock<T> {
         }
     }
 
-    /// 2. image dimension stub (core/src/context_manager/history.rs):
-    /// Replace `image::load_from_memory` match + width/height extraction with
-    /// fixed 1024x1024 dimensions.
-    fn replace_image_dimension_estimation(&mut self) {
-        if !self.file_matches("core/src/context_manager/history.rs") {
-            return;
-        }
-        let needle = "        let dynamic = match image::load_from_memory(&bytes) {\n            Ok(dynamic) => dynamic,\n            Err(error) => {\n                tracing::trace!(\"failed to decode original-detail image bytes: {error}\");\n                return None;\n            }\n        };\n        let width = i64::from(dynamic.width());\n        let height = i64::from(dynamic.height());";
-        let replacement = "        // image crate not available in WASM — skip image dimension estimation\n        let _ = &bytes;\n        let width: i64 = 1024;\n        let height: i64 = 1024;";
-        if let Some((start, end)) = self.find_source_range(needle) {
-            self.edits.push(Edit {
-                start,
-                end,
-                replacement: replacement.to_string(),
-            });
-        }
-    }
-
-    /// 3. zip extraction stub (core/src/skills/remote.rs):
+    /// 2. zip extraction stub (core/src/skills/remote.rs):
     /// Replace the `Cursor::new(bytes)` / `ZipArchive` block with a bail.
     fn replace_zip_extraction(&mut self) {
         if !self.file_matches("core/src/skills/remote.rs") {
@@ -2717,7 +2802,7 @@ impl<T> FileRwLock<T> {
         self.replace_in_file(
             "tui/src/lib.rs",
             "eprintln!(\"Error loading config.toml: {err}\");\n            }\n            std::process::exit(1);",
-            "eprintln!(\"Error loading config.toml: {err}\");\n            }\n            return Err(std::io::Error::other(\"Error loading config.toml\"));"
+            "tracing::error!(\"Error loading config.toml: {err}\");\n            }\n            return Err(std::io::Error::other(\"Error loading config.toml\"));"
         );
         self.replace_in_file(
             "tui/src/lib.rs",
@@ -2737,7 +2822,7 @@ impl<T> FileRwLock<T> {
         self.replace_in_file(
             "tui/src/lib.rs",
             "eprintln!(\"Error loading configuration: {err}\");\n            std::process::exit(1);",
-            "return Err(std::io::Error::other(format!(\"Error loading configuration: {err}\")));"
+            "tracing::error!(\"Error loading configuration: {err}\");\n            panic!(\"Fatal: Error loading configuration: {err}\");"
         );
     }
 }
@@ -2947,6 +3032,24 @@ fn is_tokio_test_attr(attr: &Attribute) -> bool {
 /// Check if a path refers to `TS` (the ts-rs derive macro).
 fn is_ts_derive_path(path: &Path) -> bool {
     path.segments.len() == 1 && path.segments[0].ident == "TS"
+}
+
+/// Get the overall span of an expression (best-effort for offset calculation).
+/// For simple expressions (literals, paths) this is exact. For compound
+/// expressions the span covers the first token, which combined with the
+/// parent call's paren range is enough for our replacement purposes.
+fn arg_span(expr: &Expr) -> proc_macro2::Span {
+    use syn::spanned::Spanned;
+    match expr {
+        Expr::Lit(lit) => lit.lit.span(),
+        Expr::Path(p) => {
+            // Combine first and last segment spans
+            let first = p.path.segments.first().unwrap().ident.span();
+            let last = p.path.segments.last().unwrap().ident.span();
+            first.join(last).unwrap_or(first)
+        }
+        _ => expr.span(),
+    }
 }
 
 fn is_select_macro_path(path: &Path) -> bool {

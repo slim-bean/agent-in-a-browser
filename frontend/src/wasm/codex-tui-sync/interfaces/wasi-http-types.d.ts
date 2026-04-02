@@ -203,6 +203,7 @@ export interface ErrorCodeInternalError {
   tag: 'internal-error',
   val: string | undefined,
 }
+export type Duration = import('./wasi-clocks-monotonic-clock.js').Duration;
 export type Pollable = import('./wasi-io-poll.js').Pollable;
 export type InputStream = import('./wasi-io-streams.js').InputStream;
 export type StatusCode = number;
@@ -260,8 +261,8 @@ export class OutgoingRequest {
 }
 
 export class RequestOptions {
-  /**
-   * This type does not have a public constructor.
-   */
-  private constructor();
+  constructor()
+  setConnectTimeout(duration: Duration | undefined): void;
+  setFirstByteTimeout(duration: Duration | undefined): void;
+  setBetweenBytesTimeout(duration: Duration | undefined): void;
 }

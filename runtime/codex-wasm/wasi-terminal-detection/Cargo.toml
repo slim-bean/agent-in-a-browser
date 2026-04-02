@@ -1,0 +1,13 @@
+[package]
+name = "codex-terminal-detection"
+version = "0.0.0"
+edition = "2021"
+description = "wasip2-compatible shim for codex-terminal-detection — stub terminal info"
+
+[lib]
+name = "codex_terminal_detection"
+path = "src/lib.rs"
+
+[dependencies]
+
+[workspace]

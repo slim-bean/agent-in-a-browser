@@ -677,6 +677,145 @@ pub mod host {
                 }
             }
         }
+        /// System clipboard — read/write text via the browser's navigator.clipboard API.
+        #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
+        pub mod clipboard {
+            #[used]
+            #[doc(hidden)]
+            static __FORCE_SECTION_REF: fn() = super::super::super::__link_custom_section_describing_imports;
+            use super::super::super::_rt;
+            #[allow(unused_unsafe, clippy::all)]
+            /// Read text from the system clipboard.
+            /// Returns an error if clipboard access is denied or unavailable.
+            pub fn read_text() -> Result<_rt::String, _rt::String> {
+                unsafe {
+                    #[cfg_attr(target_pointer_width = "64", repr(align(8)))]
+                    #[cfg_attr(target_pointer_width = "32", repr(align(4)))]
+                    struct RetArea(
+                        [::core::mem::MaybeUninit<
+                            u8,
+                        >; 3 * ::core::mem::size_of::<*const u8>()],
+                    );
+                    let mut ret_area = RetArea(
+                        [::core::mem::MaybeUninit::uninit(); 3
+                            * ::core::mem::size_of::<*const u8>()],
+                    );
+                    let ptr0 = ret_area.0.as_mut_ptr().cast::<u8>();
+                    #[cfg(target_arch = "wasm32")]
+                    #[link(wasm_import_module = "host:browser/clipboard@0.1.0")]
+                    unsafe extern "C" {
+                        #[link_name = "read-text"]
+                        fn wit_import1(_: *mut u8);
+                    }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    unsafe extern "C" fn wit_import1(_: *mut u8) {
+                        unreachable!()
+                    }
+                    unsafe { wit_import1(ptr0) };
+                    let l2 = i32::from(*ptr0.add(0).cast::<u8>());
+                    let result9 = match l2 {
+                        0 => {
+                            let e = {
+                                let l3 = *ptr0
+                                    .add(::core::mem::size_of::<*const u8>())
+                                    .cast::<*mut u8>();
+                                let l4 = *ptr0
+                                    .add(2 * ::core::mem::size_of::<*const u8>())
+                                    .cast::<usize>();
+                                let len5 = l4;
+                                let bytes5 = _rt::Vec::from_raw_parts(
+                                    l3.cast(),
+                                    len5,
+                                    len5,
+                                );
+                                _rt::string_lift(bytes5)
+                            };
+                            Ok(e)
+                        }
+                        1 => {
+                            let e = {
+                                let l6 = *ptr0
+                                    .add(::core::mem::size_of::<*const u8>())
+                                    .cast::<*mut u8>();
+                                let l7 = *ptr0
+                                    .add(2 * ::core::mem::size_of::<*const u8>())
+                                    .cast::<usize>();
+                                let len8 = l7;
+                                let bytes8 = _rt::Vec::from_raw_parts(
+                                    l6.cast(),
+                                    len8,
+                                    len8,
+                                );
+                                _rt::string_lift(bytes8)
+                            };
+                            Err(e)
+                        }
+                        _ => _rt::invalid_enum_discriminant(),
+                    };
+                    result9
+                }
+            }
+            #[allow(unused_unsafe, clippy::all)]
+            /// Write text to the system clipboard.
+            /// Returns an error if clipboard access is denied or unavailable.
+            pub fn write_text(text: &str) -> Result<(), _rt::String> {
+                unsafe {
+                    #[cfg_attr(target_pointer_width = "64", repr(align(8)))]
+                    #[cfg_attr(target_pointer_width = "32", repr(align(4)))]
+                    struct RetArea(
+                        [::core::mem::MaybeUninit<
+                            u8,
+                        >; 3 * ::core::mem::size_of::<*const u8>()],
+                    );
+                    let mut ret_area = RetArea(
+                        [::core::mem::MaybeUninit::uninit(); 3
+                            * ::core::mem::size_of::<*const u8>()],
+                    );
+                    let vec0 = text;
+                    let ptr0 = vec0.as_ptr().cast::<u8>();
+                    let len0 = vec0.len();
+                    let ptr1 = ret_area.0.as_mut_ptr().cast::<u8>();
+                    #[cfg(target_arch = "wasm32")]
+                    #[link(wasm_import_module = "host:browser/clipboard@0.1.0")]
+                    unsafe extern "C" {
+                        #[link_name = "write-text"]
+                        fn wit_import2(_: *mut u8, _: usize, _: *mut u8);
+                    }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    unsafe extern "C" fn wit_import2(_: *mut u8, _: usize, _: *mut u8) {
+                        unreachable!()
+                    }
+                    unsafe { wit_import2(ptr0.cast_mut(), len0, ptr1) };
+                    let l3 = i32::from(*ptr1.add(0).cast::<u8>());
+                    let result7 = match l3 {
+                        0 => {
+                            let e = ();
+                            Ok(e)
+                        }
+                        1 => {
+                            let e = {
+                                let l4 = *ptr1
+                                    .add(::core::mem::size_of::<*const u8>())
+                                    .cast::<*mut u8>();
+                                let l5 = *ptr1
+                                    .add(2 * ::core::mem::size_of::<*const u8>())
+                                    .cast::<usize>();
+                                let len6 = l5;
+                                let bytes6 = _rt::Vec::from_raw_parts(
+                                    l4.cast(),
+                                    len6,
+                                    len6,
+                                );
+                                _rt::string_lift(bytes6)
+                            };
+                            Err(e)
+                        }
+                        _ => _rt::invalid_enum_discriminant(),
+                    };
+                    result7
+                }
+            }
+        }
     }
     pub mod console {
         /// Console logging — routes to browser console.log/warn/error
@@ -13079,8 +13218,8 @@ pub(crate) use __export_codex_tui_impl as export;
 )]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 11400] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\x88X\x01A\x02\x01AD\x01\
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 11492] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xe4X\x01A\x02\x01AF\x01\
 B\x04\x04\0\x05error\x03\x01\x01h\0\x01@\x01\x04self\x01\0s\x04\0\x1d[method]err\
 or.to-debug-string\x01\x02\x03\0\x13wasi:io/error@0.2.9\x05\0\x01B\x0a\x04\0\x08\
 pollable\x03\x01\x01h\0\x01@\x01\x04self\x01\0\x7f\x04\0\x16[method]pollable.rea\
@@ -13304,11 +13443,13 @@ losed\x01\x09\x03\0\x19codex:tui/websocket@0.1.0\x05$\x01B\x04\x01r\x02\x04colsy
 \x04rowsy\x04\0\x13terminal-dimensions\x03\0\0\x01@\0\0\x01\x04\0\x11get-termina\
 l-size\x01\x02\x03\0\x18terminal:info/size@0.1.0\x05%\x01B\x03\x01j\0\x01s\x01@\x01\
 \x03urls\0\0\x04\0\x08open-url\x01\x01\x03\0\x1ahost:browser/actions@0.1.0\x05&\x01\
-B\x04\x01@\x01\x03msgs\x01\0\x04\0\x03log\x01\0\x04\0\x04warn\x01\0\x04\0\x05err\
-or\x01\0\x03\0\x1ahost:console/logging@0.1.0\x05'\x01@\0\0z\x04\0\x03run\x01(\x04\
-\0\x19codex:tui/codex-tui@0.1.0\x04\0\x0b\x0f\x01\0\x09codex-tui\x03\0\0\0G\x09p\
-roducers\x01\x0cprocessed-by\x02\x0dwit-component\x070.227.1\x10wit-bindgen-rust\
-\x060.41.0";
+B\x06\x01j\x01s\x01s\x01@\0\0\0\x04\0\x09read-text\x01\x01\x01j\0\x01s\x01@\x01\x04\
+texts\0\x02\x04\0\x0awrite-text\x01\x03\x03\0\x1chost:browser/clipboard@0.1.0\x05\
+'\x01B\x04\x01@\x01\x03msgs\x01\0\x04\0\x03log\x01\0\x04\0\x04warn\x01\0\x04\0\x05\
+error\x01\0\x03\0\x1ahost:console/logging@0.1.0\x05(\x01@\0\0z\x04\0\x03run\x01)\
+\x04\0\x19codex:tui/codex-tui@0.1.0\x04\0\x0b\x0f\x01\0\x09codex-tui\x03\0\0\0G\x09\
+producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.227.1\x10wit-bindgen-rus\
+t\x060.41.0";
 #[inline(never)]
 #[doc(hidden)]
 pub fn __link_custom_section_describing_imports() {

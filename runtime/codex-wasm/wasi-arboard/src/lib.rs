@@ -1,30 +1,79 @@
 #![allow(dead_code, unused_variables)]
-//! Stub for arboard in wasip2 — clipboard not available.
+//! WASM shim for arboard — clipboard via WIT `host:browser/clipboard` interface.
+//!
+//! Provides `arboard::Clipboard` by delegating to registered handler functions.
+//! The codex-wasm-tui wrapper sets the handlers to call the
+//! `host:browser/clipboard@0.1.0` WIT imports before running the TUI.
+//! Falls back to in-memory storage if no handlers are registered.
 
 use std::fmt;
+use std::sync::Mutex;
+
+// ---------------------------------------------------------------------------
+// Handler function types
+// ---------------------------------------------------------------------------
+
+type ReadTextFn = fn() -> Result<String, String>;
+type WriteTextFn = fn(&str) -> Result<(), String>;
+
+static READ_HANDLER: Mutex<Option<ReadTextFn>> = Mutex::new(None);
+static WRITE_HANDLER: Mutex<Option<WriteTextFn>> = Mutex::new(None);
+
+/// In-memory fallback storage when no WIT handler is registered.
+static IN_MEMORY: Mutex<Option<String>> = Mutex::new(None);
+
+/// Register the handler that `Clipboard::get_text()` delegates to.
+/// Call this before any code calls clipboard operations.
+pub fn set_read_handler(handler: ReadTextFn) {
+    *READ_HANDLER.lock().unwrap_or_else(|e| e.into_inner()) = Some(handler);
+}
+
+/// Register the handler that `Clipboard::set_text()` delegates to.
+/// Call this before any code calls clipboard operations.
+pub fn set_write_handler(handler: WriteTextFn) {
+    *WRITE_HANDLER.lock().unwrap_or_else(|e| e.into_inner()) = Some(handler);
+}
+
+// ---------------------------------------------------------------------------
+// Clipboard
+// ---------------------------------------------------------------------------
 
 pub struct Clipboard;
 
-static CLIPBOARD_STORE: std::sync::LazyLock<std::sync::Mutex<String>> = 
-    std::sync::LazyLock::new(|| std::sync::Mutex::new(String::new()));
-
 impl Clipboard {
     pub fn new() -> Result<Self, Error> {
-        Ok(Self)
+        Ok(Clipboard)
     }
 
     pub fn get_text(&mut self) -> Result<String, Error> {
-        let store = CLIPBOARD_STORE.lock().unwrap();
-        if store.is_empty() {
-            Err(Error::ContentNotAvailable)
-        } else {
-            Ok(store.clone())
+        let handler = READ_HANDLER.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(f) = *handler {
+            drop(handler);
+            return f().map_err(|e| Error::Unknown(e));
+        }
+        drop(handler);
+        // Fall back to in-memory
+        let mem = IN_MEMORY.lock().unwrap_or_else(|e| e.into_inner());
+        match mem.as_deref() {
+            Some(text) => Ok(text.to_string()),
+            None => Err(Error::ContentNotAvailable),
         }
     }
 
     pub fn set_text(&mut self, text: String) -> Result<(), Error> {
-        let mut store = CLIPBOARD_STORE.lock().unwrap();
-        *store = text;
+        let handler = WRITE_HANDLER.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(f) = *handler {
+            drop(handler);
+            // Write to WIT handler and also update in-memory cache
+            let result = f(&text).map_err(|e| Error::Unknown(e));
+            let mut mem = IN_MEMORY.lock().unwrap_or_else(|e| e.into_inner());
+            *mem = Some(text);
+            return result;
+        }
+        drop(handler);
+        // Fall back to in-memory
+        let mut mem = IN_MEMORY.lock().unwrap_or_else(|e| e.into_inner());
+        *mem = Some(text);
         Ok(())
     }
 
@@ -43,12 +92,7 @@ pub struct Get<'a> {
 
 impl<'a> Get<'a> {
     pub fn text(self) -> Result<String, Error> {
-        let store = CLIPBOARD_STORE.lock().unwrap();
-        if store.is_empty() {
-            Err(Error::ContentNotAvailable)
-        } else {
-            Ok(store.clone())
-        }
+        self._clipboard.get_text()
     }
 
     pub fn image(self) -> Result<ImageData<'static>, Error> {

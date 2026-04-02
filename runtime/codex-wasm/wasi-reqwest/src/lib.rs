@@ -71,12 +71,14 @@ impl From<Bytes> for Body {
 #[derive(Clone, Debug)]
 pub struct Client {
     default_headers: HashMap<String, String>,
+    timeout: Option<std::time::Duration>,
 }
 
 impl Client {
     pub fn new() -> Self {
         Self {
             default_headers: HashMap::new(),
+            timeout: None,
         }
     }
 
@@ -114,7 +116,7 @@ impl Client {
             url: url.into_url().ok(),
             headers: self.default_headers.clone(),
             body: None,
-            timeout: None,
+            timeout: self.timeout,
         }
     }
 }
@@ -128,12 +130,14 @@ impl Default for Client {
 /// Client builder matching reqwest::ClientBuilder.
 pub struct ClientBuilder {
     default_headers: HashMap<String, String>,
+    timeout: Option<std::time::Duration>,
 }
 
 impl ClientBuilder {
     pub fn new() -> Self {
         Self {
             default_headers: HashMap::new(),
+            timeout: None,
         }
     }
 
@@ -146,8 +150,9 @@ impl ClientBuilder {
         self
     }
 
-    pub fn timeout(self, _timeout: std::time::Duration) -> Self {
-        self // TODO: implement timeout
+    pub fn timeout(mut self, timeout: std::time::Duration) -> Self {
+        self.timeout = Some(timeout);
+        self
     }
 
     pub fn connect_timeout(self, _timeout: std::time::Duration) -> Self {
@@ -187,6 +192,7 @@ impl ClientBuilder {
     pub fn build(self) -> Result<Client> {
         Ok(Client {
             default_headers: self.default_headers,
+            timeout: self.timeout,
         })
     }
 }
@@ -273,16 +279,32 @@ impl RequestBuilder {
 
     pub async fn send(self) -> Result<Response> {
         let url = self.url.ok_or_else(|| Error::new("missing URL"))?;
+        let timeout_duration = self.timeout;
 
         let raw_request = backend::RawRequest {
             method: self.method.to_string(),
             url: url.to_string(),
             headers: self.headers.into_iter().collect(),
             body: self.body,
+            timeout_ms: timeout_duration.map(|d| d.as_millis() as u64),
         };
 
-        // Use streaming backend to get headers early + incremental body
-        let raw_response = backend::execute_streaming_request(raw_request)?;
+        // Execute the request, optionally wrapped in a timeout.
+        // `execute_streaming_request` is synchronous but JSPI-suspends in
+        // wasm32-wasip2, so wrapping in `async { ... }` lets
+        // `tokio::time::timeout` enforce the deadline via wasi:clocks.
+        let raw_response = if let Some(duration) = timeout_duration {
+            match tokio::time::timeout(duration, async {
+                backend::execute_streaming_request(raw_request)
+            })
+            .await
+            {
+                Ok(result) => result?,
+                Err(_elapsed) => return Err(Error::new("request timed out")),
+            }
+        } else {
+            backend::execute_streaming_request(raw_request)?
+        };
 
         let status =
             StatusCode::from_u16(raw_response.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);

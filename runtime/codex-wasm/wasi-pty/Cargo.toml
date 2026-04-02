@@ -1,0 +1,15 @@
+[package]
+name = "codex-utils-pty"
+version = "0.0.0"
+edition = "2021"
+description = "wasip2-compatible shim for codex-utils-pty — stub PTY types"
+
+[lib]
+name = "codex_utils_pty"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1"
+tokio = { path = "../wasi-tokio" }
+
+[workspace]

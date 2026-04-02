@@ -1,0 +1,21 @@
+[package]
+name = "codex-rmcp-client"
+version = "0.0.0"
+edition = "2021"
+description = "wasip2-compatible shim for codex-rmcp-client — stub MCP client types"
+
+[lib]
+name = "codex_rmcp_client"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1"
+futures = { version = "0.3", default-features = false, features = ["alloc", "std"] }
+rmcp = { version = "0.15.0", default-features = false, features = ["base64", "client", "macros", "schemars", "server"] }
+schemars = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { path = "../wasi-tokio" }
+codex-protocol = { path = "../../codex-upstream/codex-rs/protocol" }
+
+[workspace]

@@ -1,0 +1,19 @@
+[package]
+name = "codex-exec-server"
+version = "0.0.0"
+edition = "2021"
+description = "wasip2-compatible shim for codex-exec-server — stub exec server types"
+
+[lib]
+name = "codex_exec_server"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1"
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { path = "../wasi-tokio" }
+codex-utils-absolute-path = { path = "../../codex-upstream/codex-rs/utils/absolute-path" }
+
+[workspace]
