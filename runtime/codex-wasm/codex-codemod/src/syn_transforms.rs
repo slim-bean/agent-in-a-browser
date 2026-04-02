@@ -469,9 +469,10 @@ impl<'a> Visit<'a> for EditCollector<'a> {
         syn::visit::visit_item_fn(self, node);
     }
 
-    // --- Let bindings: file-specific mut additions ---
+    // --- Let bindings: file-specific mut additions + login recv loop ---
     fn visit_local(&mut self, node: &'a syn::Local) {
         self.rewrite_file_specific_let_binding(node);
+        self.rewrite_login_recv_loop(node);
         syn::visit::visit_local(self, node);
     }
 
@@ -1241,6 +1242,16 @@ impl<'a> EditCollector<'a> {
     /// Works by replacing just the macro path span (`eprintln`) with
     /// `tracing::error`, preserving the `!(...)` delimiter and body.
     fn rewrite_eprintln_to_tracing(&mut self, mac: &syn::Macro) {
+        // Only convert eprintln→tracing in files whose crate already uses tracing.
+        // Crates like apply-patch, arg0, file-search don't have tracing as a dep.
+        // Check by looking for existing `use tracing` or `tracing::` in the source.
+        // This is checked on the ORIGINAL source (before our edits), so the first
+        // eprintln→tracing conversion in a file won't bootstrap further conversions.
+        if !self.source.contains("use tracing")
+            && !self.source.contains("tracing::")
+        {
+            return;
+        }
         // Match: the path must be exactly `eprintln` (single segment, no leading `::`)
         if mac.path.leading_colon.is_some() {
             return;
@@ -1606,6 +1617,68 @@ impl<T> FileRwLock<T> {
         if self.file_matches("core/src/realtime_conversation.rs") {
             self.add_mut_to_struct_field_pat(node, "events");
         }
+    }
+
+    /// login/src/server.rs: replace the blocking `_server_handle` spawn loop
+    /// with an async poll loop.
+    ///
+    /// Matches: `let _server_handle = { ... spawn(move || { ... server.recv() ... }) };`
+    /// Replaces the entire initializer block with an async `tokio::spawn` that
+    /// polls `server.try_recv()` with `tokio::time::sleep` between attempts.
+    ///
+    /// This is an AST-based transform (not string matching) so it survives
+    /// upstream formatting changes, import renames, and minor refactors.
+    fn rewrite_login_recv_loop(&mut self, node: &syn::Local) {
+        if !self.file_matches("login/src/server.rs") {
+            return;
+        }
+        // Match `let _server_handle = <init>;`
+        let pat_ident = match &node.pat {
+            syn::Pat::Ident(p) => p,
+            _ => return,
+        };
+        if pat_ident.ident != "_server_handle" {
+            return;
+        }
+        // Get the initializer expression
+        let init = match &node.init {
+            Some(init) => init,
+            None => return,
+        };
+        // Verify the initializer contains a spawn call with server.recv()
+        use syn::spanned::Spanned;
+        let expr_span = (*init.expr).span();
+        let init_src = &self.source[self.span_range(expr_span).0..self.span_range(expr_span).1];
+        if !init_src.contains("server.recv()") {
+            return;
+        }
+        // Replace the initializer expression (the block after `=`)
+        let (init_start, init_end) = self.span_range(expr_span);
+
+        let replacement = r#"{
+        let server = server.clone();
+        tokio::spawn(async move {
+            loop {
+                match server.try_recv() {
+                    Ok(Some(request)) => {
+                        if tx.send(request).await.is_err() {
+                            break;
+                        }
+                    }
+                    Ok(None) => {
+                        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                    }
+                    Err(_) => break,
+                }
+            }
+        })
+    }"#;
+
+        self.edits.push(Edit {
+            start: init_start,
+            end: init_end,
+            replacement: replacement.to_string(),
+        });
     }
 
     /// In a `let Struct { ..., name, ... } = ...;` pattern, add `mut` before `name`.
@@ -2174,8 +2247,8 @@ impl<T> FileRwLock<T> {
         // --- webbrowser::open is now handled by the wasi-webbrowser shim crate
         // (patched via [patch.crates-io] in codex-wasm-tui/Cargo.toml) ---
 
-        // --- login/src/server.rs: strip unused std::thread import ---
-        // (thread::sleep replaced by tokio::time::sleep in codemod, but import remains)
+        // --- login/src/server.rs: strip unused std::thread import (if present) ---
+        // Upstream may have already removed this import. Safe to attempt.
         self.string_replace("login/src/server.rs", "use std::thread;\n", "");
 
         // --- login/src/server.rs: redirect_uri from env var for WASM ---
@@ -2189,17 +2262,10 @@ impl<T> FileRwLock<T> {
             "let redirect_uri = std::env::var(\"CODEX_REDIRECT_URI\")\n            .unwrap_or_else(|_| format!(\"http://localhost:{actual_port}/auth/callback\"));",
         );
 
-        // --- login/src/server.rs: replace blocking thread_spawn recv loop ---
-        // In WASM, thread_spawn wraps the closure in tokio::spawn, but
-        // std::sync::mpsc::Receiver::recv() is a pure Rust blocking call
-        // that never JSPI-suspends. This deadlocks the single-threaded
-        // WASM runtime. Replace with an async tokio task that polls
-        // server.try_recv() with tokio::time::sleep between attempts.
-        self.string_replace(
-            "login/src/server.rs",
-            "    // Map blocking reads from server.recv() to an async channel.\n    let (tx, mut rx) = tokio::sync::mpsc::channel::<Request>(16);\n    let _server_handle = {\n        let server = server.clone();\n        tokio::thread_spawn::spawn(move || -> io::Result<()> {\n            while let Ok(request) = server.recv() {\n                match tx.blocking_send(request) {\n                    Ok(()) => {}\n                    Err(error) => {\n                        tracing::error!(\"Failed to send request to channel: {error}\");\n                        return Err(io::Error::other(\"Failed to send request to channel\"));\n                    }\n                }\n            }\n            Ok(())\n        })\n    };",
-            "    // WASM: async poll loop replaces blocking thread_spawn + server.recv().\n    // In single-threaded WASM, blocking recv() deadlocks. Instead, poll\n    // try_recv() with tokio::time::sleep so the runtime can process other\n    // tasks (TUI events, incoming-handler callbacks) between checks.\n    let (tx, mut rx) = tokio::sync::mpsc::channel::<Request>(16);\n    let _server_handle = {\n        let server = server.clone();\n        tokio::spawn(async move {\n            loop {\n                match server.try_recv() {\n                    Ok(Some(request)) => {\n                        if tx.send(request).await.is_err() {\n                            break;\n                        }\n                    }\n                    Ok(None) => {\n                        tokio::time::sleep(std::time::Duration::from_millis(100)).await;\n                    }\n                    Err(_) => break,\n                }\n            }\n        })\n    };",
-        );
+        // --- login/src/server.rs: blocking recv loop ---
+        // Handled by rewrite_login_recv_loop() AST transform in visit_local.
+        // The `let _server_handle = { ... spawn(...server.recv()...) }` block
+        // is replaced with an async tokio::spawn + try_recv + sleep poll loop.
 
         // --- TelemetryAuthMode::from → from_display ---
         // wasi-codex-otel can't depend on codex-login, so use string-based conversion
