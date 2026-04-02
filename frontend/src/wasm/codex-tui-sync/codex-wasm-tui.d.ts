@@ -25,5 +25,6 @@ export type * as WasiIoStreams029 from './interfaces/wasi-io-streams.js'; // imp
 export type * as WasiRandomInsecureSeed029 from './interfaces/wasi-random-insecure-seed.js'; // import wasi:random/insecure-seed@0.2.9
 export type * as WasiRandomRandom029 from './interfaces/wasi-random-random.js'; // import wasi:random/random@0.2.9
 export function run(): number;
+export function pushAuthCallback(method: string, path: string, headers: Array<[string, string]>, body: Uint8Array): void;
 
 export const $init: Promise<void>;

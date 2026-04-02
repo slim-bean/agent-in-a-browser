@@ -566,6 +566,7 @@ struct SelectSiteState {
     last_win: Vec<Option<Instant>>,
     total: u64,
     last_log: Instant,
+    created: Instant,
 }
 
 impl SelectSiteState {
@@ -578,6 +579,7 @@ impl SelectSiteState {
             last_win: vec![None; num_branches],
             total: 0,
             last_log: Instant::now(),
+            created: Instant::now(),
         }
     }
 
@@ -626,6 +628,21 @@ impl SelectSiteState {
                 self.total,
                 summary.join(", ")
             );
+
+            // Panic after 60 seconds of stall to surface deadlocks during development.
+            // Check if any branch has NEVER won after significant total polls.
+            let stall_secs = self.created.elapsed().as_secs();
+            if stall_secs >= 60 {
+                for i in 0..self.num_branches {
+                    if self.last_win[i].is_none() && self.total > 500 {
+                        panic!(
+                            "[SELECT DEADLOCK] {}:{} branch b{} has NEVER fired after {}s ({} total polls). \
+                             This select! loop is deadlocked.",
+                            file, self.line, i, stall_secs, self.total
+                        );
+                    }
+                }
+            }
         }
     }
 }

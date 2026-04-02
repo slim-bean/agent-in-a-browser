@@ -7,6 +7,7 @@
 //! wasm32-wasip2 with JSPI the block transparently suspends until data arrives.
 
 use std::io;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::{Mutex, OnceLock};
 
@@ -28,6 +29,7 @@ type Channel = (
 );
 
 static INCOMING_CHANNEL: OnceLock<Channel> = OnceLock::new();
+static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
 fn channel() -> &'static Channel {
     INCOMING_CHANNEL.get_or_init(|| {
@@ -65,6 +67,8 @@ impl Server {
     /// Create a new server.  The address is ignored in WASM — all requests
     /// arrive through the incoming-handler channel.
     pub fn http<A: std::net::ToSocketAddrs>(_addr: A) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        // Reset shutdown flag for a fresh server session.
+        SHUTDOWN.store(false, Ordering::Release);
         // Ensure the channel is initialised.
         let _ = channel();
         Ok(Server)
@@ -76,17 +80,34 @@ impl Server {
 
     /// Block until the next HTTP request is available.
     ///
-    /// In wasm32-wasip2 with JSPI this will suspend the WASM instance until
-    /// [`push_incoming_request`] delivers a request.
+    /// Uses a poll-sleep loop instead of blocking `mpsc::recv()`.  Each
+    /// `std::thread::sleep` call maps to `wasi:clocks/monotonic-clock` which
+    /// JSPI-suspends, letting other async tasks (like the incoming-handler
+    /// that feeds the channel) make progress.
     pub fn recv(&self) -> Result<Request, io::Error> {
         let (_, rx_lock) = channel();
-        let rx = rx_lock
-            .lock()
-            .map_err(|e| io::Error::other(format!("channel lock poisoned: {e}")))?;
-        let incoming = rx
-            .recv()
-            .map_err(|e| io::Error::other(format!("channel recv failed: {e}")))?;
-        Ok(Request::from_incoming(incoming))
+        loop {
+            let rx = rx_lock
+                .lock()
+                .map_err(|e| io::Error::other(format!("channel lock poisoned: {e}")))?;
+            match rx.try_recv() {
+                Ok(incoming) => return Ok(Request::from_incoming(incoming)),
+                Err(mpsc::TryRecvError::Empty) => {
+                    // Drop the lock before sleeping so push_incoming_request can acquire it.
+                    drop(rx);
+                    // Check shutdown flag before sleeping.
+                    if SHUTDOWN.load(Ordering::Acquire) {
+                        return Err(io::Error::other("server shutdown requested"));
+                    }
+                    // Sleep via WASI clocks — this JSPI-suspends, letting the
+                    // incoming-handler deliver requests to the channel.
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                }
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    return Err(io::Error::other("channel disconnected"));
+                }
+            }
+        }
     }
 
     /// Non-blocking receive — returns `Ok(None)` when no request is queued.
@@ -104,7 +125,11 @@ impl Server {
         }
     }
 
-    pub fn unblock(&self) {}
+    /// Unblock any pending `recv()` by setting the shutdown flag.
+    /// The poll-sleep loop checks this flag and returns an error when set.
+    pub fn unblock(&self) {
+        SHUTDOWN.store(true, Ordering::Release);
+    }
 }
 
 // ---------------------------------------------------------------------------

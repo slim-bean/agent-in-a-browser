@@ -59,6 +59,20 @@ fn ensure_initialized() {
 }
 
 impl Guest for CodexTui {
+    fn push_auth_callback(
+        method: String,
+        path: String,
+        headers: Vec<(String, String)>,
+        body: Vec<u8>,
+    ) {
+        console_log::console_log!(
+            "[codex-wasm-tui] push_auth_callback: {} {}",
+            method,
+            path
+        );
+        tiny_http::push_incoming_request(&method, &path, headers, body);
+    }
+
     fn run() -> i32 {
         ensure_initialized();
 

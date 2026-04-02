@@ -2178,6 +2178,29 @@ impl<T> FileRwLock<T> {
         // (thread::sleep replaced by tokio::time::sleep in codemod, but import remains)
         self.string_replace("login/src/server.rs", "use std::thread;\n", "");
 
+        // --- login/src/server.rs: redirect_uri from env var for WASM ---
+        // In WASM, there is no localhost HTTP server. The OAuth callback arrives
+        // via the browser at {origin}/oauth-callback (public/oauth-callback.html).
+        // CODEX_REDIRECT_URI (set by the JS host from self.location.origin) provides
+        // the correct URL. Falls back to localhost for non-WASM environments.
+        self.string_replace(
+            "login/src/server.rs",
+            "let redirect_uri = format!(\"http://localhost:{actual_port}/auth/callback\");",
+            "let redirect_uri = std::env::var(\"CODEX_REDIRECT_URI\")\n            .unwrap_or_else(|_| format!(\"http://localhost:{actual_port}/auth/callback\"));",
+        );
+
+        // --- login/src/server.rs: replace blocking thread_spawn recv loop ---
+        // In WASM, thread_spawn wraps the closure in tokio::spawn, but
+        // std::sync::mpsc::Receiver::recv() is a pure Rust blocking call
+        // that never JSPI-suspends. This deadlocks the single-threaded
+        // WASM runtime. Replace with an async tokio task that polls
+        // server.try_recv() with tokio::time::sleep between attempts.
+        self.string_replace(
+            "login/src/server.rs",
+            "    // Map blocking reads from server.recv() to an async channel.\n    let (tx, mut rx) = tokio::sync::mpsc::channel::<Request>(16);\n    let _server_handle = {\n        let server = server.clone();\n        tokio::thread_spawn::spawn(move || -> io::Result<()> {\n            while let Ok(request) = server.recv() {\n                match tx.blocking_send(request) {\n                    Ok(()) => {}\n                    Err(error) => {\n                        tracing::error!(\"Failed to send request to channel: {error}\");\n                        return Err(io::Error::other(\"Failed to send request to channel\"));\n                    }\n                }\n            }\n            Ok(())\n        })\n    };",
+            "    // WASM: async poll loop replaces blocking thread_spawn + server.recv().\n    // In single-threaded WASM, blocking recv() deadlocks. Instead, poll\n    // try_recv() with tokio::time::sleep so the runtime can process other\n    // tasks (TUI events, incoming-handler callbacks) between checks.\n    let (tx, mut rx) = tokio::sync::mpsc::channel::<Request>(16);\n    let _server_handle = {\n        let server = server.clone();\n        tokio::spawn(async move {\n            loop {\n                match server.try_recv() {\n                    Ok(Some(request)) => {\n                        if tx.send(request).await.is_err() {\n                            break;\n                        }\n                    }\n                    Ok(None) => {\n                        tokio::time::sleep(std::time::Duration::from_millis(100)).await;\n                    }\n                    Err(_) => break,\n                }\n            }\n        })\n    };",
+        );
+
         // --- TelemetryAuthMode::from → from_display ---
         // wasi-codex-otel can't depend on codex-login, so use string-based conversion
         self.string_replace(

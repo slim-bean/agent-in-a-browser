@@ -1,6 +1,64 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import path from 'path';
+import fs from 'fs';
+
+// Dev-mode plugin: serve /wasi-shims/* and /wasm-loader/* from package build output
+// and mark them as external so vite's import-analysis doesn't try to resolve them.
+// (in production, copy-externals copies these to dist/)
+function serveExternalsPlugin(): Plugin {
+    const externalDirs: Record<string, string[]> = {
+        '/wasi-shims/': [
+            path.resolve(__dirname, '../packages/wasi-shims/browser-dist'),
+            path.resolve(__dirname, '../packages/wasi-shims/dist'),
+        ],
+        '/wasm-loader/': [
+            path.resolve(__dirname, '../packages/wasm-loader/dist'),
+        ],
+    };
+
+    return {
+        name: 'serve-externals',
+        // Tell vite these absolute paths are external (don't try to resolve/transform them)
+        resolveId(id) {
+            for (const prefix of Object.keys(externalDirs)) {
+                if (id.startsWith(prefix)) {
+                    return { id, external: true };
+                }
+            }
+            return null;
+        },
+        configureServer(server) {
+            server.middlewares.use((req, res, next) => {
+                const url = req.url?.split('?')[0];
+                if (!url) return next();
+
+                for (const [prefix, dirs] of Object.entries(externalDirs)) {
+                    if (url.startsWith(prefix)) {
+                        const filename = url.slice(prefix.length);
+                        for (const dir of dirs) {
+                            const filePath = path.join(dir, filename);
+                            if (fs.existsSync(filePath)) {
+                                const ext = path.extname(filePath);
+                                const contentType = ext === '.js' ? 'application/javascript'
+                                    : ext === '.map' ? 'application/json'
+                                    : ext === '.wasm' ? 'application/wasm'
+                                    : 'application/octet-stream';
+                                res.writeHead(200, {
+                                    'Content-Type': contentType,
+                                    'Access-Control-Allow-Origin': '*',
+                                });
+                                fs.createReadStream(filePath).pipe(res);
+                                return;
+                            }
+                        }
+                    }
+                }
+                next();
+            });
+        },
+    };
+}
 
 export default defineConfig(({ mode }) => ({
     // Custom domain: agent.edge-agent.dev (no subpath needed)
@@ -16,6 +74,8 @@ export default defineConfig(({ mode }) => ({
                 process: true,
             },
         }),
+        // Serve /wasi-shims/* and /wasm-loader/* from package build dirs in dev mode
+        serveExternalsPlugin(),
     ],
     resolve: {
         alias: {

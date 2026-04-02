@@ -8,16 +8,79 @@ pub unsafe fn _export_run_cabi<T: Guest>() -> i32 {
     let result0 = T::run();
     _rt::as_i32(result0)
 }
+#[doc(hidden)]
+#[allow(non_snake_case)]
+pub unsafe fn _export_push_auth_callback_cabi<T: Guest>(
+    arg0: *mut u8,
+    arg1: usize,
+    arg2: *mut u8,
+    arg3: usize,
+    arg4: *mut u8,
+    arg5: usize,
+    arg6: *mut u8,
+    arg7: usize,
+) {
+    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+    let len0 = arg1;
+    let bytes0 = _rt::Vec::from_raw_parts(arg0.cast(), len0, len0);
+    let len1 = arg3;
+    let bytes1 = _rt::Vec::from_raw_parts(arg2.cast(), len1, len1);
+    let base8 = arg4;
+    let len8 = arg5;
+    let mut result8 = _rt::Vec::with_capacity(len8);
+    for i in 0..len8 {
+        let base = base8.add(i * (4 * ::core::mem::size_of::<*const u8>()));
+        let e8 = {
+            let l2 = *base.add(0).cast::<*mut u8>();
+            let l3 = *base.add(::core::mem::size_of::<*const u8>()).cast::<usize>();
+            let len4 = l3;
+            let bytes4 = _rt::Vec::from_raw_parts(l2.cast(), len4, len4);
+            let l5 = *base
+                .add(2 * ::core::mem::size_of::<*const u8>())
+                .cast::<*mut u8>();
+            let l6 = *base.add(3 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
+            let len7 = l6;
+            let bytes7 = _rt::Vec::from_raw_parts(l5.cast(), len7, len7);
+            (_rt::string_lift(bytes4), _rt::string_lift(bytes7))
+        };
+        result8.push(e8);
+    }
+    _rt::cabi_dealloc(
+        base8,
+        len8 * (4 * ::core::mem::size_of::<*const u8>()),
+        ::core::mem::size_of::<*const u8>(),
+    );
+    let len9 = arg7;
+    T::push_auth_callback(
+        _rt::string_lift(bytes0),
+        _rt::string_lift(bytes1),
+        result8,
+        _rt::Vec::from_raw_parts(arg6.cast(), len9, len9),
+    );
+}
 pub trait Guest {
     /// Main entry point — runs the Codex TUI event loop
     fn run() -> i32;
+    /// Push an OAuth callback request into the tiny_http channel so that
+    /// the login server's recv() loop can pick it up. Called by the JS host
+    /// when the browser receives an OAuth redirect.
+    fn push_auth_callback(
+        method: _rt::String,
+        path: _rt::String,
+        headers: _rt::Vec<(_rt::String, _rt::String)>,
+        body: _rt::Vec<u8>,
+    ) -> ();
 }
 #[doc(hidden)]
 macro_rules! __export_world_codex_tui_cabi {
     ($ty:ident with_types_in $($path_to_types:tt)*) => {
         const _ : () = { #[unsafe (export_name = "run")] unsafe extern "C" fn
         export_run() -> i32 { unsafe { $($path_to_types)*:: _export_run_cabi::<$ty > () }
-        } };
+        } #[unsafe (export_name = "push-auth-callback")] unsafe extern "C" fn
+        export_push_auth_callback(arg0 : * mut u8, arg1 : usize, arg2 : * mut u8, arg3 :
+        usize, arg4 : * mut u8, arg5 : usize, arg6 : * mut u8, arg7 : usize,) { unsafe {
+        $($path_to_types)*:: _export_push_auth_callback_cabi::<$ty > (arg0, arg1, arg2,
+        arg3, arg4, arg5, arg6, arg7) } } };
     };
 }
 #[doc(hidden)]
@@ -13218,8 +13281,8 @@ pub(crate) use __export_codex_tui_impl as export;
 )]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 11492] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xe4X\x01A\x02\x01AF\x01\
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 11560] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xa8Y\x01A\x02\x01AK\x01\
 B\x04\x04\0\x05error\x03\x01\x01h\0\x01@\x01\x04self\x01\0s\x04\0\x1d[method]err\
 or.to-debug-string\x01\x02\x03\0\x13wasi:io/error@0.2.9\x05\0\x01B\x0a\x04\0\x08\
 pollable\x03\x01\x01h\0\x01@\x01\x04self\x01\0\x7f\x04\0\x16[method]pollable.rea\
@@ -13447,9 +13510,10 @@ B\x06\x01j\x01s\x01s\x01@\0\0\0\x04\0\x09read-text\x01\x01\x01j\0\x01s\x01@\x01\
 texts\0\x02\x04\0\x0awrite-text\x01\x03\x03\0\x1chost:browser/clipboard@0.1.0\x05\
 '\x01B\x04\x01@\x01\x03msgs\x01\0\x04\0\x03log\x01\0\x04\0\x04warn\x01\0\x04\0\x05\
 error\x01\0\x03\0\x1ahost:console/logging@0.1.0\x05(\x01@\0\0z\x04\0\x03run\x01)\
-\x04\0\x19codex:tui/codex-tui@0.1.0\x04\0\x0b\x0f\x01\0\x09codex-tui\x03\0\0\0G\x09\
-producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.227.1\x10wit-bindgen-rus\
-t\x060.41.0";
+\x01o\x02ss\x01p*\x01p}\x01@\x04\x06methods\x04paths\x07headers+\x04body,\x01\0\x04\
+\0\x12push-auth-callback\x01-\x04\0\x19codex:tui/codex-tui@0.1.0\x04\0\x0b\x0f\x01\
+\0\x09codex-tui\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\
+\x070.227.1\x10wit-bindgen-rust\x060.41.0";
 #[inline(never)]
 #[doc(hidden)]
 pub fn __link_custom_section_describing_imports() {

@@ -126,6 +126,25 @@ listenForOpenUrl();
         // The `codex` command is available within the shell to launch the Codex TUI.
         bridge.runModule('shell', undefined, { jspi: hasJSPI });
 
+        // Forward OAuth callbacks from the popup to the worker.
+        // When the OAuth redirect lands on /oauth-callback, the popup sends
+        // a postMessage back to the opener. We forward it to the worker
+        // which calls pushAuthCallback on the codex-tui WASM module.
+        const worker = bridge.getWorker();
+        if (worker) {
+            window.addEventListener('message', (event) => {
+                if (event.origin !== window.location.origin) return;
+                if (event.data?.type === 'oauth-callback' && event.data.code && event.data.state) {
+                    console.log('[Main] Forwarding OAuth callback to worker');
+                    worker.postMessage({
+                        type: 'oauth-callback',
+                        code: event.data.code,
+                        state: event.data.state,
+                    });
+                }
+            });
+        }
+
         // Focus the terminal
         terminal.focus();
 

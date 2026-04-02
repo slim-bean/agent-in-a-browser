@@ -74,6 +74,10 @@ let jspiMode = false;
 let jspiPushStdinData: ((data: Uint8Array) => void) | null = null;
 let jspiSetTerminalSize: ((cols: number, rows: number) => void) | null = null;
 
+// Reference to codex-tui's pushAuthCallback for routing OAuth callbacks
+// Set when the codex-tui module is loaded (either directly or via lazy loading)
+let pushAuthCallback: ((method: string, path: string, headers: [string, string][], body: Uint8Array) => void) | null = null;
+
 // JSPI mode: pending HTTP response resolvers for async transport
 // Maps request ID to resolve/reject callbacks
 let nextHttpRequestId = 1;
@@ -635,6 +639,7 @@ async function runTuiJspi(msg: WorkerRunMessage): Promise<void> {
         ['TERM', 'xterm-256color'],
         ['SHELL', '/bin/sh'],
         ['RUST_BACKTRACE', '1'],
+        ['CODEX_REDIRECT_URI', `${self.location.origin}/oauth-callback`],
     ]);
 
     // Initialize OPFS filesystem (async version, works in Workers)
@@ -772,6 +777,12 @@ async function runTuiJspi(msg: WorkerRunMessage): Promise<void> {
     const tuiModule = await import('../wasm/codex-tui/codex-wasm-tui.js');
     console.log('[WasmWorker JSPI] TUI module loaded');
 
+    // Store pushAuthCallback reference for OAuth callback routing
+    if (typeof tuiModule.pushAuthCallback === 'function') {
+        pushAuthCallback = tuiModule.pushAuthCallback;
+        console.log('[WasmWorker JSPI] pushAuthCallback registered');
+    }
+
     self.postMessage({ type: 'started', module: msg.module });
 
     // Show loading indicator via stdout (routed to terminal via postMessage)
@@ -821,6 +832,7 @@ async function runShellJspi(msg: WorkerRunMessage): Promise<void> {
         ['TERM', 'xterm-256color'],
         ['SHELL', '/bin/sh'],
         ['PATH', '/usr/local/bin:/usr/bin:/bin'],
+        ['CODEX_REDIRECT_URI', `${self.location.origin}/oauth-callback`],
     ]);
 
     // Initialize OPFS filesystem
@@ -1005,6 +1017,22 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
         initWorkerDebug(workerDebugState).then(count => {
             self.postMessage({ type: 'debug-wrap-response', wrappedCount: count });
         });
+        return;
+    }
+
+    // OAuth callback routing — push the callback request into the codex-tui's
+    // tiny_http channel so the login server's recv() loop picks it up.
+    if (msgAny.type === 'oauth-callback') {
+        const handler = pushAuthCallback
+            ?? (globalThis as Record<string, unknown>).__pushAuthCallback as typeof pushAuthCallback;
+        if (handler) {
+            // Use /auth/callback to match the upstream server.rs path matching
+            const path = `/auth/callback?code=${encodeURIComponent(msgAny.code)}&state=${encodeURIComponent(msgAny.state)}`;
+            console.log('[WasmWorker] Routing OAuth callback to pushAuthCallback:', path);
+            handler('GET', path, [], new Uint8Array(0));
+        } else {
+            console.warn('[WasmWorker] OAuth callback received but pushAuthCallback not available');
+        }
         return;
     }
 

@@ -20,6 +20,7 @@ clap = { version = "4", features = ["derive"] }
 
 webbrowser = { path = "../wasi-webbrowser" }
 arboard = { path = "../wasi-arboard" }
+tiny_http = { path = "../wasi-tiny-http" }
 wit-bindgen = "0.36"
 wit-bindgen-rt = "0.36"
 console-log = { path = "../../crates/console-log" }

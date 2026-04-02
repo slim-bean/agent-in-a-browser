@@ -864,6 +864,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
+ "wasi-code-runtime",
  "wasi-js-engine",
 ]
 
@@ -1587,6 +1588,7 @@ dependencies = [
  "codex-utils-sleep-inhibitor",
  "console-log",
  "reqwest",
+ "tiny_http",
  "tokio",
  "webbrowser",
  "wit-bindgen 0.36.0",
@@ -4179,8 +4181,17 @@ name = "rquickjs"
 version = "0.11.0"
 source = "git+https://github.com/DelSkayn/rquickjs.git?rev=3a86441#3a864414db5cc143170ed150f332e287983d3ee9"
 dependencies = [
- "rquickjs-core",
- "rquickjs-macro",
+ "rquickjs-core 0.11.0 (git+https://github.com/DelSkayn/rquickjs.git?rev=3a86441)",
+ "rquickjs-macro 0.11.0 (git+https://github.com/DelSkayn/rquickjs.git?rev=3a86441)",
+]
+
+[[package]]
+name = "rquickjs"
+version = "0.11.0"
+source = "git+https://github.com/DelSkayn/rquickjs.git?rev=b2275cb#b2275cba0f678de20de8ee453022623d80c08072"
+dependencies = [
+ "rquickjs-core 0.11.0 (git+https://github.com/DelSkayn/rquickjs.git?rev=b2275cb)",
+ "rquickjs-macro 0.11.0 (git+https://github.com/DelSkayn/rquickjs.git?rev=b2275cb)",
 ]
 
 [[package]]
@@ -4191,7 +4202,18 @@ dependencies = [
  "async-lock",
  "hashbrown 0.16.1",
  "relative-path",
- "rquickjs-sys",
+ "rquickjs-sys 0.11.0 (git+https://github.com/DelSkayn/rquickjs.git?rev=3a86441)",
+]
+
+[[package]]
+name = "rquickjs-core"
+version = "0.11.0"
+source = "git+https://github.com/DelSkayn/rquickjs.git?rev=b2275cb#b2275cba0f678de20de8ee453022623d80c08072"
+dependencies = [
+ "async-lock",
+ "hashbrown 0.16.1",
+ "relative-path",
+ "rquickjs-sys 0.11.0 (git+https://github.com/DelSkayn/rquickjs.git?rev=b2275cb)",
 ]
 
 [[package]]
@@ -4206,7 +4228,23 @@ dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "rquickjs-core",
+ "rquickjs-core 0.11.0 (git+https://github.com/DelSkayn/rquickjs.git?rev=3a86441)",
+ "syn 2.0.117",
+]
+
+[[package]]
+name = "rquickjs-macro"
+version = "0.11.0"
+source = "git+https://github.com/DelSkayn/rquickjs.git?rev=b2275cb#b2275cba0f678de20de8ee453022623d80c08072"
+dependencies = [
+ "convert_case 0.11.0",
+ "fnv",
+ "ident_case",
+ "indexmap 2.13.0",
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "rquickjs-core 0.11.0 (git+https://github.com/DelSkayn/rquickjs.git?rev=b2275cb)",
  "syn 2.0.117",
 ]
 
@@ -4216,6 +4254,14 @@ version = "0.11.0"
 source = "git+https://github.com/DelSkayn/rquickjs.git?rev=3a86441#3a864414db5cc143170ed150f332e287983d3ee9"
 dependencies = [
  "bindgen",
+ "cc",
+]
+
+[[package]]
+name = "rquickjs-sys"
+version = "0.11.0"
+source = "git+https://github.com/DelSkayn/rquickjs.git?rev=b2275cb#b2275cba0f678de20de8ee453022623d80c08072"
+dependencies = [
  "cc",
 ]
 
@@ -5655,11 +5701,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
 
 [[package]]
+name = "wasi-code-runtime"
+version = "0.1.0"
+dependencies = [
+ "futures-lite",
+ "rquickjs 0.11.0 (git+https://github.com/DelSkayn/rquickjs.git?rev=b2275cb)",
+]
+
+[[package]]
 name = "wasi-js-engine"
 version = "0.1.0"
 dependencies = [
  "futures-lite",
- "rquickjs",
+ "rquickjs 0.11.0 (git+https://github.com/DelSkayn/rquickjs.git?rev=3a86441)",
  "serde",
  "serde_json",
 ]

@@ -517,22 +517,25 @@ impl HttpGuest for Component {
         });
 
         // Simple endpoint routing
-        let (response_body, content_type, status_code) = if path.starts_with("/oauth/callback") {
-            // OAuth callback — extract code and state from query params
-            let result = handle_oauth_callback(&path);
-            (result.0, result.1, result.2)
-        } else if path.starts_with("/sse") && accept_sse {
-            // SSE endpoint - establish connection
-            (
-                handle_sse_connection(&request_bytes),
-                "text/event-stream",
-                200u16,
-            )
-        } else {
-            // JSON-RPC endpoint
-            let request_str = String::from_utf8_lossy(&request_bytes);
-            (handle_mcp_request(&request_str), "application/json", 200u16)
-        };
+        let (response_body, content_type, status_code) =
+            if path.starts_with("/auth/callback") || path.starts_with("/oauth/callback") {
+                // OAuth callback — extract code and state from query params.
+                // Handles both /auth/callback (Codex login redirect) and
+                // /oauth/callback (legacy MCP OAuth flow).
+                let result = handle_oauth_callback(&path);
+                (result.0, result.1, result.2)
+            } else if path.starts_with("/sse") && accept_sse {
+                // SSE endpoint - establish connection
+                (
+                    handle_sse_connection(&request_bytes),
+                    "text/event-stream",
+                    200u16,
+                )
+            } else {
+                // JSON-RPC endpoint
+                let request_str = String::from_utf8_lossy(&request_bytes);
+                (handle_mcp_request(&request_str), "application/json", 200u16)
+            };
 
         // Prepare response headers
         let hdrs = Fields::new();

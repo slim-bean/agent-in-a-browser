@@ -9387,6 +9387,50 @@ function run() {
   });
   return ret;
 }
+let exports1PushAuthCallback;
+
+function pushAuthCallback(arg0, arg1, arg2, arg3) {
+  if (!_initialized) throwUninitialized();
+  var ptr0 = utf8Encode(arg0, realloc0, memory0);
+  var len0 = utf8EncodedLen;
+  var ptr1 = utf8Encode(arg1, realloc0, memory0);
+  var len1 = utf8EncodedLen;
+  var vec5 = arg2;
+  var len5 = vec5.length;
+  var result5 = realloc0(0, 0, 4, len5 * 16);
+  for (let i = 0; i < vec5.length; i++) {
+    const e = vec5[i];
+    const base = result5 + i * 16;var [tuple2_0, tuple2_1] = e;
+    var ptr3 = utf8Encode(tuple2_0, realloc0, memory0);
+    var len3 = utf8EncodedLen;
+    dataView(memory0).setUint32(base + 4, len3, true);
+    dataView(memory0).setUint32(base + 0, ptr3, true);
+    var ptr4 = utf8Encode(tuple2_1, realloc0, memory0);
+    var len4 = utf8EncodedLen;
+    dataView(memory0).setUint32(base + 12, len4, true);
+    dataView(memory0).setUint32(base + 8, ptr4, true);
+  }
+  var val6 = arg3;
+  var len6 = val6.byteLength;
+  var ptr6 = realloc0(0, 0, 1, len6 * 1);
+  var src6 = new Uint8Array(val6.buffer || val6, val6.byteOffset, len6 * 1);
+  (new Uint8Array(memory0.buffer, ptr6, len6 * 1)).set(src6);
+  _debugLog('[iface="push-auth-callback", function="push-auth-callback"][Instruction::CallWasm] enter', {
+    funcName: 'push-auth-callback',
+    paramCount: 8,
+    async: false,
+    postReturn: false,
+  });
+  const _wasm_call_currentTaskID = startCurrentTask(0, false, 'exports1PushAuthCallback');
+  exports1PushAuthCallback(ptr0, len0, ptr1, len1, result5, len5, ptr6, len6);
+  endCurrentTask(0);
+  _debugLog('[iface="push-auth-callback", function="push-auth-callback"][Instruction::Return]', {
+    funcName: 'push-auth-callback',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
 
 let _initialized = false;
 export const $init = (() => {
@@ -9647,6 +9691,7 @@ export const $init = (() => {
     }));
     _initialized = true;
     exports1Run = exports1.run;
+    exports1PushAuthCallback = exports1['push-auth-callback'];
   })();
   let promise, resolve, reject;
   function runNext (value) {
@@ -9671,4 +9716,4 @@ export const $init = (() => {
   return promise || maybeSyncReturn;
 })();
 
-export { run,  }
+export { pushAuthCallback, run,  }

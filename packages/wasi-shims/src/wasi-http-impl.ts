@@ -274,6 +274,9 @@ const CORS_PROXY_DOMAINS = [
     'access.stripe.com',
     'api.githubcopilot.com',
     'github.com',
+    'api.github.com',
+    'chatgpt.com',
+    'auth0.openai.com',
     'generativelanguage.googleapis.com',  // Google Gemini API
     // Note: httpbin.org supports CORS natively, no proxy needed
 ];

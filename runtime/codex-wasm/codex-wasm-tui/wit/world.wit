@@ -103,4 +103,9 @@ world codex-tui {
 
     // Main entry point — runs the Codex TUI event loop
     export run: func() -> s32;
+
+    // Push an OAuth callback request into the tiny_http channel so that
+    // the login server's recv() loop can pick it up. Called by the JS host
+    // when the browser receives an OAuth redirect.
+    export push-auth-callback: func(method: string, path: string, headers: list<tuple<string, string>>, body: list<u8>);
 }

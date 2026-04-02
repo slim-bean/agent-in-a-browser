@@ -538,6 +538,13 @@ async function loadCodexTui(): Promise<CommandModule> {
     const loadTime = performance.now() - startTime;
     console.log(`[LazyLoader] Codex TUI loaded in ${loadTime.toFixed(0)}ms`);
 
+    // Expose pushAuthCallback so the worker message handler can route OAuth
+    // callbacks into the tiny_http channel inside the WASM module.
+    if (typeof tuiModule.pushAuthCallback === 'function') {
+        (globalThis as Record<string, unknown>).__pushAuthCallback = tuiModule.pushAuthCallback;
+        console.log('[LazyLoader] pushAuthCallback registered on globalThis');
+    }
+
     // Import the CLI shim to set arguments before TUI runs
     const cliShim = await import('@tjfontaine/wasi-shims/ghostty-cli-shim.js');
 
