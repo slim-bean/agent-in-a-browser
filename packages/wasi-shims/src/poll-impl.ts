@@ -164,6 +164,13 @@ export async function poll(list: Pollable[]): Promise<Uint32Array> {
     }
 
     if (readyIndices.length > 0) {
+        // Yield to the JS event loop before returning ready pollables.
+        // Without this, tight loops (e.g. animation timers that expire
+        // during frame computation) can monopolize the WASM thread and
+        // prevent stdin, DOM rendering, and postMessage from being processed.
+        // A single setTimeout(0) ensures the browser gets a chance to run
+        // its own microtasks and macrotasks between poll iterations.
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
         return new Uint32Array(readyIndices);
     }
 
