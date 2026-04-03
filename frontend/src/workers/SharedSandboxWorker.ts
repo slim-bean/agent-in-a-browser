@@ -106,7 +106,7 @@ async function initialize(): Promise<void> {
                 await initFilesystem();
 
                 // OPFS root must be set on ALL module instances that have their own copy:
-                // 1. directory-tree.js (used by git-module's opfs-git-adapter)
+                // 1. directory-tree.js (used by WASM modules for OPFS access)
                 // 2. main @tjfontaine/wasi-shims bundle (index.js has inlined directory-tree)
                 // 3. External /wasi-shims/index.js (served separately, used by edtui/vim)
                 const opfsRootHandle = await navigator.storage.getDirectory();

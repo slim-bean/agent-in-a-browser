@@ -789,7 +789,7 @@ export function initFilesystem(sharedBuffer?: SharedArrayBuffer): Promise<void> 
 
 // ============================================================
 // Sync Git Filesystem Adapter
-// Provides sync fs.promises-like interface for isomorphic-git
+// Provides sync fs.promises-like interface for Go WASM modules (git, stripe)
 // ============================================================
 
 function normalizeSyncPath(filepath: string): string {
@@ -846,7 +846,7 @@ function createGitStats(isDir: boolean, size: number, mtime: number, path: strin
 }
 
 /**
- * Synchronous filesystem adapter for isomorphic-git
+ * Synchronous filesystem adapter for Go WASM modules
  * Uses the sync OPFS shim to perform blocking file operations
  * 
  * Note: Even though the interface uses Promise, the operations complete

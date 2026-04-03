@@ -25,11 +25,6 @@ wasm/
 │   ├── tui-loader.ts             # ghostty-web ↔ Ratatui WASM bridge
 │   └── ghostty-cli-shim.ts       # Terminal stdin/stdout to WASI I/O
 │
-├── git/                  # Git integration
-│   ├── git-module.ts             # isomorphic-git wrapper
-│   ├── opfs-git-adapter.ts       # OPFS → isomorphic-git fs adapter
-│   └── symlink-store.ts          # IndexedDB symlink persistence
-│
 └── (generated)/          # jco-transpiled WASM modules (do not edit)
     ├── mcp-server-jspi/          # Chrome (JSPI mode)
     ├── mcp-server-sync/          # Safari/Firefox (sync mode)
@@ -62,7 +57,7 @@ main-tui.ts → tui-loader.ts → ghostty-web terminal
 | **host-shims/** | Implement WASI interfaces for browser environment |
 | **lazy-loading/** | JSPI detection, dynamic module loading |
 | **tui/** | Connect ghostty terminal to Ratatui WASM |
-| **git/** | Git operations via isomorphic-git + OPFS |
+| **lazy-loading/go-wasip1-loader** | Direct wasip1 loader for Go WASM binaries (git, stripe) |
 
 ## Build Process
 

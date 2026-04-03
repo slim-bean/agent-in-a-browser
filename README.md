@@ -61,7 +61,7 @@ When the agent (or you) runs `tsx script.ts`, the runtime transpiles it on the f
 It's not a toy shell. It supports:
 
 * **Core utils**: `ls`, `cd`, `cat`, `grep`, `cp`, `mv`, `rm`
-* **Development**: `tsx` (TypeScript), `git` (via isomorphic-git), `sqlite3`
+* **Development**: `tsx` (TypeScript), `git` (go-git compiled to WASM), `sqlite3`
 * **Interactive features**: Tab completion, history (persisted to OPFS), reverse search (`Ctrl+R`)
 
 ### Can I connect to external tools?

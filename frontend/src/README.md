@@ -65,8 +65,7 @@ src/
     ├── streams.ts          # Custom WASI stream classes
     ├── symlink-store.ts    # Symlink persistence (IndexedDB)
     │
-    ├── git-module.ts       # isomorphic-git integration
-    ├── opfs-git-adapter.ts # Git filesystem adapter
+    ├── go-wasip1-loader.ts # Direct wasip1 loader for Go WASM binaries
     ├── module-loader-impl.ts    # Lazy command spawning
     │
     └── [generated]/        # jco-transpiled WASM modules

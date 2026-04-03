@@ -1,6 +1,6 @@
-//! Git commands - placeholder for lazy-loaded gix-module
+//! Git commands - placeholder for lazy-loaded git-module
 //!
-//! Git functionality is provided by the gix-module WASM component.
+//! Git functionality is provided by the git-module WASM component.
 //! The shell executor routes `git` commands to the lazy module loader.
 //! This stub provides the command registration for help text display.
 
@@ -9,12 +9,12 @@ use runtime_macros::shell_commands;
 
 use super::super::ShellEnv;
 
-/// Git commands - routes to lazy-loaded gix-module
+/// Git commands - routes to lazy-loaded git-module
 pub struct GitCommands;
 
 #[shell_commands]
 impl GitCommands {
-    /// git - version control (provided by gix-module)
+    /// git - version control (provided by git-module)
     #[shell_command(
         name = "git",
         usage = "git <command> [OPTIONS]",
@@ -42,15 +42,15 @@ Commands:\n\
   commit -m MSG    Create a new commit\n\
   log [-n N]       Show commit history\n\
   diff [file]      Show changes\n\n\
-Note: Git is provided by gix-module (lazy-loaded).\n";
+Note: Git is provided by git-module (lazy-loaded).\n";
                 let _ = stdout.write_all(help.as_bytes()).await;
                 return 0;
             }
 
             // This should not normally be reached - the shell executor should
-            // dispatch to the lazy module via get_lazy_module("git") -> "gix-module"
+            // dispatch to the lazy module via get_lazy_module("git") -> "git-module"
             let msg =
-                "git: gix-module not loaded. Git commands require the gix-module WASM component.\n";
+                "git: git-module not loaded. Git commands require the git-module WASM component.\n";
             let _ = stderr.write_all(msg.as_bytes()).await;
             1
         })
