@@ -39,6 +39,7 @@ export function setOpenUrlHandler(handler: OpenUrlHandler): void {
  * The main thread must call `listenForOpenUrl()` to receive these.
  */
 async function defaultHandler(url: string): Promise<void> {
+    console.log('[browser-impl] Sending open-url via BroadcastChannel:', url);
     const channel = new BroadcastChannel(CHANNEL_NAME);
     channel.postMessage({ type: 'open-url', url });
     channel.close();
@@ -108,9 +109,14 @@ export function listenForOpenUrl(): void {
     const channel = new BroadcastChannel(CHANNEL_NAME);
     channel.onmessage = (e: MessageEvent) => {
         if (e.data?.type === 'open-url' && typeof e.data.url === 'string') {
-            const win = window.open(e.data.url, '_blank');
-            if (!win) {
-                showOpenUrlToast(e.data.url);
+            const url = e.data.url;
+            console.log('[browser-impl] open-url requested:', url);
+            const win = window.open(url, '_blank');
+            if (win) {
+                console.log('[browser-impl] window.open succeeded');
+            } else {
+                console.warn('[browser-impl] window.open blocked (no user activation), showing toast fallback');
+                showOpenUrlToast(url);
             }
         }
     };
