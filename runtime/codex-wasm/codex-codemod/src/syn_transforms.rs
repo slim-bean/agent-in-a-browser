@@ -574,7 +574,7 @@ impl<'a> Visit<'a> for EditCollector<'a> {
             // The original `thread_spawn::spawn(move || { while ... sleep ... })` creates
             // an infinite synchronous loop inside a spawned task that blocks poll_spawned_tasks,
             // deadlocking the entire event loop.
-            self.rewrite_commit_animation_spawn(expr);
+            self.rewrite_blocking_spawn_sleep(expr);
         }
 
         syn::visit::visit_expr(self, expr);
@@ -726,12 +726,21 @@ impl<'a> EditCollector<'a> {
     /// Replace `tokio::thread_spawn::spawn(move || { while ... thread_spawn::sleep ... })`
     /// with `tokio::spawn(async move { while ... { tokio::time::sleep(...).await; ... } })`.
     ///
-    /// The synchronous version creates an infinite loop that blocks poll_spawned_tasks,
-    /// causing a deadlock: StopCommitAnimation can never be delivered because the select!
-    /// loop can't run while poll_spawned_tasks is stuck on the animation task.
-    fn rewrite_commit_animation_spawn(&mut self, expr: &'a Expr) {
+    /// Rewrite ANY `thread_spawn::spawn` call that contains `thread_spawn::sleep`
+    /// to use `tokio::spawn(async move { ... sleep().await ... })`.
+    ///
+    /// The synchronous `thread_spawn::spawn` wraps a FnOnce in a tokio::spawn,
+    /// but the closure's synchronous sleep never returns Poll::Pending, blocking
+    /// poll_spawned_tasks and deadlocking the event loop.
+    ///
+    /// This is a generalized version of the commit animation fix — it handles
+    /// ALL blocking spawn+sleep patterns in the TUI, including:
+    /// - Commit animation (app.rs)
+    /// - Quit shortcut hint timer (bottom_pane/mod.rs)
+    /// - Realtime audio meter (chatwidget/realtime.rs)
+    /// - Paste flush delays (bottom_pane/chat_composer.rs)
+    fn rewrite_blocking_spawn_sleep(&mut self, expr: &'a Expr) {
         if let Expr::Call(call) = expr {
-            // Check if this is a thread_spawn::spawn call
             let call_src = {
                 let (start, end) = self.call_expr_range(call);
                 if start < end {
@@ -741,27 +750,66 @@ impl<'a> EditCollector<'a> {
                 }
             };
 
-            if !call_src.contains("thread_spawn::spawn") {
-                return;
-            }
-            if !call_src.contains("thread_spawn::sleep") {
-                return;
-            }
-            if !call_src.contains("CommitTick") {
+            // Match original source patterns: thread::spawn, std::thread::spawn,
+            // and post-transform: thread_spawn::spawn, tokio::thread_spawn::spawn.
+            let has_spawn = call_src.contains("thread::spawn(");
+            let has_sleep = call_src.contains("thread::sleep(")
+                || call_src.contains("thread_spawn::sleep(");
+            if !has_spawn || !has_sleep {
                 return;
             }
 
-            // Found the commit animation spawn. Replace the entire expression.
+            // Found a thread_spawn::spawn with thread_spawn::sleep inside.
+            // Replace the call source text with async equivalents.
             let (start, end) = self.call_expr_range(call);
-            // Find the end of the full expression (including the closing paren and semicolon)
-            let replacement = concat!(
-                "tokio::spawn(async move {\n",
-                "                        while running.load(Ordering::Relaxed) {\n",
-                "                            tokio::time::sleep(COMMIT_ANIMATION_TICK).await;\n",
-                "                            tx.send(AppEvent::CommitTick);\n",
-                "                        }\n",
-                "                    })",
-            );
+            let mut replacement = call_src.to_string();
+            // 1. thread::spawn(move || / std::thread::spawn(move || → tokio::spawn(async move
+            replacement = replacement.replace("std::thread::spawn(move ||", "tokio::spawn(async move");
+            replacement = replacement.replace("thread::spawn(move ||", "tokio::spawn(async move");
+            replacement = replacement.replace("thread_spawn::spawn(move ||", "tokio::spawn(async move");
+            replacement = replacement.replace("std::thread::spawn(||", "tokio::spawn(async move");
+            replacement = replacement.replace("thread::spawn(||", "tokio::spawn(async move");
+            replacement = replacement.replace("thread_spawn::spawn(||", "tokio::spawn(async move");
+            // 2. thread::sleep(...) / thread_spawn::sleep(...) → tokio::time::sleep(...).await
+            replacement = replacement.replace("tokio::thread_spawn::sleep(", "tokio::time::sleep(");
+            replacement = replacement.replace("thread_spawn::sleep(", "tokio::time::sleep(");
+            replacement = replacement.replace("thread::sleep(", "tokio::time::sleep(");
+            replacement = replacement.replace("std::thread::sleep(", "tokio::time::sleep(");
+            // Add .await after each sleep call — find the closing paren + semicolon
+            // We need to handle: tokio::time::sleep(DURATION);
+            // Replace ); with ).await;
+            let mut result = String::new();
+            let mut chars = replacement.chars().peekable();
+            let mut in_sleep = false;
+            let mut paren_depth = 0;
+            while let Some(ch) = chars.next() {
+                if !in_sleep {
+                    result.push(ch);
+                    // Detect start of sleep call
+                    if result.ends_with("tokio::time::sleep(") {
+                        in_sleep = true;
+                        paren_depth = 1;
+                    }
+                } else {
+                    result.push(ch);
+                    if ch == '(' {
+                        paren_depth += 1;
+                    } else if ch == ')' {
+                        paren_depth -= 1;
+                        if paren_depth == 0 {
+                            // Found the end of sleep(...), add .await
+                            result.push_str(".await");
+                            in_sleep = false;
+                        }
+                    }
+                }
+            }
+
+            self.edits.push(Edit {
+                start,
+                end,
+                replacement: result,
+            });
 
             self.edits.push(Edit {
                 start,
