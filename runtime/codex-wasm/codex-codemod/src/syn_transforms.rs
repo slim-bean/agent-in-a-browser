@@ -860,9 +860,17 @@ impl<'a> EditCollector<'a> {
         let code = format!(
             concat!(
                 "\n",
-                "                // [codex-codemod] select! loop diagnostics\n",
+                "                // [codex-codemod] select! loop diagnostics + cooperative yield\n",
                 "                static {name}: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);\n",
                 "                let __iter = {name}.fetch_add(1, std::sync::atomic::Ordering::Relaxed);\n",
+                "                // Yield to JS event loop every 64 iterations to prevent\n",
+                "                // Draw events from monopolizing the select loop. Without\n",
+                "                // this, response animations send hundreds of Draw events\n",
+                "                // that the select processes without ever yielding, blocking\n",
+                "                // stdin input and background tasks for 10+ seconds.\n",
+                "                if __iter % 64 == 63 {{\n",
+                "                    tokio::task::yield_now().await;\n",
+                "                }}\n",
                 "                if __iter % 500 == 0 && __iter > 0 {{\n",
                 "                    let __rx_depth = app.active_thread_rx.as_ref().map(|rx| rx.len()).unwrap_or(0);\n",
                 "                    let __rx_is_some = app.active_thread_rx.is_some();\n",
