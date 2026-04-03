@@ -118,8 +118,10 @@ export default defineConfig(({ mode }) => ({
             '@tjfontaine/wasi-shims/ghostty-cli-shim.js',
             // Stripe bridge shims
             '@tjfontaine/wasi-shims/http-bridge-impl.js',
-            // Codex agent shell-exec shim
+            '@tjfontaine/wasi-shims/ws-bridge-impl.js',
+            // Codex agent shell-exec and shell-pty shims
             '@tjfontaine/wasi-shims/shell-exec-impl.js',
+            '@tjfontaine/wasi-shims/shell-pty-impl.js',
             // Codex TUI websocket shim
             '@tjfontaine/wasi-shims/websocket-impl.js',
             // Browser actions shim (open URLs)
@@ -309,8 +311,10 @@ export default defineConfig(({ mode }) => ({
                     '@tjfontaine/wasi-shims/ios-bridge-stub.js': '/wasi-shims/ios-bridge-stub.js',
                     // Stripe bridge shims
                     '@tjfontaine/wasi-shims/http-bridge-impl.js': '/wasi-shims/http-bridge-impl.js',
-                    // Codex agent shell-exec shim
+                    '@tjfontaine/wasi-shims/ws-bridge-impl.js': '/wasi-shims/ws-bridge-impl.js',
+                    // Codex agent shell-exec and shell-pty shims
                     '@tjfontaine/wasi-shims/shell-exec-impl.js': '/wasi-shims/shell-exec-impl.js',
+                    '@tjfontaine/wasi-shims/shell-pty-impl.js': '/wasi-shims/shell-pty-impl.js',
                     '@tjfontaine/wasi-shims/websocket-impl.js': '/wasi-shims/websocket-impl.js',
                     '@tjfontaine/wasi-shims/browser-impl.js': '/wasi-shims/browser-impl.js',
                     '@tjfontaine/wasi-shims/clipboard-impl.js': '/wasi-shims/clipboard-impl.js',
@@ -396,8 +400,10 @@ export default defineConfig(({ mode }) => ({
                     '@tjfontaine/wasi-shims/ios-bridge-stub.js': '/wasi-shims/ios-bridge-stub.js',
                     // Stripe bridge shims
                     '@tjfontaine/wasi-shims/http-bridge-impl.js': '/wasi-shims/http-bridge-impl.js',
-                    // Codex agent shell-exec shim
+                    '@tjfontaine/wasi-shims/ws-bridge-impl.js': '/wasi-shims/ws-bridge-impl.js',
+                    // Codex agent shell-exec and shell-pty shims
                     '@tjfontaine/wasi-shims/shell-exec-impl.js': '/wasi-shims/shell-exec-impl.js',
+                    '@tjfontaine/wasi-shims/shell-pty-impl.js': '/wasi-shims/shell-pty-impl.js',
                     '@tjfontaine/wasi-shims/websocket-impl.js': '/wasi-shims/websocket-impl.js',
                     '@tjfontaine/wasi-shims/browser-impl.js': '/wasi-shims/browser-impl.js',
                     '@tjfontaine/wasi-shims/clipboard-impl.js': '/wasi-shims/clipboard-impl.js',
