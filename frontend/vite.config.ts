@@ -15,6 +15,13 @@ function serveExternalsPlugin(): Plugin {
         '/wasm-loader/': [
             path.resolve(__dirname, '../packages/wasm-loader/dist'),
         ],
+        // Raw Go wasip1 binaries — loaded directly by go-wasip1-loader.ts
+        '/wasm-stripe/': [
+            path.resolve(__dirname, '../stripe-cli-wasm'),
+        ],
+        '/wasm-git/': [
+            path.resolve(__dirname, '../git-cli-wasm'),
+        ],
     };
 
     return {

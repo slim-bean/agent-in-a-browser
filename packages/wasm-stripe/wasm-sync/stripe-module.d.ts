@@ -1,4 +1,5 @@
 // world root:component/root
+export type * as HostBrowserActions010 from './interfaces/host-browser-actions.js'; // import host:browser/actions@0.1.0
 export type * as StripeBridgeHttpBridge010 from './interfaces/stripe-bridge-http-bridge.js'; // import stripe:bridge/http-bridge@0.1.0
 export type * as WasiCliEnvironment026 from './interfaces/wasi-cli-environment.js'; // import wasi:cli/environment@0.2.6
 export type * as WasiCliExit026 from './interfaces/wasi-cli-exit.js'; // import wasi:cli/exit@0.2.6

@@ -130,6 +130,13 @@ interface GoWasmConfig {
         responseBodyRead(handle: number, maxBytes: number): Uint8Array;
         responseClose(handle: number): void;
     };
+    wsBridge?: {
+        connect(url: string): number | Promise<number>;
+        read(handle: number, maxBytes: number): Uint8Array | Promise<Uint8Array>;
+        write(handle: number, data: Uint8Array): number;
+        close(handle: number): void;
+    };
+    openUrl?: (url: string) => void | Promise<void>;
 }
 
 /**
@@ -959,13 +966,85 @@ export async function loadGoWasip1Module(
     };
 
     // ========================================================================
+    // WebSocket Bridge (raw pointer ABI for wasip1)
+    // ========================================================================
+    // Only provided when config.wsBridge is set (stripe-module needs it for
+    // `stripe listen`; git-module does not use WebSockets).
+    const wsBridgeImports: Record<string, Function> = {};
+    if (config.wsBridge) {
+        const ws = config.wsBridge;
+
+        // connect: func(url: string) -> u32
+        // canonical ABI: (url_ptr, url_len) -> handle
+        const connectFn = function (urlPtr: number, urlLen: number): number | Promise<number> {
+            const url = readString(urlPtr, urlLen);
+            return ws.connect(url);
+        };
+        wsBridgeImports['connect'] = (hasJSPI && WA.Suspending)
+            ? new WA.Suspending(connectFn)
+            : connectFn;
+
+        // read: func(handle: u32, max-bytes: u32) -> list<u8>
+        // canonical ABI: (handle, max_bytes, retptr) -> void
+        const readFn = async function (handle: number, maxBytes: number, retptr: number): Promise<void> {
+            const data = await ws.read(handle, maxBytes);
+            const ptr = allocAndWrite(data);
+            const view = new DataView(getMem());
+            view.setUint32(retptr, ptr, true);
+            view.setUint32(retptr + 4, data.length, true);
+        };
+        wsBridgeImports['read'] = (hasJSPI && WA.Suspending)
+            ? new WA.Suspending(readFn)
+            : function (handle: number, maxBytes: number, retptr: number): void {
+                // Sync fallback: non-blocking read returns empty if nothing queued
+                const data = ws.read(handle, maxBytes) as Uint8Array;
+                const ptr = allocAndWrite(data);
+                const view = new DataView(getMem());
+                view.setUint32(retptr, ptr, true);
+                view.setUint32(retptr + 4, data.length, true);
+            };
+
+        // write: func(handle: u32, data: list<u8>) -> u32
+        // canonical ABI: (handle, data_ptr, data_len) -> written
+        wsBridgeImports['write'] = function (handle: number, dataPtr: number, dataLen: number): number {
+            const data = readBytes(dataPtr, dataLen);
+            return ws.write(handle, data);
+        };
+
+        // close: func(handle: u32)
+        wsBridgeImports['close'] = function (handle: number): void {
+            ws.close(handle);
+        };
+    }
+
+    // ========================================================================
     // Instantiate
     // ========================================================================
-    const instance = await WebAssembly.instantiate(module, {
+    const imports: Record<string, WebAssembly.ModuleImports> = {
         wasi_snapshot_preview1: wasi as WebAssembly.ModuleImports,
         'stripe:bridge/http-bridge@0.1.0': bridge as WebAssembly.ModuleImports,
         'git:bridge/http-bridge@0.1.0': bridge as WebAssembly.ModuleImports,
-    });
+    };
+    if (config.wsBridge) {
+        imports['stripe:bridge/ws-bridge@0.1.0'] = wsBridgeImports as WebAssembly.ModuleImports;
+    }
+
+    // ========================================================================
+    // Browser Actions (open-url for stripe login / community links)
+    // ========================================================================
+    if (config.openUrl) {
+        const openUrlFn = function (urlPtr: number, urlLen: number): void | Promise<void> {
+            const url = readString(urlPtr, urlLen);
+            return config.openUrl!(url);
+        };
+        imports['host:browser/actions@0.1.0'] = {
+            'open-url': (hasJSPI && WA.Suspending)
+                ? new WA.Suspending(openUrlFn)
+                : openUrlFn,
+        };
+    }
+
+    const instance = await WebAssembly.instantiate(module, imports);
 
     wasmMemory = instance.exports.memory as WebAssembly.Memory;
     cabiRealloc = instance.exports.cabi_realloc as (

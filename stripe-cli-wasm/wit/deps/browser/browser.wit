@@ -1,0 +1,8 @@
+package host:browser@0.1.0;
+
+/// Browser interaction — the host opens URLs in new browser tabs.
+interface actions {
+    /// Open a URL in a new browser tab/window.
+    /// Simplified signature (no result) for Go wasip1 compatibility.
+    open-url: func(url: string);
+}

@@ -118,6 +118,10 @@ var Manifest = Spec{
 		// Only pkg/cmd/samples/ (the cobra command layer) remains excluded above,
 		// with wasip1 overlays that use flags instead of interactive promptui.
 
+		// pkg/open/ — uses exec.Command to launch browser (no subprocess in WASI)
+		// Overlay: open_wasip1.go routes through host:browser/actions WASM import
+		{File: "pkg/open/open.go"},
+
 		// pkg/terminal/ — hardware terminal interactions
 		{File: "pkg/terminal/p400/user_prompts.go"},
 		{File: "pkg/terminal/quickstart_p400.go"},
@@ -160,6 +164,14 @@ var Manifest = Spec{
 			From: "httpClient := &http.Client{\n\t\t\tTimeout: time.Second * 3,\n\t\t}",
 			To:   "httpClient := newTelemetryHTTPClient()",
 		},
+		// In WASM, term.IsTerminal returns false (unsupported platform) but we
+		// always have a terminal (xterm.js). Remove the terminal check so the
+		// browser-based OAuth flow runs instead of the non-interactive JSON path.
+		{
+			File: "pkg/cmd/login.go",
+			From: "lc.nonInteractive || !term.IsTerminal(int(os.Stdin.Fd()))",
+			To:   "lc.nonInteractive",
+		},
 	},
 
 	ImportRemovals: []ImportRemoval{
@@ -173,6 +185,9 @@ var Manifest = Spec{
 		// After inline replacement in main.go
 		{File: "cmd/stripe/main.go", ImportPath: "net/http"},
 		{File: "cmd/stripe/main.go", ImportPath: "time"},
+		// After removing term.IsTerminal check in login.go
+		{File: "pkg/cmd/login.go", ImportPath: "os"},
+		{File: "pkg/cmd/login.go", ImportPath: "golang.org/x/term"},
 	},
 
 	GoModReplaces: []GoModReplace{

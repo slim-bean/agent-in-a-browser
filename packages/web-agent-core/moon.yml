@@ -1,13 +1,8 @@
 $schema: "https://moonrepo.dev/schemas/project.json"
 
-tasks:
-  build:
-    script: "tsc"
-    inputs:
-      - "src/**"
-      - "package.json"
-      - "tsconfig.json"
-    outputs:
-      - "dist"
-    deps:
-      - "wasi-shims:build"
+# Exclude inherited build task — this package depends on the web-headless-agent
+# WASM crate which has been removed. The package is WIP and will be re-enabled
+# when the headless agent crate is reintroduced.
+workspace:
+  inheritedTasks:
+    exclude: ["build"]

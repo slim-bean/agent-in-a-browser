@@ -28,10 +28,10 @@ func HomeDir() string {
 	return "/"
 }
 
-// OpenBrowser is a no-op in WASM. Instead of opening a browser,
-// we print the URL to stdout so the user can open it manually
-// (or the agent can handle it via the terminal).
+// OpenBrowser is handled by pkg/open/open_wasip1.go which routes
+// through the host:browser/actions WASM import to window.open().
+// This stub is kept only for any code that directly references
+// wasmbridge.OpenBrowser (currently none).
 func OpenBrowser(url string) error {
-	// The URL will be printed to stdout by the caller
 	return nil
 }

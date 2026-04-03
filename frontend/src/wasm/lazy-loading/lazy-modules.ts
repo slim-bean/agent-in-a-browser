@@ -378,8 +378,11 @@ async function loadStripeModule(): Promise<CommandModule> {
     // call stack frames for Go's 568 init functions.
     const { loadGoWasip1Module, GoWasmExit } = await import('./go-wasip1-loader.js');
 
-    // Import the HTTP bridge for network requests
+    // Import bridges: HTTP for API calls, WebSocket for `stripe listen`,
+    // and browser actions for `stripe login` URL opening
     const httpBridge = await import('@tjfontaine/wasi-shims/http-bridge-impl.js');
+    const wsBridge = await import('@tjfontaine/wasi-shims/ws-bridge-impl.js');
+    const { openUrl } = await import('@tjfontaine/wasi-shims/browser-impl.js');
 
     // The raw wasip1 binary is served from /wasm-stripe/stripe.wasm
     const wasmUrl = '/wasm-stripe/stripe.wasm';
@@ -387,7 +390,7 @@ async function loadStripeModule(): Promise<CommandModule> {
     const loadTime = performance.now() - startTime;
     console.log(`[LazyLoader] stripe-module imports loaded in ${loadTime.toFixed(0)}ms`);
 
-    return createDirectGoAdapter(loadGoWasip1Module, GoWasmExit, wasmUrl, httpBridge);
+    return createDirectGoAdapter(loadGoWasip1Module, GoWasmExit, wasmUrl, httpBridge, wsBridge, openUrl);
 }
 
 /**
@@ -409,6 +412,13 @@ function createDirectGoAdapter(
         responseBodyRead: (handle: number, maxBytes: number) => Uint8Array;
         responseClose: (handle: number) => void;
     },
+    wsBridge?: {
+        connect: (url: string) => number | Promise<number>;
+        read: (handle: number, maxBytes: number) => Uint8Array | Promise<Uint8Array>;
+        write: (handle: number, data: Uint8Array) => number;
+        close: (handle: number) => void;
+    },
+    openUrl?: (url: string) => void | Promise<void>,
 ): CommandModule {
     // Extract exit code using duck typing instead of instanceof.
     // GoWasmExit has { exitError: true, code: number }. Using instanceof
@@ -436,6 +446,8 @@ function createDirectGoAdapter(
                         stdoutWrite: (data) => stdout.write(data),
                         stderrWrite: (data) => stderr.write(data),
                         httpBridge,
+                        wsBridge,
+                        openUrl,
                     });
 
                     await goInstance.run();
