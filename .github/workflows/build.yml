@@ -92,7 +92,9 @@ jobs:
       - name: Build stripe-cli WASM
         run: |
           cd stripe-cli-wasm
-          make build-wasm-component
+          GOTOOLCHAIN=auto GOOS=wasip1 GOARCH=wasm go build -o bin/stripe.wasm ./cmd/stripe
+          wasm-tools component embed wasm/wit/ --world stripe:cli/stripe-cli bin/stripe.wasm -o bin/stripe-embedded.wasm
+          wasm-tools component new bin/stripe-embedded.wasm --adapt wasi_snapshot_preview1=wasm/adapters/wasi_snapshot_preview1.command.wasm -o bin/stripe-component.wasm
           mkdir -p ../target/wasm32-wasip2/release
           cp bin/stripe-component.wasm ../target/wasm32-wasip2/release/stripe_go.wasm
           cd wasm/npm && pnpm install && pnpm build
