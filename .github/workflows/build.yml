@@ -95,6 +95,7 @@ jobs:
           make build-wasm-component
           mkdir -p ../target/wasm32-wasip2/release
           cp bin/stripe-component.wasm ../target/wasm32-wasip2/release/stripe_go.wasm
+          cd wasm/npm && pnpm install && pnpm build
 
       - name: Moon CI
         env:
