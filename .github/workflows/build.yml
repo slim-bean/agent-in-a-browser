@@ -24,7 +24,7 @@ jobs:
       - name: Checkout submodules
         run: |
           git submodule deinit --all -f 2>/dev/null || true
-          git submodule update --init --force stripe-cli-wasm/stripe-cli git-cli-wasm/patches/go-git runtime/codex-upstream
+          git submodule update --init --force stripe-cli-wasm git-cli-wasm/patches/go-git runtime/codex-upstream
 
       - name: Setup Rust
         uses: moonrepo/setup-rust@v1
