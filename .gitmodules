@@ -1,7 +1,3 @@
-[submodule "stripe-cli-wasm/stripe-cli"]
-	path = stripe-cli-wasm/stripe-cli
-	url = https://github.com/tjfontaine/stripe-cli.git
-	branch = wasip1-wasm-support
 [submodule "git-cli-wasm/patches/go-git"]
 	path = git-cli-wasm/patches/go-git
 	url = https://github.com/tjfontaine/go-git.git
@@ -10,3 +6,7 @@
 	path = runtime/codex-upstream
 	url = https://github.com/tjfontaine/codex.git
 	branch = wasm32-wasip2
+[submodule "stripe-cli-wasm"]
+	path = stripe-cli-wasm
+	url = https://github.com/tjfontaine/stripe-cli.git
+	branch = wasip2-wasm-support

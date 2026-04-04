@@ -13,7 +13,6 @@ tasks:
     outputs:
       - "wasm"
     deps:
-      - "stripe-cli-wasm:copy-to-target"
 
   transpile-sync:
     command: "node ../../scripts/transpile.mjs stripe-module --sync"
@@ -23,4 +22,3 @@ tasks:
     outputs:
       - "wasm-sync"
     deps:
-      - "stripe-cli-wasm:copy-to-target"

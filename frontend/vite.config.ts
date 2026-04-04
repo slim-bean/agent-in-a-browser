@@ -17,7 +17,7 @@ function serveExternalsPlugin(): Plugin {
         ],
         // Raw Go wasip1 binaries — loaded directly by go-wasip1-loader.ts
         '/wasm-stripe/': [
-            path.resolve(__dirname, '../stripe-cli-wasm'),
+            path.resolve(__dirname, '../stripe-cli-wasm/bin'),
         ],
         '/wasm-git/': [
             path.resolve(__dirname, '../git-cli-wasm'),
@@ -95,7 +95,7 @@ export default defineConfig(({ mode }) => ({
 
             '@tjfontaine/wasm-loader': path.resolve(__dirname, '../packages/wasm-loader/dist'),
             '@tjfontaine/wasm-vim': path.resolve(__dirname, '../packages/wasm-vim'),
-            '@tjfontaine/wasm-stripe': path.resolve(__dirname, '../packages/wasm-stripe'),
+            'stripe-cli-wasm': path.resolve(__dirname, '../stripe-cli-wasm/wasm/npm/dist'),
             '@tjfontaine/wasm-python': path.resolve(__dirname, '../packages/wasm-python'),
             // Use source directly for development (avoid needing `npm run build` for each change)
             '@tjfontaine/codex-agent-core': path.resolve(__dirname, '../packages/codex-agent-core/src'),
@@ -174,6 +174,12 @@ export default defineConfig(({ mode }) => ({
                                 typeof value === 'string') {
                                 headers[key] = value;
                             }
+                        }
+
+                        // Restore User-Agent from custom header (browsers strip it from fetch)
+                        if (headers['x-original-user-agent']) {
+                            headers['user-agent'] = headers['x-original-user-agent'];
+                            delete headers['x-original-user-agent'];
                         }
 
                         const method = req.method || 'GET';

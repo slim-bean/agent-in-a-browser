@@ -363,34 +363,67 @@ async function loadEdtuiModule(): Promise<CommandModule> {
 /**
  * Load the stripe-module (Stripe CLI)
  *
- * Go-compiled Stripe CLI, adapted from wasip1 to wasip2 component model.
- * Unlike Rust modules that export shell:unix/command, the Go component exports
- * wasi:cli/run (standard CLI entry point). We wrap it with a JS adapter that
- * configures the WASI CLI shims (args, env, streams) before calling run().
+ * Uses the extracted stripe-cli-wasm runtime package, which
+ * handles direct wasip1 instantiation, WASI syscalls, and bridge wiring.
+ * We provide our OPFS filesystem, CORS proxy config, and browser-impl
+ * open-url handler.
  */
 async function loadStripeModule(): Promise<CommandModule> {
-    console.log('[LazyLoader] Loading stripe-module (Go CLI, direct wasip1)...');
+    console.log('[LazyLoader] Loading stripe-module via stripe-cli-wasm...');
     const startTime = performance.now();
 
-    // Import the direct wasip1 loader — bypasses the WASM Component Model
-    // to avoid stack overflow from adapter + JCO trampoline overhead.
-    // The raw wasip1 Go binary works fine; the component model adds too many
-    // call stack frames for Go's 568 init functions.
-    const { loadGoWasip1Module, GoWasmExit } = await import('./go-wasip1-loader.js');
-
-    // Import bridges: HTTP for API calls, WebSocket for `stripe listen`,
-    // and browser actions for `stripe login` URL opening
-    const httpBridge = await import('@tjfontaine/wasi-shims/http-bridge-impl.js');
-    const wsBridge = await import('@tjfontaine/wasi-shims/ws-bridge-impl.js');
+    const { loadStripeCli } = await import('stripe-cli-wasm');
+    const { FetchHttpBridge } = await import('stripe-cli-wasm/bridges/fetch-http-bridge');
+    const { WebSocketBridge } = await import('stripe-cli-wasm/bridges/websocket-bridge');
+    const { OpfsFilesystemProvider } = await import('stripe-cli-wasm/fs/opfs-provider');
     const { openUrl } = await import('@tjfontaine/wasi-shims/browser-impl.js');
 
-    // The raw wasip1 binary is served from /wasm-stripe/stripe.wasm
-    const wasmUrl = '/wasm-stripe/stripe.wasm';
+    const stripe = await loadStripeCli({
+        wasm: '/wasm-stripe/stripe.wasm',
+        httpBridge: new FetchHttpBridge({
+            corsProxy: '/cors-proxy',
+            corsProxyRoutes: [
+                { host: 'dashboard.stripe.com', pathPrefix: '/stripecli/' },
+                { host: 'api.stripe.com', pathPrefix: '/v1/stripecli/' },
+            ],
+            proxyHeaders: { 'X-Agent-Proxy': 'web-agent' },
+        }),
+        wsBridge: new WebSocketBridge(),
+        browserActions: { openUrl },
+        filesystem: new OpfsFilesystemProvider('stripe'),
+    });
 
     const loadTime = performance.now() - startTime;
-    console.log(`[LazyLoader] stripe-module imports loaded in ${loadTime.toFixed(0)}ms`);
+    console.log(`[LazyLoader] stripe-module loaded in ${loadTime.toFixed(0)}ms`);
 
-    return createDirectGoAdapter(loadGoWasip1Module, GoWasmExit, wasmUrl, httpBridge, wsBridge, openUrl);
+    return {
+        spawn(name, args, env, stdin, stdout, stderr) {
+            console.log(`[StripeCLI] spawn: name=${name}, args=`, args);
+            let exitCode: number | undefined;
+
+            const executionPromise = stripe.run({
+                args: [name, ...args],
+                env: env.vars,
+                cwd: env.cwd,
+                stdout: (data) => stdout.write(data),
+                stderr: (data) => stderr.write(data),
+                stdin: (maxBytes) => stdin.blockingRead(BigInt(maxBytes)),
+            }).then(result => {
+                exitCode = result.exitCode;
+                return result.exitCode;
+            }).catch((err) => {
+                console.error('[StripeCLI] run() error:', err);
+                exitCode = 1;
+                return 1;
+            });
+
+            return {
+                poll: () => exitCode,
+                resolve: () => executionPromise,
+            };
+        },
+        listCommands: () => ['stripe'],
+    };
 }
 
 /**

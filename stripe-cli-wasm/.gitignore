@@ -1,3 +1,0 @@
-# Build artifacts (compiled WASM binaries)
-*.wasm
-!adapters/*.wasm

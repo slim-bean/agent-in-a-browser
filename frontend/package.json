@@ -24,6 +24,7 @@
         "@tjfontaine/wasm-sqlite": "workspace:*",
         "@tjfontaine/wasm-tsx": "workspace:*",
         "@tjfontaine/wasm-stripe": "workspace:*",
+        "stripe-cli-wasm": "workspace:*",
         "@tjfontaine/wasm-git": "workspace:*",
         "@tjfontaine/wasm-vim": "workspace:*",
         "@tjfontaine/wasm-python": "workspace:*",
