@@ -13,8 +13,10 @@ codex-protocol = { path = "../../codex-upstream/codex-rs/protocol" }
 codex-login = { path = "../../codex-upstream/codex-rs/login" }
 codex-arg0 = { path = "../../codex-upstream/codex-rs/arg0" }
 codex-feedback = { path = "../wasi-codex-feedback" }
+codex-exec-server = { path = "../wasi-exec-server" }
 codex-utils-sleep-inhibitor = { path = "../../codex-upstream/codex-rs/utils/sleep-inhibitor" }
 reqwest = { path = "../wasi-reqwest" }
+async-trait = "0.1"
 tokio = { path = "../wasi-tokio" }
 clap = { version = "4", features = ["derive"] }
 

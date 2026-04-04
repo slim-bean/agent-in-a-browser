@@ -51,6 +51,89 @@ interface websocket {
     is-closed: func(handle: u32) -> bool;
 }
 
+/// Persistent PTY session interface — the host manages long-lived shell
+/// sessions that persist state (cwd, env vars, etc.) across calls.
+/// Models the ExecProcess trait from codex-exec-server.
+interface shell-pty {
+    /// Parameters to start a new PTY process.
+    record pty-start-params {
+        /// Unique process identifier (string form of the i32 process_id).
+        process-id: string,
+        /// Command argv (program + arguments).
+        argv: list<string>,
+        /// Working directory for the session.
+        cwd: string,
+        /// Environment variables (key-value pairs).
+        env: list<tuple<string, string>>,
+        /// Whether to allocate a TTY.
+        tty: bool,
+    }
+
+    /// Result of starting a PTY process.
+    record pty-start-result {
+        process-id: string,
+    }
+
+    /// Start a new persistent shell session.
+    start: func(params: pty-start-params) -> result<pty-start-result, string>;
+
+    /// A chunk of output with a sequence number.
+    record pty-output-chunk {
+        seq: u64,
+        data: list<u8>,
+    }
+
+    /// Result of reading output from a session.
+    record pty-read-result {
+        /// Output chunks since the requested sequence.
+        chunks: list<pty-output-chunk>,
+        /// Next sequence number to use for incremental reads.
+        next-seq: u64,
+        /// Whether the process has exited.
+        exited: bool,
+        /// Exit code if the process has exited.
+        exit-code: option<s32>,
+        /// Whether the output stream is closed.
+        closed: bool,
+        /// Failure message if the process failed.
+        failure: option<string>,
+    }
+
+    /// Read output from a session. Optionally waits for new output.
+    read: func(
+        process-id: string,
+        after-seq: option<u64>,
+        max-bytes: option<u32>,
+        wait-ms: option<u64>,
+    ) -> result<pty-read-result, string>;
+
+    /// Status of a write operation.
+    enum write-status {
+        accepted,
+        unknown-process,
+        stdin-closed,
+        starting,
+    }
+
+    /// Result of writing to a session.
+    record pty-write-result {
+        status: write-status,
+    }
+
+    /// Write data to a session's stdin.
+    write: func(
+        process-id: string,
+        data: list<u8>,
+    ) -> result<pty-write-result, string>;
+
+    /// Terminate a session.
+    terminate: func(process-id: string) -> result<_, string>;
+
+    /// Poll for new output availability. Returns current wake sequence.
+    /// When this value changes from a previous call, new output is available.
+    poll-wake: func(process-id: string) -> result<u64, string>;
+}
+
 /// Codex TUI world — runs the full Codex CLI terminal interface in WASM.
 /// Replaces the old ratatui web-agent-tui with the upstream Codex TUI.
 world codex-tui {
@@ -83,8 +166,11 @@ world codex-tui {
     import wasi:random/random@0.2.9;
     import wasi:random/insecure-seed@0.2.9;
 
-    // Shell execution — routes to host sandbox
+    // Shell execution — routes to host sandbox (one-shot commands)
     import shell-exec;
+
+    // Persistent PTY sessions — routes to host sandbox for stateful shell execution
+    import shell-pty;
 
     // WebSocket — routes to browser native WebSocket API
     import websocket;

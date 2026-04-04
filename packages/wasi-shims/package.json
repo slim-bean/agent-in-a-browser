@@ -33,6 +33,7 @@
         "./clipboard-impl.js": "./dist/clipboard-impl.js",
         "./audio-impl.js": "./dist/audio-impl.js",
         "./shell-exec-impl.js": "./dist/shell-exec-impl.js",
+        "./shell-pty-impl.js": "./dist/shell-pty-impl.js",
         "./websocket-impl.js": "./dist/websocket-impl.js",
         "./console-logging-impl.js": "./dist/console-logging-impl.js"
     },

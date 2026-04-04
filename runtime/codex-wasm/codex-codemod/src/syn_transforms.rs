@@ -753,8 +753,8 @@ impl<'a> EditCollector<'a> {
             // Match original source patterns: thread::spawn, std::thread::spawn,
             // and post-transform: thread_spawn::spawn, tokio::thread_spawn::spawn.
             let has_spawn = call_src.contains("thread::spawn(");
-            let has_sleep = call_src.contains("thread::sleep(")
-                || call_src.contains("thread_spawn::sleep(");
+            let has_sleep =
+                call_src.contains("thread::sleep(") || call_src.contains("thread_spawn::sleep(");
             if !has_spawn || !has_sleep {
                 return;
             }
@@ -764,9 +764,11 @@ impl<'a> EditCollector<'a> {
             let (start, end) = self.call_expr_range(call);
             let mut replacement = call_src.to_string();
             // 1. thread::spawn(move || / std::thread::spawn(move || → tokio::spawn(async move
-            replacement = replacement.replace("std::thread::spawn(move ||", "tokio::spawn(async move");
+            replacement =
+                replacement.replace("std::thread::spawn(move ||", "tokio::spawn(async move");
             replacement = replacement.replace("thread::spawn(move ||", "tokio::spawn(async move");
-            replacement = replacement.replace("thread_spawn::spawn(move ||", "tokio::spawn(async move");
+            replacement =
+                replacement.replace("thread_spawn::spawn(move ||", "tokio::spawn(async move");
             replacement = replacement.replace("std::thread::spawn(||", "tokio::spawn(async move");
             replacement = replacement.replace("thread::spawn(||", "tokio::spawn(async move");
             replacement = replacement.replace("thread_spawn::spawn(||", "tokio::spawn(async move");

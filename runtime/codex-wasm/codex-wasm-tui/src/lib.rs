@@ -9,6 +9,7 @@
 
 #[allow(warnings)]
 mod bindings;
+mod pty_backend;
 mod shell_exec_backend;
 mod wasi_http_backend;
 mod websocket_backend;
@@ -19,7 +20,6 @@ use clap::Parser;
 use codex_arg0::Arg0DispatchPaths;
 use codex_core::config_loader::LoaderOverrides;
 use codex_tui::Cli;
-
 
 struct CodexTui;
 
@@ -45,6 +45,9 @@ fn ensure_initialized() {
         reqwest::backend::set_backend(wasi_http_backend::WasiHttpBackend);
         tokio::process_backend::set_backend(shell_exec_backend::WasiShellBackend);
         tokio::websocket_backend::set_backend(websocket_backend::WasiWebSocketBackend);
+        // Register the PTY backend so unified_exec uses the WIT shell-pty
+        // interface for persistent shell sessions instead of stub errors.
+        codex_exec_server::set_exec_backend(std::sync::Arc::new(pty_backend::WitPtyBackend));
         tokio::set_yield_fn(wasm_yield);
         // Register webbrowser shim → WIT browser binding
         webbrowser::set_open_handler(|url| {
@@ -106,11 +109,7 @@ impl Guest for CodexTui {
         headers: Vec<(String, String)>,
         body: Vec<u8>,
     ) {
-        console_log::console_log!(
-            "[codex-wasm-tui] push_auth_callback: {} {}",
-            method,
-            path
-        );
+        console_log::console_log!("[codex-wasm-tui] push_auth_callback: {} {}", method, path);
         tiny_http::push_incoming_request(&method, &path, headers, body);
     }
 
@@ -119,7 +118,9 @@ impl Guest for CodexTui {
 
         console_log::console_log!("[codex-wasm-tui] run() entered, calling block_on");
         tokio::block_on(async {
-            console_log::console_log!("[codex-wasm-tui] block_on started, yielding then creating Cli");
+            console_log::console_log!(
+                "[codex-wasm-tui] block_on started, yielding then creating Cli"
+            );
             // Yield to JS event loop before heavy startup.
             wasm_yield();
 
@@ -153,13 +154,12 @@ impl Guest for CodexTui {
             };
 
             console_log::console_log!("[codex-wasm-tui] calling run_main...");
-            match codex_tui::run_main(cli, arg0_paths, LoaderOverrides::default(), None, None).await {
-                Ok(exit_info) => {
-                    match exit_info.exit_reason {
-                        codex_tui::ExitReason::UserRequested => 0,
-                        codex_tui::ExitReason::Fatal(_) => 1,
-                    }
-                }
+            match codex_tui::run_main(cli, arg0_paths, LoaderOverrides::default(), None, None).await
+            {
+                Ok(exit_info) => match exit_info.exit_reason {
+                    codex_tui::ExitReason::UserRequested => 0,
+                    codex_tui::ExitReason::Fatal(_) => 1,
+                },
                 Err(e) => {
                     // Write error to stderr
                     console_log::console_error!("codex-tui error: {e}");

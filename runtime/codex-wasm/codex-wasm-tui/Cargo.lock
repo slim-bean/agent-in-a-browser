@@ -1612,9 +1612,11 @@ name = "codex-wasm-tui"
 version = "0.1.0"
 dependencies = [
  "arboard",
+ "async-trait",
  "clap",
  "codex-arg0",
  "codex-core",
+ "codex-exec-server",
  "codex-feedback",
  "codex-login",
  "codex-protocol",

@@ -1,9 +1,13 @@
-//! Stub — exec-server for wasip2.
+//! Exec-server for wasip2 — backend injection model.
+//!
+//! The component entry point (codex-wasm-tui) registers a concrete ExecBackend
+//! via `set_exec_backend()` at startup. This backend routes through the WIT
+//! shell-pty interface to the browser host for persistent PTY sessions.
 #![allow(dead_code, unused_variables, unused_imports)]
 use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use serde::{Deserialize, Serialize};
 
@@ -215,6 +219,23 @@ pub trait ExecutorFileSystem: Send + Sync {
     async fn copy(&self, source: &codex_utils_absolute_path::AbsolutePathBuf, dest: &codex_utils_absolute_path::AbsolutePathBuf, options: CopyOptions) -> FileSystemResult<()>;
 }
 
+/// Global exec backend, set once at component startup via `set_exec_backend()`.
+static EXEC_BACKEND: OnceLock<Arc<dyn ExecBackend>> = OnceLock::new();
+
+/// Register the exec backend. Called once by the component entry point.
+/// Must be called before any `Environment` is created.
+pub fn set_exec_backend(backend: Arc<dyn ExecBackend>) {
+    let _ = EXEC_BACKEND.set(backend);
+}
+
+/// Get the registered exec backend, or a stub if none registered.
+fn get_registered_backend() -> Arc<dyn ExecBackend> {
+    EXEC_BACKEND
+        .get()
+        .cloned()
+        .unwrap_or_else(|| Arc::new(StubBackend))
+}
+
 pub struct EnvironmentManager {
     exec_server_url: Option<String>,
 }
@@ -222,24 +243,31 @@ impl EnvironmentManager {
     pub fn new(exec_server_url: Option<String>) -> Self { Self { exec_server_url } }
     pub fn from_env() -> Self { Self::new(std::env::var("CODEX_EXEC_SERVER_URL").ok()) }
     pub fn exec_server_url(&self) -> Option<&str> { self.exec_server_url.as_deref() }
-    pub async fn current(&self) -> Result<Arc<Environment>, ExecServerError> { Ok(Arc::new(Environment)) }
+    pub async fn current(&self) -> Result<Arc<Environment>, ExecServerError> { Ok(Arc::new(Environment::create(self.exec_server_url.clone()).await?)) }
 }
 
-pub struct Environment;
-impl Default for Environment { fn default() -> Self { Self } }
+pub struct Environment {
+    exec_server_url: Option<String>,
+}
+impl Default for Environment { fn default() -> Self { Self { exec_server_url: Some("wasm-host".to_string()) } } }
 impl std::fmt::Debug for Environment { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.debug_struct("Environment").finish() } }
 impl Environment {
-    pub async fn create(_url: Option<String>) -> Result<Self, ExecServerError> { Ok(Self) }
-    pub fn exec_server_url(&self) -> Option<&str> { None }
-    pub fn get_exec_backend(&self) -> Arc<dyn ExecBackend> { Arc::new(StubBackend) }
+    pub async fn create(_url: Option<String>) -> Result<Self, ExecServerError> {
+        // Always use "wasm-host" sentinel so upstream takes the remote exec path
+        Ok(Self { exec_server_url: Some("wasm-host".to_string()) })
+    }
+    pub fn exec_server_url(&self) -> Option<&str> { self.exec_server_url.as_deref() }
+    pub fn get_exec_backend(&self) -> Arc<dyn ExecBackend> { get_registered_backend() }
     pub fn get_filesystem(&self) -> Arc<dyn ExecutorFileSystem> { Arc::new(wasi_fs::WasiFs) }
 }
-impl ExecutorEnvironment for Environment { fn get_exec_backend(&self) -> Arc<dyn ExecBackend> { Arc::new(StubBackend) } }
+impl ExecutorEnvironment for Environment { fn get_exec_backend(&self) -> Arc<dyn ExecBackend> { get_registered_backend() } }
 
 struct StubBackend;
 #[async_trait::async_trait]
 impl ExecBackend for StubBackend {
-    async fn start(&self, _: ExecParams) -> Result<StartedExecProcess, ExecServerError> { Err(ExecServerError::Protocol("WASM".into())) }
+    async fn start(&self, _: ExecParams) -> Result<StartedExecProcess, ExecServerError> {
+        Err(ExecServerError::Protocol("No exec backend registered — call codex_exec_server::set_exec_backend() first".into()))
+    }
 }
 
 struct StubExec;

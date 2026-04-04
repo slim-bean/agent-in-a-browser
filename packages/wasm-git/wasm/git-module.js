@@ -6814,6 +6814,7 @@ const $init = (() => {
         'fd_write [v2]': exports0['7'],
         path_create_directory: exports0['17'],
         path_filestat_get: exports0['18'],
+        'path_filestat_get [v2]': exports0['18'],
         path_open: exports0['24'],
         path_readlink: exports0['19'],
         'path_readlink [v2]': exports0['19'],

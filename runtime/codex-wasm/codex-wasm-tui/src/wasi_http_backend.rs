@@ -99,12 +99,19 @@ fn send_request(
                 .map_err(|_| "Response error".to_string())?
                 .map_err(|e| format!("HTTP error: {e:?}"))?;
             let status = res.status();
-            console_log::console_log!("[wasi-http] got response: {} (polls={})", status, poll_count);
+            console_log::console_log!(
+                "[wasi-http] got response: {} (polls={})",
+                status,
+                poll_count
+            );
             return Ok(res);
         }
 
         if poll_count % 100 == 0 {
-            console_log::console_warn!("[wasi-http] still waiting for headers, polls={}", poll_count);
+            console_log::console_warn!(
+                "[wasi-http] still waiting for headers, polls={}",
+                poll_count
+            );
         }
     }
 }
@@ -144,11 +151,12 @@ impl HttpBackend for WasiHttpBackend {
         })
     }
 
-    fn execute_streaming(
-        &self,
-        request: RawRequest,
-    ) -> Result<RawStreamingResponse, String> {
-        console_log::console_log!("[wasi-http] streaming request: {} {}", request.method, request.url);
+    fn execute_streaming(&self, request: RawRequest) -> Result<RawStreamingResponse, String> {
+        console_log::console_log!(
+            "[wasi-http] streaming request: {} {}",
+            request.method,
+            request.url
+        );
         let response = send_request(&request)?;
         let (status, headers) = extract_headers(&response);
         console_log::console_log!("[wasi-http] streaming response: status={}", status);
@@ -167,7 +175,10 @@ impl HttpBackend for WasiHttpBackend {
         Ok(RawStreamingResponse {
             status,
             headers,
-            body_reader: Box::new(WasiBodyReader { stream, _body: body_handle }),
+            body_reader: Box::new(WasiBodyReader {
+                stream,
+                _body: body_handle,
+            }),
         })
     }
 }

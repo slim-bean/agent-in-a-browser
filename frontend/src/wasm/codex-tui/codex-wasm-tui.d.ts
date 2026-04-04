@@ -1,5 +1,6 @@
 // world root:component/root
 export type * as CodexTuiShellExec010 from './interfaces/codex-tui-shell-exec.js'; // import codex:tui/shell-exec@0.1.0
+export type * as CodexTuiShellPty010 from './interfaces/codex-tui-shell-pty.js'; // import codex:tui/shell-pty@0.1.0
 export type * as CodexTuiWebsocket010 from './interfaces/codex-tui-websocket.js'; // import codex:tui/websocket@0.1.0
 export type * as HostBrowserActions010 from './interfaces/host-browser-actions.js'; // import host:browser/actions@0.1.0
 export type * as HostBrowserAudio010 from './interfaces/host-browser-audio.js'; // import host:browser/audio@0.1.0

@@ -20,6 +20,16 @@ import { setTransportHandler } from '@tjfontaine/wasi-shims/wasi-http-impl.js';
 // Import shell exec handler registration for Codex TUI command execution
 import { setExecHandler, type ExecEnv, type ExecResult } from '@tjfontaine/wasi-shims/shell-exec-impl.js';
 
+// Import PTY handler registration for persistent shell sessions
+import {
+    setPtyHandler,
+    type PtyHandler,
+    type PtyStartParams,
+    type PtyStartResult,
+    type PtyReadResult,
+    type PtyWriteResult,
+} from '@tjfontaine/wasi-shims/shell-pty-impl.js';
+
 // Import sandbox for MCP routing
 import { fetchFromSandbox, initializeSandbox } from '../../agent/sandbox.js';
 
@@ -78,6 +88,257 @@ function createSandboxTransport() {
             body: responseBody
         };
     };
+}
+
+/**
+ * PTY Session Manager - routes persistent shell sessions through the MCP server.
+ *
+ * Each session holds a ShellEnv on the MCP server side (via pty_start/pty_exec/pty_terminate
+ * MCP tools). Output is buffered with sequence numbers for incremental reads.
+ */
+class PtySessionManager implements PtyHandler {
+    private sessions = new Map<string, {
+        /** Output chunks buffered for read() */
+        chunks: { seq: bigint; data: Uint8Array }[];
+        /** Next sequence number for output chunks */
+        nextSeq: bigint;
+        /** Whether the session has been terminated */
+        exited: boolean;
+        /** Exit code if exited */
+        exitCode: number | undefined;
+        /** Wake counter — increments when new output is available */
+        wakeSeq: bigint;
+        /** Resolvers waiting for new output (pollWake callers) */
+        wakeResolvers: (() => void)[];
+    }>();
+
+    /** Call MCP tool via the sandbox. */
+    private async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+        const body = JSON.stringify({
+            jsonrpc: '2.0',
+            id: Date.now(),
+            method: 'tools/call',
+            params: { name, arguments: args },
+        });
+        const response = await fetchFromSandbox('/mcp/message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+        });
+        const json = await response.json();
+        if (json.error) {
+            throw new Error(json.error.message || `${name} failed`);
+        }
+        return json.result;
+    }
+
+    async start(params: PtyStartParams): Promise<PtyStartResult> {
+        console.log('[PTY] start:', params.processId, 'argv:', params.argv, 'cwd:', params.cwd);
+
+        await this.callTool('pty_start', {
+            process_id: params.processId,
+            cwd: params.cwd || '/workspace',
+            env: params.env.length > 0 ? JSON.stringify(params.env) : undefined,
+        });
+
+        // Initialize local session state
+        this.sessions.set(params.processId, {
+            chunks: [],
+            nextSeq: 0n,
+            exited: false,
+            exitCode: undefined,
+            wakeSeq: 0n,
+            wakeResolvers: [],
+        });
+
+        // If argv has a command, execute it as the initial command
+        if (params.argv.length > 0) {
+            const command = params.argv.join(' ');
+            await this.executeCommand(params.processId, command);
+        }
+
+        return { processId: params.processId };
+    }
+
+    /**
+     * Execute a command in a session and buffer the output.
+     */
+    private async executeCommand(processId: string, command: string): Promise<void> {
+        const session = this.sessions.get(processId);
+        if (!session) return;
+
+        try {
+            const result = await this.callTool('pty_exec', {
+                process_id: processId,
+                command,
+            }) as { content?: { type: string; text: string }[] };
+
+            // Extract output text from MCP result
+            let output = '';
+            if (result?.content) {
+                output = result.content
+                    .filter((c) => c.type === 'text')
+                    .map((c) => c.text)
+                    .join('\n');
+            }
+
+            // Parse exit code from the [exit_code: N] trailer
+            const exitMatch = output.match(/\[exit_code:\s*(-?\d+)\]\s*$/);
+            if (exitMatch) {
+                session.exitCode = parseInt(exitMatch[1], 10);
+                // Strip the trailer from visible output
+                output = output.slice(0, exitMatch.index).trimEnd();
+            }
+
+            if (output) {
+                const encoder = new TextEncoder();
+                session.chunks.push({
+                    seq: session.nextSeq,
+                    data: encoder.encode(output),
+                });
+                session.nextSeq++;
+            }
+
+            // Wake any pollWake callers
+            session.wakeSeq++;
+            for (const resolve of session.wakeResolvers.splice(0)) {
+                resolve();
+            }
+        } catch (err) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+
+            // Error responses from pty_exec also contain [exit_code: N]
+            const exitMatch = errMsg.match(/\[exit_code:\s*(-?\d+)\]/);
+            if (exitMatch) {
+                session.exitCode = parseInt(exitMatch[1], 10);
+            }
+
+            const encoder = new TextEncoder();
+            session.chunks.push({
+                seq: session.nextSeq,
+                data: encoder.encode(errMsg.replace(/\[exit_code:\s*-?\d+\]\s*$/, '').trimEnd()),
+            });
+            session.nextSeq++;
+            session.wakeSeq++;
+            for (const resolve of session.wakeResolvers.splice(0)) {
+                resolve();
+            }
+        }
+    }
+
+    async read(
+        processId: string,
+        afterSeq: bigint | undefined,
+        _maxBytes: number | undefined,
+        waitMs: bigint | undefined,
+    ): Promise<PtyReadResult> {
+        const session = this.sessions.get(processId);
+        if (!session) {
+            return {
+                chunks: [],
+                nextSeq: 0n,
+                exited: true,
+                exitCode: undefined,
+                closed: true,
+                failure: 'unknown process',
+            };
+        }
+
+        const minSeq = afterSeq ?? 0n;
+
+        // Helper to collect and prune chunks
+        const collectChunks = () => {
+            const newChunks = session.chunks.filter(c => c.seq >= minSeq);
+            // Prune delivered chunks — keep only unread ones
+            if (newChunks.length > 0) {
+                const maxDelivered = newChunks[newChunks.length - 1].seq;
+                session.chunks = session.chunks.filter(c => c.seq > maxDelivered);
+            }
+            return newChunks;
+        };
+
+        let chunks = collectChunks();
+
+        // If no chunks and caller wants to wait, block briefly for new output
+        if (chunks.length === 0 && waitMs && waitMs > 0n) {
+            const waitTime = Math.min(Number(waitMs), 500);
+            await new Promise<void>(resolve => {
+                const timer = setTimeout(resolve, waitTime);
+                // Also wake if new output arrives before timeout
+                session.wakeResolvers.push(() => { clearTimeout(timer); resolve(); });
+            });
+            chunks = collectChunks();
+        }
+
+        return {
+            chunks,
+            nextSeq: session.nextSeq,
+            exited: session.exited,
+            exitCode: session.exitCode,
+            closed: session.exited,
+            failure: undefined,
+        };
+    }
+
+    async write(processId: string, data: Uint8Array): Promise<PtyWriteResult> {
+        const session = this.sessions.get(processId);
+        if (!session) {
+            return { status: 'unknown-process' };
+        }
+        if (session.exited) {
+            return { status: 'stdin-closed' };
+        }
+
+        // Interpret the written data as a command string
+        const command = new TextDecoder().decode(data).trim();
+        if (command) {
+            await this.executeCommand(processId, command);
+        }
+
+        return { status: 'accepted' };
+    }
+
+    async terminate(processId: string): Promise<void> {
+        console.log('[PTY] terminate:', processId);
+
+        const session = this.sessions.get(processId);
+        if (session) {
+            session.exited = true;
+            session.exitCode = session.exitCode ?? 0;
+            session.wakeSeq = BigInt('18446744073709551615'); // u64::MAX sentinel
+            // Wake any blocked pollWake callers
+            for (const resolve of session.wakeResolvers.splice(0)) {
+                resolve();
+            }
+        }
+
+        try {
+            await this.callTool('pty_terminate', { process_id: processId });
+        } catch {
+            // Best-effort cleanup
+        }
+
+        this.sessions.delete(processId);
+    }
+
+    async pollWake(processId: string): Promise<bigint> {
+        const session = this.sessions.get(processId);
+        if (!session) {
+            return BigInt('18446744073709551615'); // u64::MAX = process gone
+        }
+
+        if (session.exited) {
+            return BigInt('18446744073709551615');
+        }
+
+        // Wait for new output or timeout
+        const currentWake = session.wakeSeq;
+        await new Promise<void>(resolve => {
+            const timer = setTimeout(resolve, 200);
+            session.wakeResolvers.push(() => { clearTimeout(timer); resolve(); });
+        });
+        return session.wakeSeq;
+    }
 }
 
 /**
@@ -164,6 +425,10 @@ export async function launchTui(options: TuiLoaderOptions): Promise<{
         }
     });
     console.log('[TUI Loader] Shell exec handler registered');
+
+    // Register PTY session handler for persistent shell sessions
+    setPtyHandler(new PtySessionManager());
+    console.log('[TUI Loader] PTY session handler registered');
 
     // Initialize OPFS filesystem for shell access (touch, mkdir, ls, etc.)
     console.log('[TUI Loader] Initializing OPFS filesystem...');
@@ -281,6 +546,9 @@ export async function launchTui(options: TuiLoaderOptions): Promise<{
         ['CODEX_HOME', '/.codex'],
         ['TERM', 'xterm-256color'],
         ['RUST_BACKTRACE', '1'],
+        // Sentinel URL so EnvironmentManager takes the remote exec path,
+        // routing unified_exec through our WIT shell-pty backend.
+        ['CODEX_EXEC_SERVER_URL', 'wasm-host'],
     ]);
 
     // Pre-create /.codex in OPFS so find_codex_home() succeeds.

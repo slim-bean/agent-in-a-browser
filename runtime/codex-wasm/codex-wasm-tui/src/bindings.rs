@@ -363,6 +363,769 @@ pub mod codex {
                 }
             }
         }
+        /// Persistent PTY session interface — the host manages long-lived shell
+        /// sessions that persist state (cwd, env vars, etc.) across calls.
+        /// Models the ExecProcess trait from codex-exec-server.
+        #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
+        pub mod shell_pty {
+            #[used]
+            #[doc(hidden)]
+            static __FORCE_SECTION_REF: fn() = super::super::super::__link_custom_section_describing_imports;
+            use super::super::super::_rt;
+            /// Parameters to start a new PTY process.
+            #[derive(Clone)]
+            pub struct PtyStartParams {
+                /// Unique process identifier (string form of the i32 process_id).
+                pub process_id: _rt::String,
+                /// Command argv (program + arguments).
+                pub argv: _rt::Vec<_rt::String>,
+                /// Working directory for the session.
+                pub cwd: _rt::String,
+                /// Environment variables (key-value pairs).
+                pub env: _rt::Vec<(_rt::String, _rt::String)>,
+                /// Whether to allocate a TTY.
+                pub tty: bool,
+            }
+            impl ::core::fmt::Debug for PtyStartParams {
+                fn fmt(
+                    &self,
+                    f: &mut ::core::fmt::Formatter<'_>,
+                ) -> ::core::fmt::Result {
+                    f.debug_struct("PtyStartParams")
+                        .field("process-id", &self.process_id)
+                        .field("argv", &self.argv)
+                        .field("cwd", &self.cwd)
+                        .field("env", &self.env)
+                        .field("tty", &self.tty)
+                        .finish()
+                }
+            }
+            /// Result of starting a PTY process.
+            #[derive(Clone)]
+            pub struct PtyStartResult {
+                pub process_id: _rt::String,
+            }
+            impl ::core::fmt::Debug for PtyStartResult {
+                fn fmt(
+                    &self,
+                    f: &mut ::core::fmt::Formatter<'_>,
+                ) -> ::core::fmt::Result {
+                    f.debug_struct("PtyStartResult")
+                        .field("process-id", &self.process_id)
+                        .finish()
+                }
+            }
+            /// A chunk of output with a sequence number.
+            #[derive(Clone)]
+            pub struct PtyOutputChunk {
+                pub seq: u64,
+                pub data: _rt::Vec<u8>,
+            }
+            impl ::core::fmt::Debug for PtyOutputChunk {
+                fn fmt(
+                    &self,
+                    f: &mut ::core::fmt::Formatter<'_>,
+                ) -> ::core::fmt::Result {
+                    f.debug_struct("PtyOutputChunk")
+                        .field("seq", &self.seq)
+                        .field("data", &self.data)
+                        .finish()
+                }
+            }
+            /// Result of reading output from a session.
+            #[derive(Clone)]
+            pub struct PtyReadResult {
+                /// Output chunks since the requested sequence.
+                pub chunks: _rt::Vec<PtyOutputChunk>,
+                /// Next sequence number to use for incremental reads.
+                pub next_seq: u64,
+                /// Whether the process has exited.
+                pub exited: bool,
+                /// Exit code if the process has exited.
+                pub exit_code: Option<i32>,
+                /// Whether the output stream is closed.
+                pub closed: bool,
+                /// Failure message if the process failed.
+                pub failure: Option<_rt::String>,
+            }
+            impl ::core::fmt::Debug for PtyReadResult {
+                fn fmt(
+                    &self,
+                    f: &mut ::core::fmt::Formatter<'_>,
+                ) -> ::core::fmt::Result {
+                    f.debug_struct("PtyReadResult")
+                        .field("chunks", &self.chunks)
+                        .field("next-seq", &self.next_seq)
+                        .field("exited", &self.exited)
+                        .field("exit-code", &self.exit_code)
+                        .field("closed", &self.closed)
+                        .field("failure", &self.failure)
+                        .finish()
+                }
+            }
+            /// Status of a write operation.
+            #[repr(u8)]
+            #[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
+            pub enum WriteStatus {
+                Accepted,
+                UnknownProcess,
+                StdinClosed,
+                Starting,
+            }
+            impl ::core::fmt::Debug for WriteStatus {
+                fn fmt(
+                    &self,
+                    f: &mut ::core::fmt::Formatter<'_>,
+                ) -> ::core::fmt::Result {
+                    match self {
+                        WriteStatus::Accepted => {
+                            f.debug_tuple("WriteStatus::Accepted").finish()
+                        }
+                        WriteStatus::UnknownProcess => {
+                            f.debug_tuple("WriteStatus::UnknownProcess").finish()
+                        }
+                        WriteStatus::StdinClosed => {
+                            f.debug_tuple("WriteStatus::StdinClosed").finish()
+                        }
+                        WriteStatus::Starting => {
+                            f.debug_tuple("WriteStatus::Starting").finish()
+                        }
+                    }
+                }
+            }
+            impl WriteStatus {
+                #[doc(hidden)]
+                pub unsafe fn _lift(val: u8) -> WriteStatus {
+                    if !cfg!(debug_assertions) {
+                        return ::core::mem::transmute(val);
+                    }
+                    match val {
+                        0 => WriteStatus::Accepted,
+                        1 => WriteStatus::UnknownProcess,
+                        2 => WriteStatus::StdinClosed,
+                        3 => WriteStatus::Starting,
+                        _ => panic!("invalid enum discriminant"),
+                    }
+                }
+            }
+            /// Result of writing to a session.
+            #[repr(C)]
+            #[derive(Clone, Copy)]
+            pub struct PtyWriteResult {
+                pub status: WriteStatus,
+            }
+            impl ::core::fmt::Debug for PtyWriteResult {
+                fn fmt(
+                    &self,
+                    f: &mut ::core::fmt::Formatter<'_>,
+                ) -> ::core::fmt::Result {
+                    f.debug_struct("PtyWriteResult")
+                        .field("status", &self.status)
+                        .finish()
+                }
+            }
+            #[allow(unused_unsafe, clippy::all)]
+            /// Start a new persistent shell session.
+            pub fn start(
+                params: &PtyStartParams,
+            ) -> Result<PtyStartResult, _rt::String> {
+                unsafe {
+                    #[cfg_attr(target_pointer_width = "64", repr(align(8)))]
+                    #[cfg_attr(target_pointer_width = "32", repr(align(4)))]
+                    struct RetArea(
+                        [::core::mem::MaybeUninit<
+                            u8,
+                        >; 3 * ::core::mem::size_of::<*const u8>()],
+                    );
+                    let mut ret_area = RetArea(
+                        [::core::mem::MaybeUninit::uninit(); 3
+                            * ::core::mem::size_of::<*const u8>()],
+                    );
+                    let PtyStartParams {
+                        process_id: process_id0,
+                        argv: argv0,
+                        cwd: cwd0,
+                        env: env0,
+                        tty: tty0,
+                    } = params;
+                    let vec1 = process_id0;
+                    let ptr1 = vec1.as_ptr().cast::<u8>();
+                    let len1 = vec1.len();
+                    let vec3 = argv0;
+                    let len3 = vec3.len();
+                    let layout3 = _rt::alloc::Layout::from_size_align_unchecked(
+                        vec3.len() * (2 * ::core::mem::size_of::<*const u8>()),
+                        ::core::mem::size_of::<*const u8>(),
+                    );
+                    let result3 = if layout3.size() != 0 {
+                        let ptr = _rt::alloc::alloc(layout3).cast::<u8>();
+                        if ptr.is_null() {
+                            _rt::alloc::handle_alloc_error(layout3);
+                        }
+                        ptr
+                    } else {
+                        ::core::ptr::null_mut()
+                    };
+                    for (i, e) in vec3.into_iter().enumerate() {
+                        let base = result3
+                            .add(i * (2 * ::core::mem::size_of::<*const u8>()));
+                        {
+                            let vec2 = e;
+                            let ptr2 = vec2.as_ptr().cast::<u8>();
+                            let len2 = vec2.len();
+                            *base
+                                .add(::core::mem::size_of::<*const u8>())
+                                .cast::<usize>() = len2;
+                            *base.add(0).cast::<*mut u8>() = ptr2.cast_mut();
+                        }
+                    }
+                    let vec4 = cwd0;
+                    let ptr4 = vec4.as_ptr().cast::<u8>();
+                    let len4 = vec4.len();
+                    let vec8 = env0;
+                    let len8 = vec8.len();
+                    let layout8 = _rt::alloc::Layout::from_size_align_unchecked(
+                        vec8.len() * (4 * ::core::mem::size_of::<*const u8>()),
+                        ::core::mem::size_of::<*const u8>(),
+                    );
+                    let result8 = if layout8.size() != 0 {
+                        let ptr = _rt::alloc::alloc(layout8).cast::<u8>();
+                        if ptr.is_null() {
+                            _rt::alloc::handle_alloc_error(layout8);
+                        }
+                        ptr
+                    } else {
+                        ::core::ptr::null_mut()
+                    };
+                    for (i, e) in vec8.into_iter().enumerate() {
+                        let base = result8
+                            .add(i * (4 * ::core::mem::size_of::<*const u8>()));
+                        {
+                            let (t5_0, t5_1) = e;
+                            let vec6 = t5_0;
+                            let ptr6 = vec6.as_ptr().cast::<u8>();
+                            let len6 = vec6.len();
+                            *base
+                                .add(::core::mem::size_of::<*const u8>())
+                                .cast::<usize>() = len6;
+                            *base.add(0).cast::<*mut u8>() = ptr6.cast_mut();
+                            let vec7 = t5_1;
+                            let ptr7 = vec7.as_ptr().cast::<u8>();
+                            let len7 = vec7.len();
+                            *base
+                                .add(3 * ::core::mem::size_of::<*const u8>())
+                                .cast::<usize>() = len7;
+                            *base
+                                .add(2 * ::core::mem::size_of::<*const u8>())
+                                .cast::<*mut u8>() = ptr7.cast_mut();
+                        }
+                    }
+                    let ptr9 = ret_area.0.as_mut_ptr().cast::<u8>();
+                    #[cfg(target_arch = "wasm32")]
+                    #[link(wasm_import_module = "codex:tui/shell-pty@0.1.0")]
+                    unsafe extern "C" {
+                        #[link_name = "start"]
+                        fn wit_import10(
+                            _: *mut u8,
+                            _: usize,
+                            _: *mut u8,
+                            _: usize,
+                            _: *mut u8,
+                            _: usize,
+                            _: *mut u8,
+                            _: usize,
+                            _: i32,
+                            _: *mut u8,
+                        );
+                    }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    unsafe extern "C" fn wit_import10(
+                        _: *mut u8,
+                        _: usize,
+                        _: *mut u8,
+                        _: usize,
+                        _: *mut u8,
+                        _: usize,
+                        _: *mut u8,
+                        _: usize,
+                        _: i32,
+                        _: *mut u8,
+                    ) {
+                        unreachable!()
+                    }
+                    unsafe {
+                        wit_import10(
+                            ptr1.cast_mut(),
+                            len1,
+                            result3,
+                            len3,
+                            ptr4.cast_mut(),
+                            len4,
+                            result8,
+                            len8,
+                            match tty0 {
+                                true => 1,
+                                false => 0,
+                            },
+                            ptr9,
+                        )
+                    };
+                    let l11 = i32::from(*ptr9.add(0).cast::<u8>());
+                    let result18 = match l11 {
+                        0 => {
+                            let e = {
+                                let l12 = *ptr9
+                                    .add(::core::mem::size_of::<*const u8>())
+                                    .cast::<*mut u8>();
+                                let l13 = *ptr9
+                                    .add(2 * ::core::mem::size_of::<*const u8>())
+                                    .cast::<usize>();
+                                let len14 = l13;
+                                let bytes14 = _rt::Vec::from_raw_parts(
+                                    l12.cast(),
+                                    len14,
+                                    len14,
+                                );
+                                PtyStartResult {
+                                    process_id: _rt::string_lift(bytes14),
+                                }
+                            };
+                            Ok(e)
+                        }
+                        1 => {
+                            let e = {
+                                let l15 = *ptr9
+                                    .add(::core::mem::size_of::<*const u8>())
+                                    .cast::<*mut u8>();
+                                let l16 = *ptr9
+                                    .add(2 * ::core::mem::size_of::<*const u8>())
+                                    .cast::<usize>();
+                                let len17 = l16;
+                                let bytes17 = _rt::Vec::from_raw_parts(
+                                    l15.cast(),
+                                    len17,
+                                    len17,
+                                );
+                                _rt::string_lift(bytes17)
+                            };
+                            Err(e)
+                        }
+                        _ => _rt::invalid_enum_discriminant(),
+                    };
+                    if layout3.size() != 0 {
+                        _rt::alloc::dealloc(result3.cast(), layout3);
+                    }
+                    if layout8.size() != 0 {
+                        _rt::alloc::dealloc(result8.cast(), layout8);
+                    }
+                    result18
+                }
+            }
+            #[allow(unused_unsafe, clippy::all)]
+            /// Read output from a session. Optionally waits for new output.
+            pub fn read(
+                process_id: &str,
+                after_seq: Option<u64>,
+                max_bytes: Option<u32>,
+                wait_ms: Option<u64>,
+            ) -> Result<PtyReadResult, _rt::String> {
+                unsafe {
+                    #[repr(align(8))]
+                    struct RetArea(
+                        [::core::mem::MaybeUninit<
+                            u8,
+                        >; 40 + 4 * ::core::mem::size_of::<*const u8>()],
+                    );
+                    let mut ret_area = RetArea(
+                        [::core::mem::MaybeUninit::uninit(); 40
+                            + 4 * ::core::mem::size_of::<*const u8>()],
+                    );
+                    let vec0 = process_id;
+                    let ptr0 = vec0.as_ptr().cast::<u8>();
+                    let len0 = vec0.len();
+                    let (result1_0, result1_1) = match after_seq {
+                        Some(e) => (1i32, _rt::as_i64(e)),
+                        None => (0i32, 0i64),
+                    };
+                    let (result2_0, result2_1) = match max_bytes {
+                        Some(e) => (1i32, _rt::as_i32(e)),
+                        None => (0i32, 0i32),
+                    };
+                    let (result3_0, result3_1) = match wait_ms {
+                        Some(e) => (1i32, _rt::as_i64(e)),
+                        None => (0i32, 0i64),
+                    };
+                    let ptr4 = ret_area.0.as_mut_ptr().cast::<u8>();
+                    #[cfg(target_arch = "wasm32")]
+                    #[link(wasm_import_module = "codex:tui/shell-pty@0.1.0")]
+                    unsafe extern "C" {
+                        #[link_name = "read"]
+                        fn wit_import5(
+                            _: *mut u8,
+                            _: usize,
+                            _: i32,
+                            _: i64,
+                            _: i32,
+                            _: i32,
+                            _: i32,
+                            _: i64,
+                            _: *mut u8,
+                        );
+                    }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    unsafe extern "C" fn wit_import5(
+                        _: *mut u8,
+                        _: usize,
+                        _: i32,
+                        _: i64,
+                        _: i32,
+                        _: i32,
+                        _: i32,
+                        _: i64,
+                        _: *mut u8,
+                    ) {
+                        unreachable!()
+                    }
+                    unsafe {
+                        wit_import5(
+                            ptr0.cast_mut(),
+                            len0,
+                            result1_0,
+                            result1_1,
+                            result2_0,
+                            result2_1,
+                            result3_0,
+                            result3_1,
+                            ptr4,
+                        )
+                    };
+                    let l6 = i32::from(*ptr4.add(0).cast::<u8>());
+                    let result26 = match l6 {
+                        0 => {
+                            let e = {
+                                let l7 = *ptr4.add(8).cast::<*mut u8>();
+                                let l8 = *ptr4
+                                    .add(8 + 1 * ::core::mem::size_of::<*const u8>())
+                                    .cast::<usize>();
+                                let base13 = l7;
+                                let len13 = l8;
+                                let mut result13 = _rt::Vec::with_capacity(len13);
+                                for i in 0..len13 {
+                                    let base = base13
+                                        .add(i * (8 + 2 * ::core::mem::size_of::<*const u8>()));
+                                    let e13 = {
+                                        let l9 = *base.add(0).cast::<i64>();
+                                        let l10 = *base.add(8).cast::<*mut u8>();
+                                        let l11 = *base
+                                            .add(8 + 1 * ::core::mem::size_of::<*const u8>())
+                                            .cast::<usize>();
+                                        let len12 = l11;
+                                        PtyOutputChunk {
+                                            seq: l9 as u64,
+                                            data: _rt::Vec::from_raw_parts(l10.cast(), len12, len12),
+                                        }
+                                    };
+                                    result13.push(e13);
+                                }
+                                _rt::cabi_dealloc(
+                                    base13,
+                                    len13 * (8 + 2 * ::core::mem::size_of::<*const u8>()),
+                                    8,
+                                );
+                                let l14 = *ptr4
+                                    .add(8 + 2 * ::core::mem::size_of::<*const u8>())
+                                    .cast::<i64>();
+                                let l15 = i32::from(
+                                    *ptr4
+                                        .add(16 + 2 * ::core::mem::size_of::<*const u8>())
+                                        .cast::<u8>(),
+                                );
+                                let l16 = i32::from(
+                                    *ptr4
+                                        .add(20 + 2 * ::core::mem::size_of::<*const u8>())
+                                        .cast::<u8>(),
+                                );
+                                let l18 = i32::from(
+                                    *ptr4
+                                        .add(28 + 2 * ::core::mem::size_of::<*const u8>())
+                                        .cast::<u8>(),
+                                );
+                                let l19 = i32::from(
+                                    *ptr4
+                                        .add(32 + 2 * ::core::mem::size_of::<*const u8>())
+                                        .cast::<u8>(),
+                                );
+                                PtyReadResult {
+                                    chunks: result13,
+                                    next_seq: l14 as u64,
+                                    exited: _rt::bool_lift(l15 as u8),
+                                    exit_code: match l16 {
+                                        0 => None,
+                                        1 => {
+                                            let e = {
+                                                let l17 = *ptr4
+                                                    .add(24 + 2 * ::core::mem::size_of::<*const u8>())
+                                                    .cast::<i32>();
+                                                l17
+                                            };
+                                            Some(e)
+                                        }
+                                        _ => _rt::invalid_enum_discriminant(),
+                                    },
+                                    closed: _rt::bool_lift(l18 as u8),
+                                    failure: match l19 {
+                                        0 => None,
+                                        1 => {
+                                            let e = {
+                                                let l20 = *ptr4
+                                                    .add(32 + 3 * ::core::mem::size_of::<*const u8>())
+                                                    .cast::<*mut u8>();
+                                                let l21 = *ptr4
+                                                    .add(32 + 4 * ::core::mem::size_of::<*const u8>())
+                                                    .cast::<usize>();
+                                                let len22 = l21;
+                                                let bytes22 = _rt::Vec::from_raw_parts(
+                                                    l20.cast(),
+                                                    len22,
+                                                    len22,
+                                                );
+                                                _rt::string_lift(bytes22)
+                                            };
+                                            Some(e)
+                                        }
+                                        _ => _rt::invalid_enum_discriminant(),
+                                    },
+                                }
+                            };
+                            Ok(e)
+                        }
+                        1 => {
+                            let e = {
+                                let l23 = *ptr4.add(8).cast::<*mut u8>();
+                                let l24 = *ptr4
+                                    .add(8 + 1 * ::core::mem::size_of::<*const u8>())
+                                    .cast::<usize>();
+                                let len25 = l24;
+                                let bytes25 = _rt::Vec::from_raw_parts(
+                                    l23.cast(),
+                                    len25,
+                                    len25,
+                                );
+                                _rt::string_lift(bytes25)
+                            };
+                            Err(e)
+                        }
+                        _ => _rt::invalid_enum_discriminant(),
+                    };
+                    result26
+                }
+            }
+            #[allow(unused_unsafe, clippy::all)]
+            /// Write data to a session's stdin.
+            pub fn write(
+                process_id: &str,
+                data: &[u8],
+            ) -> Result<PtyWriteResult, _rt::String> {
+                unsafe {
+                    #[cfg_attr(target_pointer_width = "64", repr(align(8)))]
+                    #[cfg_attr(target_pointer_width = "32", repr(align(4)))]
+                    struct RetArea(
+                        [::core::mem::MaybeUninit<
+                            u8,
+                        >; 3 * ::core::mem::size_of::<*const u8>()],
+                    );
+                    let mut ret_area = RetArea(
+                        [::core::mem::MaybeUninit::uninit(); 3
+                            * ::core::mem::size_of::<*const u8>()],
+                    );
+                    let vec0 = process_id;
+                    let ptr0 = vec0.as_ptr().cast::<u8>();
+                    let len0 = vec0.len();
+                    let vec1 = data;
+                    let ptr1 = vec1.as_ptr().cast::<u8>();
+                    let len1 = vec1.len();
+                    let ptr2 = ret_area.0.as_mut_ptr().cast::<u8>();
+                    #[cfg(target_arch = "wasm32")]
+                    #[link(wasm_import_module = "codex:tui/shell-pty@0.1.0")]
+                    unsafe extern "C" {
+                        #[link_name = "write"]
+                        fn wit_import3(
+                            _: *mut u8,
+                            _: usize,
+                            _: *mut u8,
+                            _: usize,
+                            _: *mut u8,
+                        );
+                    }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    unsafe extern "C" fn wit_import3(
+                        _: *mut u8,
+                        _: usize,
+                        _: *mut u8,
+                        _: usize,
+                        _: *mut u8,
+                    ) {
+                        unreachable!()
+                    }
+                    unsafe {
+                        wit_import3(ptr0.cast_mut(), len0, ptr1.cast_mut(), len1, ptr2)
+                    };
+                    let l4 = i32::from(*ptr2.add(0).cast::<u8>());
+                    let result9 = match l4 {
+                        0 => {
+                            let e = {
+                                let l5 = i32::from(
+                                    *ptr2.add(::core::mem::size_of::<*const u8>()).cast::<u8>(),
+                                );
+                                PtyWriteResult {
+                                    status: WriteStatus::_lift(l5 as u8),
+                                }
+                            };
+                            Ok(e)
+                        }
+                        1 => {
+                            let e = {
+                                let l6 = *ptr2
+                                    .add(::core::mem::size_of::<*const u8>())
+                                    .cast::<*mut u8>();
+                                let l7 = *ptr2
+                                    .add(2 * ::core::mem::size_of::<*const u8>())
+                                    .cast::<usize>();
+                                let len8 = l7;
+                                let bytes8 = _rt::Vec::from_raw_parts(
+                                    l6.cast(),
+                                    len8,
+                                    len8,
+                                );
+                                _rt::string_lift(bytes8)
+                            };
+                            Err(e)
+                        }
+                        _ => _rt::invalid_enum_discriminant(),
+                    };
+                    result9
+                }
+            }
+            #[allow(unused_unsafe, clippy::all)]
+            /// Terminate a session.
+            pub fn terminate(process_id: &str) -> Result<(), _rt::String> {
+                unsafe {
+                    #[cfg_attr(target_pointer_width = "64", repr(align(8)))]
+                    #[cfg_attr(target_pointer_width = "32", repr(align(4)))]
+                    struct RetArea(
+                        [::core::mem::MaybeUninit<
+                            u8,
+                        >; 3 * ::core::mem::size_of::<*const u8>()],
+                    );
+                    let mut ret_area = RetArea(
+                        [::core::mem::MaybeUninit::uninit(); 3
+                            * ::core::mem::size_of::<*const u8>()],
+                    );
+                    let vec0 = process_id;
+                    let ptr0 = vec0.as_ptr().cast::<u8>();
+                    let len0 = vec0.len();
+                    let ptr1 = ret_area.0.as_mut_ptr().cast::<u8>();
+                    #[cfg(target_arch = "wasm32")]
+                    #[link(wasm_import_module = "codex:tui/shell-pty@0.1.0")]
+                    unsafe extern "C" {
+                        #[link_name = "terminate"]
+                        fn wit_import2(_: *mut u8, _: usize, _: *mut u8);
+                    }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    unsafe extern "C" fn wit_import2(_: *mut u8, _: usize, _: *mut u8) {
+                        unreachable!()
+                    }
+                    unsafe { wit_import2(ptr0.cast_mut(), len0, ptr1) };
+                    let l3 = i32::from(*ptr1.add(0).cast::<u8>());
+                    let result7 = match l3 {
+                        0 => {
+                            let e = ();
+                            Ok(e)
+                        }
+                        1 => {
+                            let e = {
+                                let l4 = *ptr1
+                                    .add(::core::mem::size_of::<*const u8>())
+                                    .cast::<*mut u8>();
+                                let l5 = *ptr1
+                                    .add(2 * ::core::mem::size_of::<*const u8>())
+                                    .cast::<usize>();
+                                let len6 = l5;
+                                let bytes6 = _rt::Vec::from_raw_parts(
+                                    l4.cast(),
+                                    len6,
+                                    len6,
+                                );
+                                _rt::string_lift(bytes6)
+                            };
+                            Err(e)
+                        }
+                        _ => _rt::invalid_enum_discriminant(),
+                    };
+                    result7
+                }
+            }
+            #[allow(unused_unsafe, clippy::all)]
+            /// Poll for new output availability. Returns current wake sequence.
+            /// When this value changes from a previous call, new output is available.
+            pub fn poll_wake(process_id: &str) -> Result<u64, _rt::String> {
+                unsafe {
+                    #[repr(align(8))]
+                    struct RetArea(
+                        [::core::mem::MaybeUninit<
+                            u8,
+                        >; 8 + 2 * ::core::mem::size_of::<*const u8>()],
+                    );
+                    let mut ret_area = RetArea(
+                        [::core::mem::MaybeUninit::uninit(); 8
+                            + 2 * ::core::mem::size_of::<*const u8>()],
+                    );
+                    let vec0 = process_id;
+                    let ptr0 = vec0.as_ptr().cast::<u8>();
+                    let len0 = vec0.len();
+                    let ptr1 = ret_area.0.as_mut_ptr().cast::<u8>();
+                    #[cfg(target_arch = "wasm32")]
+                    #[link(wasm_import_module = "codex:tui/shell-pty@0.1.0")]
+                    unsafe extern "C" {
+                        #[link_name = "poll-wake"]
+                        fn wit_import2(_: *mut u8, _: usize, _: *mut u8);
+                    }
+                    #[cfg(not(target_arch = "wasm32"))]
+                    unsafe extern "C" fn wit_import2(_: *mut u8, _: usize, _: *mut u8) {
+                        unreachable!()
+                    }
+                    unsafe { wit_import2(ptr0.cast_mut(), len0, ptr1) };
+                    let l3 = i32::from(*ptr1.add(0).cast::<u8>());
+                    let result8 = match l3 {
+                        0 => {
+                            let e = {
+                                let l4 = *ptr1.add(8).cast::<i64>();
+                                l4 as u64
+                            };
+                            Ok(e)
+                        }
+                        1 => {
+                            let e = {
+                                let l5 = *ptr1.add(8).cast::<*mut u8>();
+                                let l6 = *ptr1
+                                    .add(8 + 1 * ::core::mem::size_of::<*const u8>())
+                                    .cast::<usize>();
+                                let len7 = l6;
+                                let bytes7 = _rt::Vec::from_raw_parts(
+                                    l5.cast(),
+                                    len7,
+                                    len7,
+                                );
+                                _rt::string_lift(bytes7)
+                            };
+                            Err(e)
+                        }
+                        _ => _rt::invalid_enum_discriminant(),
+                    };
+                    result8
+                }
+            }
+        }
         /// WebSocket interface — the host (browser) opens native WebSocket connections
         /// and bridges text messages to/from WASM.
         #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
@@ -14133,23 +14896,23 @@ pub(crate) use __export_codex_tui_impl as export;
 )]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 12029] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xfd\\\x01A\x02\x01AM\
-\x01B\x04\x04\0\x05error\x03\x01\x01h\0\x01@\x01\x04self\x01\0s\x04\0\x1d[method\
-]error.to-debug-string\x01\x02\x03\0\x13wasi:io/error@0.2.9\x05\0\x01B\x0a\x04\0\
-\x08pollable\x03\x01\x01h\0\x01@\x01\x04self\x01\0\x7f\x04\0\x16[method]pollable\
-.ready\x01\x02\x01@\x01\x04self\x01\x01\0\x04\0\x16[method]pollable.block\x01\x03\
-\x01p\x01\x01py\x01@\x01\x02in\x04\0\x05\x04\0\x04poll\x01\x06\x03\0\x12wasi:io/\
-poll@0.2.9\x05\x01\x02\x03\0\0\x05error\x02\x03\0\x01\x08pollable\x01B(\x02\x03\x02\
-\x01\x02\x04\0\x05error\x03\0\0\x02\x03\x02\x01\x03\x04\0\x08pollable\x03\0\x02\x01\
-i\x01\x01q\x02\x15last-operation-failed\x01\x04\0\x06closed\0\0\x04\0\x0cstream-\
-error\x03\0\x05\x04\0\x0cinput-stream\x03\x01\x04\0\x0doutput-stream\x03\x01\x01\
-h\x07\x01p}\x01j\x01\x0a\x01\x06\x01@\x02\x04self\x09\x03lenw\0\x0b\x04\0\x19[me\
-thod]input-stream.read\x01\x0c\x04\0\"[method]input-stream.blocking-read\x01\x0c\
-\x01j\x01w\x01\x06\x01@\x02\x04self\x09\x03lenw\0\x0d\x04\0\x19[method]input-str\
-eam.skip\x01\x0e\x04\0\"[method]input-stream.blocking-skip\x01\x0e\x01i\x03\x01@\
-\x01\x04self\x09\0\x0f\x04\0\x1e[method]input-stream.subscribe\x01\x10\x01h\x08\x01\
-@\x01\x04self\x11\0\x0d\x04\0![method]output-stream.check-write\x01\x12\x01j\0\x01\
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 12605] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xbda\x01A\x02\x01AO\x01\
+B\x04\x04\0\x05error\x03\x01\x01h\0\x01@\x01\x04self\x01\0s\x04\0\x1d[method]err\
+or.to-debug-string\x01\x02\x03\0\x13wasi:io/error@0.2.9\x05\0\x01B\x0a\x04\0\x08\
+pollable\x03\x01\x01h\0\x01@\x01\x04self\x01\0\x7f\x04\0\x16[method]pollable.rea\
+dy\x01\x02\x01@\x01\x04self\x01\x01\0\x04\0\x16[method]pollable.block\x01\x03\x01\
+p\x01\x01py\x01@\x01\x02in\x04\0\x05\x04\0\x04poll\x01\x06\x03\0\x12wasi:io/poll\
+@0.2.9\x05\x01\x02\x03\0\0\x05error\x02\x03\0\x01\x08pollable\x01B(\x02\x03\x02\x01\
+\x02\x04\0\x05error\x03\0\0\x02\x03\x02\x01\x03\x04\0\x08pollable\x03\0\x02\x01i\
+\x01\x01q\x02\x15last-operation-failed\x01\x04\0\x06closed\0\0\x04\0\x0cstream-e\
+rror\x03\0\x05\x04\0\x0cinput-stream\x03\x01\x04\0\x0doutput-stream\x03\x01\x01h\
+\x07\x01p}\x01j\x01\x0a\x01\x06\x01@\x02\x04self\x09\x03lenw\0\x0b\x04\0\x19[met\
+hod]input-stream.read\x01\x0c\x04\0\"[method]input-stream.blocking-read\x01\x0c\x01\
+j\x01w\x01\x06\x01@\x02\x04self\x09\x03lenw\0\x0d\x04\0\x19[method]input-stream.\
+skip\x01\x0e\x04\0\"[method]input-stream.blocking-skip\x01\x0e\x01i\x03\x01@\x01\
+\x04self\x09\0\x0f\x04\0\x1e[method]input-stream.subscribe\x01\x10\x01h\x08\x01@\
+\x01\x04self\x11\0\x0d\x04\0![method]output-stream.check-write\x01\x12\x01j\0\x01\
 \x06\x01@\x02\x04self\x11\x08contents\x0a\0\x13\x04\0\x1b[method]output-stream.w\
 rite\x01\x14\x04\0.[method]output-stream.blocking-write-and-flush\x01\x14\x01@\x01\
 \x04self\x11\0\x13\x04\0\x1b[method]output-stream.flush\x01\x15\x04\0$[method]ou\
@@ -14350,17 +15113,30 @@ r\x02\x03cwds\x04vars\x01\x04\0\x08exec-env\x03\0\x02\x01p}\x01r\x03\x09exit-cod
 ez\x06stdout\x04\x06stderr\x04\x04\0\x0bexec-result\x03\0\x05\x01ps\x01k\x04\x01\
 ky\x01j\x01\x06\x01s\x01@\x05\x07programs\x04args\x07\x03env\x03\x05stdin\x08\x0a\
 timeout-ms\x09\0\x0a\x04\0\x04exec\x01\x0b\x03\0\x1acodex:tui/shell-exec@0.1.0\x05\
-#\x01B\x0f\x01ps\x01j\x01y\x01s\x01@\x02\x03urls\x09protocols\0\0\x01\x04\0\x07c\
-onnect\x01\x02\x01j\0\x01s\x01@\x02\x06handley\x04datas\0\x03\x04\0\x04send\x01\x04\
-\x01ks\x01j\x01\x05\x01s\x01@\x01\x06handley\0\x06\x04\0\x04recv\x01\x07\x01@\x01\
-\x06handley\x01\0\x04\0\x05close\x01\x08\x01@\x01\x06handley\0\x7f\x04\0\x09is-c\
-losed\x01\x09\x03\0\x19codex:tui/websocket@0.1.0\x05$\x01B\x04\x01r\x02\x04colsy\
-\x04rowsy\x04\0\x13terminal-dimensions\x03\0\0\x01@\0\0\x01\x04\0\x11get-termina\
-l-size\x01\x02\x03\0\x18terminal:info/size@0.1.0\x05%\x01B\x03\x01j\0\x01s\x01@\x01\
-\x03urls\0\0\x04\0\x08open-url\x01\x01\x03\0\x1ahost:browser/actions@0.1.0\x05&\x01\
-B\x06\x01j\x01s\x01s\x01@\0\0\0\x04\0\x09read-text\x01\x01\x01j\0\x01s\x01@\x01\x04\
+#\x01B$\x01ps\x01o\x02ss\x01p\x01\x01r\x05\x0aprocess-ids\x04argv\0\x03cwds\x03e\
+nv\x02\x03tty\x7f\x04\0\x10pty-start-params\x03\0\x03\x01r\x01\x0aprocess-ids\x04\
+\0\x10pty-start-result\x03\0\x05\x01p}\x01r\x02\x03seqw\x04data\x07\x04\0\x10pty\
+-output-chunk\x03\0\x08\x01p\x09\x01kz\x01ks\x01r\x06\x06chunks\x0a\x08next-seqw\
+\x06exited\x7f\x09exit-code\x0b\x06closed\x7f\x07failure\x0c\x04\0\x0fpty-read-r\
+esult\x03\0\x0d\x01m\x04\x08accepted\x0funknown-process\x0cstdin-closed\x08start\
+ing\x04\0\x0cwrite-status\x03\0\x0f\x01r\x01\x06status\x10\x04\0\x10pty-write-re\
+sult\x03\0\x11\x01j\x01\x06\x01s\x01@\x01\x06params\x04\0\x13\x04\0\x05start\x01\
+\x14\x01kw\x01ky\x01j\x01\x0e\x01s\x01@\x04\x0aprocess-ids\x09after-seq\x15\x09m\
+ax-bytes\x16\x07wait-ms\x15\0\x17\x04\0\x04read\x01\x18\x01j\x01\x12\x01s\x01@\x02\
+\x0aprocess-ids\x04data\x07\0\x19\x04\0\x05write\x01\x1a\x01j\0\x01s\x01@\x01\x0a\
+process-ids\0\x1b\x04\0\x09terminate\x01\x1c\x01j\x01w\x01s\x01@\x01\x0aprocess-\
+ids\0\x1d\x04\0\x09poll-wake\x01\x1e\x03\0\x19codex:tui/shell-pty@0.1.0\x05$\x01\
+B\x0f\x01ps\x01j\x01y\x01s\x01@\x02\x03urls\x09protocols\0\0\x01\x04\0\x07connec\
+t\x01\x02\x01j\0\x01s\x01@\x02\x06handley\x04datas\0\x03\x04\0\x04send\x01\x04\x01\
+ks\x01j\x01\x05\x01s\x01@\x01\x06handley\0\x06\x04\0\x04recv\x01\x07\x01@\x01\x06\
+handley\x01\0\x04\0\x05close\x01\x08\x01@\x01\x06handley\0\x7f\x04\0\x09is-close\
+d\x01\x09\x03\0\x19codex:tui/websocket@0.1.0\x05%\x01B\x04\x01r\x02\x04colsy\x04\
+rowsy\x04\0\x13terminal-dimensions\x03\0\0\x01@\0\0\x01\x04\0\x11get-terminal-si\
+ze\x01\x02\x03\0\x18terminal:info/size@0.1.0\x05&\x01B\x03\x01j\0\x01s\x01@\x01\x03\
+urls\0\0\x04\0\x08open-url\x01\x01\x03\0\x1ahost:browser/actions@0.1.0\x05'\x01B\
+\x06\x01j\x01s\x01s\x01@\0\0\0\x04\0\x09read-text\x01\x01\x01j\0\x01s\x01@\x01\x04\
 texts\0\x02\x04\0\x0awrite-text\x01\x03\x03\0\x1chost:browser/clipboard@0.1.0\x05\
-'\x01B\x1d\x01ps\x01j\x01\0\x01s\x01@\0\0\x01\x04\0\x12list-input-devices\x01\x02\
+(\x01B\x1d\x01ps\x01j\x01\0\x01s\x01@\0\0\x01\x04\0\x12list-input-devices\x01\x02\
 \x04\0\x13list-output-devices\x01\x02\x01o\x03y{}\x01j\x01\x03\x01s\x01@\0\0\x04\
 \x04\0\x14default-input-config\x01\x05\x04\0\x15default-output-config\x01\x05\x01\
 ks\x01j\x01y\x01s\x01@\x03\x0bdevice-name\x06\x0bsample-ratey\x08channels{\0\x07\
@@ -14370,10 +15146,10 @@ capture-peak\x01\x0c\x01j\0\x01s\x01@\x01\x0acapture-idy\0\x0d\x04\0\x0cstop-cap
 ture\x01\x0e\x04\0\x0estart-playback\x01\x08\x01@\x02\x09player-idy\x04data\x09\0\
 \x0d\x04\0\x10enqueue-playback\x01\x0f\x01@\x01\x09player-idy\0\x0d\x04\0\x0ecle\
 ar-playback\x01\x10\x04\0\x0dstop-playback\x01\x10\x03\0\x18host:browser/audio@0\
-.1.0\x05(\x01B\x04\x01@\x01\x03msgs\x01\0\x04\0\x03log\x01\0\x04\0\x04warn\x01\0\
-\x04\0\x05error\x01\0\x03\0\x1ahost:console/logging@0.1.0\x05)\x01@\0\0z\x04\0\x03\
-run\x01*\x01o\x02ss\x01p+\x01p}\x01@\x04\x06methods\x04paths\x07headers,\x04body\
--\x01\0\x04\0\x12push-auth-callback\x01.\x04\0\x19codex:tui/codex-tui@0.1.0\x04\0\
+.1.0\x05)\x01B\x04\x01@\x01\x03msgs\x01\0\x04\0\x03log\x01\0\x04\0\x04warn\x01\0\
+\x04\0\x05error\x01\0\x03\0\x1ahost:console/logging@0.1.0\x05*\x01@\0\0z\x04\0\x03\
+run\x01+\x01o\x02ss\x01p,\x01p}\x01@\x04\x06methods\x04paths\x07headers-\x04body\
+.\x01\0\x04\0\x12push-auth-callback\x01/\x04\0\x19codex:tui/codex-tui@0.1.0\x04\0\
 \x0b\x0f\x01\0\x09codex-tui\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dw\
 it-component\x070.227.1\x10wit-bindgen-rust\x060.41.0";
 #[inline(never)]

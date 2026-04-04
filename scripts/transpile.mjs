@@ -233,11 +233,18 @@ const MODULES = {
         shims: {
             ...SHIMS,
             'codex:tui/shell-exec@0.1.0': '@tjfontaine/wasi-shims/shell-exec-impl.js',
+            'codex:tui/shell-pty@0.1.0': '@tjfontaine/wasi-shims/shell-pty-impl.js',
             'codex:tui/websocket@0.1.0': '@tjfontaine/wasi-shims/websocket-impl.js',
         },
         exports: ['run'],
         extraAsyncImports: [
             'codex:tui/shell-exec@0.1.0#exec',
+            // PTY session operations — all async for JSPI suspension
+            'codex:tui/shell-pty@0.1.0#start',
+            'codex:tui/shell-pty@0.1.0#read',
+            'codex:tui/shell-pty@0.1.0#write',
+            'codex:tui/shell-pty@0.1.0#terminate',
+            'codex:tui/shell-pty@0.1.0#poll-wake',
             // WebSocket connect and recv must be async for JSPI suspension
             'codex:tui/websocket@0.1.0#connect',
             'codex:tui/websocket@0.1.0#recv',

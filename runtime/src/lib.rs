@@ -23,10 +23,19 @@ use mcp_server::{JsonRpcRequest, JsonRpcResponse, ToolResult};
 use runtime_macros::mcp_tool_router;
 use serde_json::json;
 
+use std::collections::HashMap;
+use std::sync::{LazyLock, Mutex};
+
+/// Global session store for persistent PTY shell sessions.
+/// Each session holds a ShellEnv that persists cwd, env vars, etc. across calls.
+static PTY_SESSIONS: LazyLock<Mutex<HashMap<String, shell::ShellEnv>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
 /// The Shell-based MCP Server (stateless, created per-request)
 /// Pure shell implementation - no JavaScript runtime
 ///
 /// Note: This struct has no state - all state is created per-request in ShellEnv.
+/// Session-aware PTY tools use the global PTY_SESSIONS store.
 /// We create a new instance per request to avoid RefCell borrow conflicts in sync mode,
 /// where WASI calls during shell execution can trigger re-entrant behavior.
 struct ShellMcpServer;
@@ -195,6 +204,113 @@ impl ShellMcpServer {
             ))
         }
     }
+
+    // ============================================================
+    // PTY Session Tools - persistent shell sessions
+    // ============================================================
+
+    #[mcp_tool(
+        description = "Start a persistent shell session. The session preserves cwd, env vars, aliases, and shell state across subsequent pty_exec calls."
+    )]
+    fn pty_start(
+        &self,
+        process_id: String,
+        cwd: Option<String>,
+        env: Option<String>,
+    ) -> ToolResult {
+        if process_id.is_empty() {
+            return ToolResult::error("No process_id provided");
+        }
+
+        let mut session_env = shell::ShellEnv::new();
+
+        // Set initial cwd if provided
+        if let Some(cwd) = cwd {
+            session_env.cwd = std::path::PathBuf::from(cwd);
+        }
+
+        // Set initial environment variables — JSON array of [key, value] pairs
+        if let Some(env_json) = env {
+            if let Ok(pairs) = serde_json::from_str::<Vec<Vec<String>>>(&env_json) {
+                for pair in pairs {
+                    if pair.len() == 2 {
+                        let _ = session_env.export_var(&pair[0], Some(&pair[1]));
+                    }
+                }
+            }
+        }
+
+        let mut sessions = PTY_SESSIONS.lock().unwrap();
+        sessions.insert(process_id.clone(), session_env);
+
+        ToolResult::text(format!("Session {} started", process_id))
+    }
+
+    #[mcp_tool(
+        description = "Execute a command in a persistent shell session. The session preserves state (cwd, env vars, etc.) across calls."
+    )]
+    fn pty_exec(&self, process_id: String, command: String) -> ToolResult {
+        if process_id.is_empty() {
+            return ToolResult::error("No process_id provided");
+        }
+        if command.is_empty() {
+            return ToolResult::error("No command provided");
+        }
+
+        let mut sessions = PTY_SESSIONS.lock().unwrap();
+        let session_env = match sessions.get_mut(&process_id) {
+            Some(env) => env,
+            None => {
+                return ToolResult::error(format!("Unknown session: {}", process_id));
+            }
+        };
+
+        let result = futures_lite::future::block_on(shell::run_pipeline(&command, session_env));
+
+        // Format output similar to shell_eval
+        let mut output = String::new();
+        if !result.stdout.is_empty() {
+            output.push_str(&result.stdout);
+        }
+        if !result.stderr.is_empty() {
+            if !output.is_empty() {
+                output.push('\n');
+            }
+            output.push_str("stderr: ");
+            output.push_str(&result.stderr);
+        }
+
+        // Include exit code in a machine-parseable trailer
+        output.push_str(&format!("\n[exit_code: {}]", result.code));
+
+        if result.code == 0 {
+            if output.trim().is_empty() {
+                ToolResult::text(format!("(no output)\n[exit_code: {}]", result.code))
+            } else {
+                ToolResult::text(output)
+            }
+        } else {
+            ToolResult::error(output)
+        }
+    }
+
+    #[mcp_tool(description = "Terminate a persistent shell session and release its resources.")]
+    fn pty_terminate(&self, process_id: String) -> ToolResult {
+        if process_id.is_empty() {
+            return ToolResult::error("No process_id provided");
+        }
+
+        let mut sessions = PTY_SESSIONS.lock().unwrap();
+        if sessions.remove(&process_id).is_some() {
+            ToolResult::text(format!("Session {} terminated", process_id))
+        } else {
+            ToolResult::error(format!("Unknown session: {}", process_id))
+        }
+    }
+
+    // ============================================================
+    // File editing tools
+    // ============================================================
 
     #[mcp_tool(
         description = "Edit a file by replacing old_str with new_str. The old_str must match exactly and uniquely in the file. For multiple edits, call this tool multiple times. Use read_file first to see the current content."

@@ -8,6 +8,7 @@ import { preopens, types } from '@tjfontaine/wasi-shims/opfs-filesystem-impl.js'
 import { Pollable } from '@tjfontaine/wasi-shims/poll-impl.js';
 import { insecureSeed as insecureSeed$1, random } from '@tjfontaine/wasi-shims/random.js';
 import { exec } from '@tjfontaine/wasi-shims/shell-exec-impl.js';
+import { pollWake, read, start, terminate, write } from '@tjfontaine/wasi-shims/shell-pty-impl.js';
 import { InputStream, OutputStream } from '@tjfontaine/wasi-shims/streams.js';
 import { Fields, FutureIncomingResponse, IncomingBody, IncomingResponse, OutgoingBody, OutgoingRequest, RequestOptions, outgoingHandler } from '@tjfontaine/wasi-shims/wasi-http-impl.js';
 import { close, connect, isClosed, recv, send } from '@tjfontaine/wasi-shims/websocket-impl.js';
@@ -4084,42 +4085,51 @@ const trampoline58 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-const trampoline59 = new WebAssembly.Suspending(async function(arg0, arg1, arg2) {
-  var ptr0 = arg0;
-  var len0 = arg1;
-  var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
-  _debugLog('[iface="host:browser/actions@0.1.0", function="open-url"] [Instruction::CallInterface] (async? sync, @ enter)');
-  const _interface_call_currentTaskID = startCurrentTask(0, false, 'open-url');
+const trampoline59 = new WebAssembly.Suspending(async function(arg0) {
+  _debugLog('[iface="host:browser/audio@0.1.0", function="list-output-devices"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'list-output-devices');
   let ret;
   try {
-    ret = { tag: 'ok', val: await openUrl(result0)};
+    ret = { tag: 'ok', val: await listOutputDevices()};
   } catch (e) {
     ret = { tag: 'err', val: getErrorPayload(e) };
   }
-  _debugLog('[iface="host:browser/actions@0.1.0", function="open-url"] [Instruction::CallInterface] (sync, @ post-call)');
+  _debugLog('[iface="host:browser/audio@0.1.0", function="list-output-devices"] [Instruction::CallInterface] (sync, @ post-call)');
   endCurrentTask(0);
-  var variant2 = ret;
-  switch (variant2.tag) {
+  var variant3 = ret;
+  switch (variant3.tag) {
     case 'ok': {
-      const e = variant2.val;
-      dataView(memory0).setInt8(arg2 + 0, 0, true);
+      const e = variant3.val;
+      dataView(memory0).setInt8(arg0 + 0, 0, true);
+      var vec1 = e;
+      var len1 = vec1.length;
+      var result1 = realloc0(0, 0, 4, len1 * 8);
+      for (let i = 0; i < vec1.length; i++) {
+        const e = vec1[i];
+        const base = result1 + i * 8;var ptr0 = utf8Encode(e, realloc0, memory0);
+        var len0 = utf8EncodedLen;
+        dataView(memory0).setUint32(base + 4, len0, true);
+        dataView(memory0).setUint32(base + 0, ptr0, true);
+      }
+      dataView(memory0).setUint32(arg0 + 8, len1, true);
+      dataView(memory0).setUint32(arg0 + 4, result1, true);
       break;
     }
     case 'err': {
-      const e = variant2.val;
-      dataView(memory0).setInt8(arg2 + 0, 1, true);
-      var ptr1 = utf8Encode(e, realloc0, memory0);
-      var len1 = utf8EncodedLen;
-      dataView(memory0).setUint32(arg2 + 8, len1, true);
-      dataView(memory0).setUint32(arg2 + 4, ptr1, true);
+      const e = variant3.val;
+      dataView(memory0).setInt8(arg0 + 0, 1, true);
+      var ptr2 = utf8Encode(e, realloc0, memory0);
+      var len2 = utf8EncodedLen;
+      dataView(memory0).setUint32(arg0 + 8, len2, true);
+      dataView(memory0).setUint32(arg0 + 4, ptr2, true);
       break;
     }
     default: {
       throw new TypeError('invalid variant specified for result');
     }
   }
-  _debugLog('[iface="host:browser/actions@0.1.0", function="open-url"][Instruction::Return]', {
-    funcName: 'open-url',
+  _debugLog('[iface="host:browser/audio@0.1.0", function="list-output-devices"][Instruction::Return]', {
+    funcName: 'list-output-devices',
     paramCount: 0,
     async: false,
     postReturn: false
@@ -4127,45 +4137,57 @@ const trampoline59 = new WebAssembly.Suspending(async function(arg0, arg1, arg2)
 }
 );
 
-function trampoline60(arg0, arg1) {
-  _debugLog('[iface="host:browser/audio@0.1.0", function="clear-playback"] [Instruction::CallInterface] (async? sync, @ enter)');
-  const _interface_call_currentTaskID = startCurrentTask(0, false, 'clear-playback');
+const trampoline60 = new WebAssembly.Suspending(async function(arg0) {
+  _debugLog('[iface="host:browser/audio@0.1.0", function="list-input-devices"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'list-input-devices');
   let ret;
   try {
-    ret = { tag: 'ok', val: clearPlayback(arg0 >>> 0)};
+    ret = { tag: 'ok', val: await listInputDevices()};
   } catch (e) {
     ret = { tag: 'err', val: getErrorPayload(e) };
   }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="clear-playback"] [Instruction::CallInterface] (sync, @ post-call)');
+  _debugLog('[iface="host:browser/audio@0.1.0", function="list-input-devices"] [Instruction::CallInterface] (sync, @ post-call)');
   endCurrentTask(0);
-  var variant1 = ret;
-  switch (variant1.tag) {
+  var variant3 = ret;
+  switch (variant3.tag) {
     case 'ok': {
-      const e = variant1.val;
-      dataView(memory0).setInt8(arg1 + 0, 0, true);
+      const e = variant3.val;
+      dataView(memory0).setInt8(arg0 + 0, 0, true);
+      var vec1 = e;
+      var len1 = vec1.length;
+      var result1 = realloc0(0, 0, 4, len1 * 8);
+      for (let i = 0; i < vec1.length; i++) {
+        const e = vec1[i];
+        const base = result1 + i * 8;var ptr0 = utf8Encode(e, realloc0, memory0);
+        var len0 = utf8EncodedLen;
+        dataView(memory0).setUint32(base + 4, len0, true);
+        dataView(memory0).setUint32(base + 0, ptr0, true);
+      }
+      dataView(memory0).setUint32(arg0 + 8, len1, true);
+      dataView(memory0).setUint32(arg0 + 4, result1, true);
       break;
     }
     case 'err': {
-      const e = variant1.val;
-      dataView(memory0).setInt8(arg1 + 0, 1, true);
-      var ptr0 = utf8Encode(e, realloc0, memory0);
-      var len0 = utf8EncodedLen;
-      dataView(memory0).setUint32(arg1 + 8, len0, true);
-      dataView(memory0).setUint32(arg1 + 4, ptr0, true);
+      const e = variant3.val;
+      dataView(memory0).setInt8(arg0 + 0, 1, true);
+      var ptr2 = utf8Encode(e, realloc0, memory0);
+      var len2 = utf8EncodedLen;
+      dataView(memory0).setUint32(arg0 + 8, len2, true);
+      dataView(memory0).setUint32(arg0 + 4, ptr2, true);
       break;
     }
     default: {
       throw new TypeError('invalid variant specified for result');
     }
   }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="clear-playback"][Instruction::Return]', {
-    funcName: 'clear-playback',
+  _debugLog('[iface="host:browser/audio@0.1.0", function="list-input-devices"][Instruction::Return]', {
+    funcName: 'list-input-devices',
     paramCount: 0,
     async: false,
     postReturn: false
   });
 }
-
+);
 
 function trampoline61(arg0, arg1, arg2, arg3) {
   var ptr0 = arg1;
@@ -4250,104 +4272,47 @@ function trampoline62(arg0, arg1) {
 }
 
 
-const trampoline63 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4, arg5) {
-  let variant1;
-  if (arg0) {
-    var ptr0 = arg1;
-    var len0 = arg2;
-    var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
-    variant1 = result0;
-  } else {
-    variant1 = undefined;
-  }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="start-playback"] [Instruction::CallInterface] (async? sync, @ enter)');
-  const _interface_call_currentTaskID = startCurrentTask(0, false, 'start-playback');
+function trampoline63(arg0, arg1) {
+  _debugLog('[iface="host:browser/audio@0.1.0", function="stop-capture"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'stop-capture');
   let ret;
   try {
-    ret = { tag: 'ok', val: await startPlayback(variant1, arg3 >>> 0, clampGuest(arg4, 0, 65535))};
+    ret = { tag: 'ok', val: stopCapture(arg0 >>> 0)};
   } catch (e) {
     ret = { tag: 'err', val: getErrorPayload(e) };
   }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="start-playback"] [Instruction::CallInterface] (sync, @ post-call)');
+  _debugLog('[iface="host:browser/audio@0.1.0", function="stop-capture"] [Instruction::CallInterface] (sync, @ post-call)');
   endCurrentTask(0);
-  var variant3 = ret;
-  switch (variant3.tag) {
+  var variant1 = ret;
+  switch (variant1.tag) {
     case 'ok': {
-      const e = variant3.val;
-      dataView(memory0).setInt8(arg5 + 0, 0, true);
-      dataView(memory0).setInt32(arg5 + 4, toUint32(e), true);
+      const e = variant1.val;
+      dataView(memory0).setInt8(arg1 + 0, 0, true);
       break;
     }
     case 'err': {
-      const e = variant3.val;
-      dataView(memory0).setInt8(arg5 + 0, 1, true);
-      var ptr2 = utf8Encode(e, realloc0, memory0);
-      var len2 = utf8EncodedLen;
-      dataView(memory0).setUint32(arg5 + 8, len2, true);
-      dataView(memory0).setUint32(arg5 + 4, ptr2, true);
-      break;
-    }
-    default: {
-      throw new TypeError('invalid variant specified for result');
-    }
-  }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="start-playback"][Instruction::Return]', {
-    funcName: 'start-playback',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-}
-);
-
-const trampoline64 = new WebAssembly.Suspending(async function(arg0, arg1) {
-  _debugLog('[iface="host:browser/audio@0.1.0", function="read-capture-data"] [Instruction::CallInterface] (async? sync, @ enter)');
-  const _interface_call_currentTaskID = startCurrentTask(0, false, 'read-capture-data');
-  let ret;
-  try {
-    ret = { tag: 'ok', val: await readCaptureData(arg0 >>> 0)};
-  } catch (e) {
-    ret = { tag: 'err', val: getErrorPayload(e) };
-  }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="read-capture-data"] [Instruction::CallInterface] (sync, @ post-call)');
-  endCurrentTask(0);
-  var variant2 = ret;
-  switch (variant2.tag) {
-    case 'ok': {
-      const e = variant2.val;
-      dataView(memory0).setInt8(arg1 + 0, 0, true);
-      var val0 = e;
-      var len0 = val0.byteLength;
-      var ptr0 = realloc0(0, 0, 1, len0 * 1);
-      var src0 = new Uint8Array(val0.buffer || val0, val0.byteOffset, len0 * 1);
-      (new Uint8Array(memory0.buffer, ptr0, len0 * 1)).set(src0);
+      const e = variant1.val;
+      dataView(memory0).setInt8(arg1 + 0, 1, true);
+      var ptr0 = utf8Encode(e, realloc0, memory0);
+      var len0 = utf8EncodedLen;
       dataView(memory0).setUint32(arg1 + 8, len0, true);
       dataView(memory0).setUint32(arg1 + 4, ptr0, true);
       break;
     }
-    case 'err': {
-      const e = variant2.val;
-      dataView(memory0).setInt8(arg1 + 0, 1, true);
-      var ptr1 = utf8Encode(e, realloc0, memory0);
-      var len1 = utf8EncodedLen;
-      dataView(memory0).setUint32(arg1 + 8, len1, true);
-      dataView(memory0).setUint32(arg1 + 4, ptr1, true);
-      break;
-    }
     default: {
       throw new TypeError('invalid variant specified for result');
     }
   }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="read-capture-data"][Instruction::Return]', {
-    funcName: 'read-capture-data',
+  _debugLog('[iface="host:browser/audio@0.1.0", function="stop-capture"][Instruction::Return]', {
+    funcName: 'stop-capture',
     paramCount: 0,
     async: false,
     postReturn: false
   });
 }
-);
 
-const trampoline65 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4, arg5) {
+
+const trampoline64 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4, arg5) {
   let variant1;
   if (arg0) {
     var ptr0 = arg1;
@@ -4397,7 +4362,94 @@ const trampoline65 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-function trampoline66(arg0) {
+const trampoline65 = new WebAssembly.Suspending(async function(arg0, arg1) {
+  _debugLog('[iface="host:browser/audio@0.1.0", function="read-capture-data"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'read-capture-data');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: await readCaptureData(arg0 >>> 0)};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="host:browser/audio@0.1.0", function="read-capture-data"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  var variant2 = ret;
+  switch (variant2.tag) {
+    case 'ok': {
+      const e = variant2.val;
+      dataView(memory0).setInt8(arg1 + 0, 0, true);
+      var val0 = e;
+      var len0 = val0.byteLength;
+      var ptr0 = realloc0(0, 0, 1, len0 * 1);
+      var src0 = new Uint8Array(val0.buffer || val0, val0.byteOffset, len0 * 1);
+      (new Uint8Array(memory0.buffer, ptr0, len0 * 1)).set(src0);
+      dataView(memory0).setUint32(arg1 + 8, len0, true);
+      dataView(memory0).setUint32(arg1 + 4, ptr0, true);
+      break;
+    }
+    case 'err': {
+      const e = variant2.val;
+      dataView(memory0).setInt8(arg1 + 0, 1, true);
+      var ptr1 = utf8Encode(e, realloc0, memory0);
+      var len1 = utf8EncodedLen;
+      dataView(memory0).setUint32(arg1 + 8, len1, true);
+      dataView(memory0).setUint32(arg1 + 4, ptr1, true);
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="host:browser/audio@0.1.0", function="read-capture-data"][Instruction::Return]', {
+    funcName: 'read-capture-data',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+);
+
+function trampoline66(arg0, arg1) {
+  _debugLog('[iface="host:browser/audio@0.1.0", function="clear-playback"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'clear-playback');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: clearPlayback(arg0 >>> 0)};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="host:browser/audio@0.1.0", function="clear-playback"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  var variant1 = ret;
+  switch (variant1.tag) {
+    case 'ok': {
+      const e = variant1.val;
+      dataView(memory0).setInt8(arg1 + 0, 0, true);
+      break;
+    }
+    case 'err': {
+      const e = variant1.val;
+      dataView(memory0).setInt8(arg1 + 0, 1, true);
+      var ptr0 = utf8Encode(e, realloc0, memory0);
+      var len0 = utf8EncodedLen;
+      dataView(memory0).setUint32(arg1 + 8, len0, true);
+      dataView(memory0).setUint32(arg1 + 4, ptr0, true);
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="host:browser/audio@0.1.0", function="clear-playback"][Instruction::Return]', {
+    funcName: 'clear-playback',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+
+
+function trampoline67(arg0) {
   _debugLog('[iface="host:browser/audio@0.1.0", function="default-output-config"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'default-output-config');
   let ret;
@@ -4441,7 +4493,7 @@ function trampoline66(arg0) {
 }
 
 
-function trampoline67(arg0) {
+function trampoline68(arg0) {
   _debugLog('[iface="host:browser/audio@0.1.0", function="default-input-config"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'default-input-config');
   let ret;
@@ -4485,91 +4537,49 @@ function trampoline67(arg0) {
 }
 
 
-function trampoline68(arg0, arg1) {
-  _debugLog('[iface="host:browser/audio@0.1.0", function="stop-capture"] [Instruction::CallInterface] (async? sync, @ enter)');
-  const _interface_call_currentTaskID = startCurrentTask(0, false, 'stop-capture');
+const trampoline69 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4, arg5) {
+  let variant1;
+  if (arg0) {
+    var ptr0 = arg1;
+    var len0 = arg2;
+    var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+    variant1 = result0;
+  } else {
+    variant1 = undefined;
+  }
+  _debugLog('[iface="host:browser/audio@0.1.0", function="start-playback"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'start-playback');
   let ret;
   try {
-    ret = { tag: 'ok', val: stopCapture(arg0 >>> 0)};
+    ret = { tag: 'ok', val: await startPlayback(variant1, arg3 >>> 0, clampGuest(arg4, 0, 65535))};
   } catch (e) {
     ret = { tag: 'err', val: getErrorPayload(e) };
   }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="stop-capture"] [Instruction::CallInterface] (sync, @ post-call)');
-  endCurrentTask(0);
-  var variant1 = ret;
-  switch (variant1.tag) {
-    case 'ok': {
-      const e = variant1.val;
-      dataView(memory0).setInt8(arg1 + 0, 0, true);
-      break;
-    }
-    case 'err': {
-      const e = variant1.val;
-      dataView(memory0).setInt8(arg1 + 0, 1, true);
-      var ptr0 = utf8Encode(e, realloc0, memory0);
-      var len0 = utf8EncodedLen;
-      dataView(memory0).setUint32(arg1 + 8, len0, true);
-      dataView(memory0).setUint32(arg1 + 4, ptr0, true);
-      break;
-    }
-    default: {
-      throw new TypeError('invalid variant specified for result');
-    }
-  }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="stop-capture"][Instruction::Return]', {
-    funcName: 'stop-capture',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-}
-
-
-const trampoline69 = new WebAssembly.Suspending(async function(arg0) {
-  _debugLog('[iface="host:browser/audio@0.1.0", function="list-output-devices"] [Instruction::CallInterface] (async? sync, @ enter)');
-  const _interface_call_currentTaskID = startCurrentTask(0, false, 'list-output-devices');
-  let ret;
-  try {
-    ret = { tag: 'ok', val: await listOutputDevices()};
-  } catch (e) {
-    ret = { tag: 'err', val: getErrorPayload(e) };
-  }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="list-output-devices"] [Instruction::CallInterface] (sync, @ post-call)');
+  _debugLog('[iface="host:browser/audio@0.1.0", function="start-playback"] [Instruction::CallInterface] (sync, @ post-call)');
   endCurrentTask(0);
   var variant3 = ret;
   switch (variant3.tag) {
     case 'ok': {
       const e = variant3.val;
-      dataView(memory0).setInt8(arg0 + 0, 0, true);
-      var vec1 = e;
-      var len1 = vec1.length;
-      var result1 = realloc0(0, 0, 4, len1 * 8);
-      for (let i = 0; i < vec1.length; i++) {
-        const e = vec1[i];
-        const base = result1 + i * 8;var ptr0 = utf8Encode(e, realloc0, memory0);
-        var len0 = utf8EncodedLen;
-        dataView(memory0).setUint32(base + 4, len0, true);
-        dataView(memory0).setUint32(base + 0, ptr0, true);
-      }
-      dataView(memory0).setUint32(arg0 + 8, len1, true);
-      dataView(memory0).setUint32(arg0 + 4, result1, true);
+      dataView(memory0).setInt8(arg5 + 0, 0, true);
+      dataView(memory0).setInt32(arg5 + 4, toUint32(e), true);
       break;
     }
     case 'err': {
       const e = variant3.val;
-      dataView(memory0).setInt8(arg0 + 0, 1, true);
+      dataView(memory0).setInt8(arg5 + 0, 1, true);
       var ptr2 = utf8Encode(e, realloc0, memory0);
       var len2 = utf8EncodedLen;
-      dataView(memory0).setUint32(arg0 + 8, len2, true);
-      dataView(memory0).setUint32(arg0 + 4, ptr2, true);
+      dataView(memory0).setUint32(arg5 + 8, len2, true);
+      dataView(memory0).setUint32(arg5 + 4, ptr2, true);
       break;
     }
     default: {
       throw new TypeError('invalid variant specified for result');
     }
   }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="list-output-devices"][Instruction::Return]', {
-    funcName: 'list-output-devices',
+  _debugLog('[iface="host:browser/audio@0.1.0", function="start-playback"][Instruction::Return]', {
+    funcName: 'start-playback',
     paramCount: 0,
     async: false,
     postReturn: false
@@ -4577,51 +4587,42 @@ const trampoline69 = new WebAssembly.Suspending(async function(arg0) {
 }
 );
 
-const trampoline70 = new WebAssembly.Suspending(async function(arg0) {
-  _debugLog('[iface="host:browser/audio@0.1.0", function="list-input-devices"] [Instruction::CallInterface] (async? sync, @ enter)');
-  const _interface_call_currentTaskID = startCurrentTask(0, false, 'list-input-devices');
+const trampoline70 = new WebAssembly.Suspending(async function(arg0, arg1, arg2) {
+  var ptr0 = arg0;
+  var len0 = arg1;
+  var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+  _debugLog('[iface="host:browser/actions@0.1.0", function="open-url"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'open-url');
   let ret;
   try {
-    ret = { tag: 'ok', val: await listInputDevices()};
+    ret = { tag: 'ok', val: await openUrl(result0)};
   } catch (e) {
     ret = { tag: 'err', val: getErrorPayload(e) };
   }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="list-input-devices"] [Instruction::CallInterface] (sync, @ post-call)');
+  _debugLog('[iface="host:browser/actions@0.1.0", function="open-url"] [Instruction::CallInterface] (sync, @ post-call)');
   endCurrentTask(0);
-  var variant3 = ret;
-  switch (variant3.tag) {
+  var variant2 = ret;
+  switch (variant2.tag) {
     case 'ok': {
-      const e = variant3.val;
-      dataView(memory0).setInt8(arg0 + 0, 0, true);
-      var vec1 = e;
-      var len1 = vec1.length;
-      var result1 = realloc0(0, 0, 4, len1 * 8);
-      for (let i = 0; i < vec1.length; i++) {
-        const e = vec1[i];
-        const base = result1 + i * 8;var ptr0 = utf8Encode(e, realloc0, memory0);
-        var len0 = utf8EncodedLen;
-        dataView(memory0).setUint32(base + 4, len0, true);
-        dataView(memory0).setUint32(base + 0, ptr0, true);
-      }
-      dataView(memory0).setUint32(arg0 + 8, len1, true);
-      dataView(memory0).setUint32(arg0 + 4, result1, true);
+      const e = variant2.val;
+      dataView(memory0).setInt8(arg2 + 0, 0, true);
       break;
     }
     case 'err': {
-      const e = variant3.val;
-      dataView(memory0).setInt8(arg0 + 0, 1, true);
-      var ptr2 = utf8Encode(e, realloc0, memory0);
-      var len2 = utf8EncodedLen;
-      dataView(memory0).setUint32(arg0 + 8, len2, true);
-      dataView(memory0).setUint32(arg0 + 4, ptr2, true);
+      const e = variant2.val;
+      dataView(memory0).setInt8(arg2 + 0, 1, true);
+      var ptr1 = utf8Encode(e, realloc0, memory0);
+      var len1 = utf8EncodedLen;
+      dataView(memory0).setUint32(arg2 + 8, len1, true);
+      dataView(memory0).setUint32(arg2 + 4, ptr1, true);
       break;
     }
     default: {
       throw new TypeError('invalid variant specified for result');
     }
   }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="list-input-devices"][Instruction::Return]', {
-    funcName: 'list-input-devices',
+  _debugLog('[iface="host:browser/actions@0.1.0", function="open-url"][Instruction::Return]', {
+    funcName: 'open-url',
     paramCount: 0,
     async: false,
     postReturn: false
@@ -4629,7 +4630,348 @@ const trampoline70 = new WebAssembly.Suspending(async function(arg0) {
 }
 );
 
-function trampoline71(arg0) {
+const trampoline71 = new WebAssembly.Suspending(async function(arg0, arg1, arg2) {
+  var ptr0 = arg0;
+  var len0 = arg1;
+  var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+  _debugLog('[iface="codex:tui/shell-pty@0.1.0", function="poll-wake"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'poll-wake');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: await pollWake(result0)};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="codex:tui/shell-pty@0.1.0", function="poll-wake"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  var variant2 = ret;
+  switch (variant2.tag) {
+    case 'ok': {
+      const e = variant2.val;
+      dataView(memory0).setInt8(arg2 + 0, 0, true);
+      dataView(memory0).setBigInt64(arg2 + 8, toUint64(e), true);
+      break;
+    }
+    case 'err': {
+      const e = variant2.val;
+      dataView(memory0).setInt8(arg2 + 0, 1, true);
+      var ptr1 = utf8Encode(e, realloc0, memory0);
+      var len1 = utf8EncodedLen;
+      dataView(memory0).setUint32(arg2 + 12, len1, true);
+      dataView(memory0).setUint32(arg2 + 8, ptr1, true);
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="codex:tui/shell-pty@0.1.0", function="poll-wake"][Instruction::Return]', {
+    funcName: 'poll-wake',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+);
+
+const trampoline72 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9) {
+  var ptr0 = arg0;
+  var len0 = arg1;
+  var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+  var len2 = arg3;
+  var base2 = arg2;
+  var result2 = [];
+  for (let i = 0; i < len2; i++) {
+    const base = base2 + i * 8;
+    var ptr1 = dataView(memory0).getUint32(base + 0, true);
+    var len1 = dataView(memory0).getUint32(base + 4, true);
+    var result1 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr1, len1));
+    result2.push(result1);
+  }
+  var ptr3 = arg4;
+  var len3 = arg5;
+  var result3 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr3, len3));
+  var len6 = arg7;
+  var base6 = arg6;
+  var result6 = [];
+  for (let i = 0; i < len6; i++) {
+    const base = base6 + i * 16;
+    var ptr4 = dataView(memory0).getUint32(base + 0, true);
+    var len4 = dataView(memory0).getUint32(base + 4, true);
+    var result4 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr4, len4));
+    var ptr5 = dataView(memory0).getUint32(base + 8, true);
+    var len5 = dataView(memory0).getUint32(base + 12, true);
+    var result5 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr5, len5));
+    result6.push([result4, result5]);
+  }
+  var bool7 = arg8;
+  _debugLog('[iface="codex:tui/shell-pty@0.1.0", function="start"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'start');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: await start({
+      processId: result0,
+      argv: result2,
+      cwd: result3,
+      env: result6,
+      tty: !!bool7,
+    })};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="codex:tui/shell-pty@0.1.0", function="start"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  var variant11 = ret;
+  switch (variant11.tag) {
+    case 'ok': {
+      const e = variant11.val;
+      dataView(memory0).setInt8(arg9 + 0, 0, true);
+      var {processId: v8_0 } = e;
+      var ptr9 = utf8Encode(v8_0, realloc0, memory0);
+      var len9 = utf8EncodedLen;
+      dataView(memory0).setUint32(arg9 + 8, len9, true);
+      dataView(memory0).setUint32(arg9 + 4, ptr9, true);
+      break;
+    }
+    case 'err': {
+      const e = variant11.val;
+      dataView(memory0).setInt8(arg9 + 0, 1, true);
+      var ptr10 = utf8Encode(e, realloc0, memory0);
+      var len10 = utf8EncodedLen;
+      dataView(memory0).setUint32(arg9 + 8, len10, true);
+      dataView(memory0).setUint32(arg9 + 4, ptr10, true);
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="codex:tui/shell-pty@0.1.0", function="start"][Instruction::Return]', {
+    funcName: 'start',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+);
+
+const trampoline73 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
+  var ptr0 = arg0;
+  var len0 = arg1;
+  var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+  let variant1;
+  if (arg2) {
+    variant1 = BigInt.asUintN(64, arg3);
+  } else {
+    variant1 = undefined;
+  }
+  let variant2;
+  if (arg4) {
+    variant2 = arg5 >>> 0;
+  } else {
+    variant2 = undefined;
+  }
+  let variant3;
+  if (arg6) {
+    variant3 = BigInt.asUintN(64, arg7);
+  } else {
+    variant3 = undefined;
+  }
+  _debugLog('[iface="codex:tui/shell-pty@0.1.0", function="read"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'read');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: await read(result0, variant1, variant2, variant3)};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="codex:tui/shell-pty@0.1.0", function="read"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  var variant12 = ret;
+  switch (variant12.tag) {
+    case 'ok': {
+      const e = variant12.val;
+      dataView(memory0).setInt8(arg8 + 0, 0, true);
+      var {chunks: v4_0, nextSeq: v4_1, exited: v4_2, exitCode: v4_3, closed: v4_4, failure: v4_5 } = e;
+      var vec7 = v4_0;
+      var len7 = vec7.length;
+      var result7 = realloc0(0, 0, 8, len7 * 16);
+      for (let i = 0; i < vec7.length; i++) {
+        const e = vec7[i];
+        const base = result7 + i * 16;var {seq: v5_0, data: v5_1 } = e;
+        dataView(memory0).setBigInt64(base + 0, toUint64(v5_0), true);
+        var val6 = v5_1;
+        var len6 = val6.byteLength;
+        var ptr6 = realloc0(0, 0, 1, len6 * 1);
+        var src6 = new Uint8Array(val6.buffer || val6, val6.byteOffset, len6 * 1);
+        (new Uint8Array(memory0.buffer, ptr6, len6 * 1)).set(src6);
+        dataView(memory0).setUint32(base + 12, len6, true);
+        dataView(memory0).setUint32(base + 8, ptr6, true);
+      }
+      dataView(memory0).setUint32(arg8 + 12, len7, true);
+      dataView(memory0).setUint32(arg8 + 8, result7, true);
+      dataView(memory0).setBigInt64(arg8 + 16, toUint64(v4_1), true);
+      dataView(memory0).setInt8(arg8 + 24, v4_2 ? 1 : 0, true);
+      var variant8 = v4_3;
+      if (variant8 === null || variant8=== undefined) {
+        dataView(memory0).setInt8(arg8 + 28, 0, true);
+      } else {
+        const e = variant8;
+        dataView(memory0).setInt8(arg8 + 28, 1, true);
+        dataView(memory0).setInt32(arg8 + 32, toInt32(e), true);
+      }
+      dataView(memory0).setInt8(arg8 + 36, v4_4 ? 1 : 0, true);
+      var variant10 = v4_5;
+      if (variant10 === null || variant10=== undefined) {
+        dataView(memory0).setInt8(arg8 + 40, 0, true);
+      } else {
+        const e = variant10;
+        dataView(memory0).setInt8(arg8 + 40, 1, true);
+        var ptr9 = utf8Encode(e, realloc0, memory0);
+        var len9 = utf8EncodedLen;
+        dataView(memory0).setUint32(arg8 + 48, len9, true);
+        dataView(memory0).setUint32(arg8 + 44, ptr9, true);
+      }
+      break;
+    }
+    case 'err': {
+      const e = variant12.val;
+      dataView(memory0).setInt8(arg8 + 0, 1, true);
+      var ptr11 = utf8Encode(e, realloc0, memory0);
+      var len11 = utf8EncodedLen;
+      dataView(memory0).setUint32(arg8 + 12, len11, true);
+      dataView(memory0).setUint32(arg8 + 8, ptr11, true);
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="codex:tui/shell-pty@0.1.0", function="read"][Instruction::Return]', {
+    funcName: 'read',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+);
+
+const trampoline74 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4) {
+  var ptr0 = arg0;
+  var len0 = arg1;
+  var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+  var ptr1 = arg2;
+  var len1 = arg3;
+  var result1 = new Uint8Array(memory0.buffer.slice(ptr1, ptr1 + len1 * 1));
+  _debugLog('[iface="codex:tui/shell-pty@0.1.0", function="write"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'write');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: await write(result0, result1)};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="codex:tui/shell-pty@0.1.0", function="write"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  var variant5 = ret;
+  switch (variant5.tag) {
+    case 'ok': {
+      const e = variant5.val;
+      dataView(memory0).setInt8(arg4 + 0, 0, true);
+      var {status: v2_0 } = e;
+      var val3 = v2_0;
+      let enum3;
+      switch (val3) {
+        case 'accepted': {
+          enum3 = 0;
+          break;
+        }
+        case 'unknown-process': {
+          enum3 = 1;
+          break;
+        }
+        case 'stdin-closed': {
+          enum3 = 2;
+          break;
+        }
+        case 'starting': {
+          enum3 = 3;
+          break;
+        }
+        default: {
+          
+          throw new TypeError(`"${val3}" is not one of the cases of write-status`);
+        }
+      }
+      dataView(memory0).setInt8(arg4 + 4, enum3, true);
+      break;
+    }
+    case 'err': {
+      const e = variant5.val;
+      dataView(memory0).setInt8(arg4 + 0, 1, true);
+      var ptr4 = utf8Encode(e, realloc0, memory0);
+      var len4 = utf8EncodedLen;
+      dataView(memory0).setUint32(arg4 + 8, len4, true);
+      dataView(memory0).setUint32(arg4 + 4, ptr4, true);
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="codex:tui/shell-pty@0.1.0", function="write"][Instruction::Return]', {
+    funcName: 'write',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+);
+
+const trampoline75 = new WebAssembly.Suspending(async function(arg0, arg1, arg2) {
+  var ptr0 = arg0;
+  var len0 = arg1;
+  var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+  _debugLog('[iface="codex:tui/shell-pty@0.1.0", function="terminate"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'terminate');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: await terminate(result0)};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="codex:tui/shell-pty@0.1.0", function="terminate"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  var variant2 = ret;
+  switch (variant2.tag) {
+    case 'ok': {
+      const e = variant2.val;
+      dataView(memory0).setInt8(arg2 + 0, 0, true);
+      break;
+    }
+    case 'err': {
+      const e = variant2.val;
+      dataView(memory0).setInt8(arg2 + 0, 1, true);
+      var ptr1 = utf8Encode(e, realloc0, memory0);
+      var len1 = utf8EncodedLen;
+      dataView(memory0).setUint32(arg2 + 8, len1, true);
+      dataView(memory0).setUint32(arg2 + 4, ptr1, true);
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="codex:tui/shell-pty@0.1.0", function="terminate"][Instruction::Return]', {
+    funcName: 'terminate',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+);
+
+function trampoline76(arg0) {
   _debugLog('[iface="wasi:cli/environment@0.2.9", function="get-arguments"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-arguments');
   const ret = getArguments();
@@ -4656,7 +4998,7 @@ function trampoline71(arg0) {
 }
 
 
-function trampoline72(arg0) {
+function trampoline77(arg0) {
   _debugLog('[iface="wasi:random/insecure-seed@0.2.9", function="insecure-seed"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'insecure-seed');
   const ret = insecureSeed();
@@ -4674,7 +5016,7 @@ function trampoline72(arg0) {
 }
 
 
-function trampoline73(arg0, arg1) {
+function trampoline78(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable2[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable2.get(rep2);
@@ -4749,7 +5091,7 @@ function trampoline73(arg0, arg1) {
 }
 
 
-function trampoline74(arg0, arg1) {
+function trampoline79(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable2[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable2.get(rep2);
@@ -4827,7 +5169,7 @@ const captureTable13= new Map();
 let captureCnt13 = 0;
 handleTables[13] = handleTable13;
 
-function trampoline75(arg0, arg1, arg2) {
+function trampoline80(arg0, arg1, arg2) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -5043,7 +5385,7 @@ function trampoline75(arg0, arg1, arg2) {
 }
 
 
-function trampoline76(arg0, arg1, arg2) {
+function trampoline81(arg0, arg1, arg2) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -5259,7 +5601,7 @@ function trampoline76(arg0, arg1, arg2) {
 }
 
 
-function trampoline77(arg0, arg1) {
+function trampoline82(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -5475,7 +5817,7 @@ function trampoline77(arg0, arg1) {
 }
 
 
-function trampoline78(arg0, arg1) {
+function trampoline83(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -5688,7 +6030,7 @@ function trampoline78(arg0, arg1) {
 }
 
 
-function trampoline79(arg0, arg1, arg2) {
+function trampoline84(arg0, arg1, arg2) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -5894,7 +6236,7 @@ function trampoline79(arg0, arg1, arg2) {
 }
 
 
-function trampoline80(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
+function trampoline85(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -6154,7 +6496,7 @@ const captureTable14= new Map();
 let captureCnt14 = 0;
 handleTables[14] = handleTable14;
 
-const trampoline81 = new WebAssembly.Suspending(async function(arg0, arg1) {
+const trampoline86 = new WebAssembly.Suspending(async function(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -6370,7 +6712,7 @@ const trampoline81 = new WebAssembly.Suspending(async function(arg0, arg1) {
 }
 );
 
-function trampoline82(arg0, arg1) {
+function trampoline87(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -6576,7 +6918,7 @@ function trampoline82(arg0, arg1) {
 }
 
 
-const trampoline83 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
+const trampoline88 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -6785,7 +7127,7 @@ const trampoline83 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-const trampoline84 = new WebAssembly.Suspending(async function(arg0, arg1) {
+const trampoline89 = new WebAssembly.Suspending(async function(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -7065,7 +7407,7 @@ const trampoline84 = new WebAssembly.Suspending(async function(arg0, arg1) {
 }
 );
 
-const trampoline85 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4) {
+const trampoline90 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -7351,7 +7693,7 @@ const trampoline85 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-function trampoline86(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10) {
+function trampoline91(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -7613,7 +7955,7 @@ function trampoline86(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9
 }
 
 
-const trampoline87 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
+const trampoline92 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -7849,7 +8191,7 @@ const trampoline87 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-function trampoline88(arg0, arg1, arg2, arg3) {
+function trampoline93(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -8062,7 +8404,7 @@ function trampoline88(arg0, arg1, arg2, arg3) {
 }
 
 
-const trampoline89 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
+const trampoline94 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -8271,7 +8613,7 @@ const trampoline89 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-const trampoline90 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
+const trampoline95 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -8492,7 +8834,7 @@ const trampoline90 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-const trampoline91 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
+const trampoline96 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -8701,7 +9043,7 @@ const trampoline91 = new WebAssembly.Suspending(async function(arg0, arg1, arg2,
 }
 );
 
-function trampoline92(arg0, arg1) {
+function trampoline97(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -8910,7 +9252,7 @@ function trampoline92(arg0, arg1) {
 }
 
 
-function trampoline93(arg0, arg1, arg2, arg3, arg4) {
+function trampoline98(arg0, arg1, arg2, arg3, arg4) {
   var handle1 = arg0;
   var rep2 = handleTable13[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable13.get(rep2);
@@ -9125,7 +9467,7 @@ function trampoline93(arg0, arg1, arg2, arg3, arg4) {
 }
 
 
-function trampoline94(arg0, arg1) {
+function trampoline99(arg0, arg1) {
   var handle1 = arg0;
   var rep2 = handleTable14[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable14.get(rep2);
@@ -9384,7 +9726,7 @@ function trampoline94(arg0, arg1) {
 }
 
 
-function trampoline95(arg0) {
+function trampoline100(arg0) {
   _debugLog('[iface="wasi:cli/environment@0.2.9", function="get-environment"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-environment');
   const ret = getEnvironment();
@@ -9420,7 +9762,7 @@ const captureTable4= new Map();
 let captureCnt4 = 0;
 handleTables[4] = handleTable4;
 
-function trampoline96(arg0) {
+function trampoline101(arg0) {
   _debugLog('[iface="wasi:cli/terminal-stdin@0.2.9", function="get-terminal-stdin"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-terminal-stdin');
   const ret = getTerminalStdin();
@@ -9456,7 +9798,7 @@ const captureTable5= new Map();
 let captureCnt5 = 0;
 handleTables[5] = handleTable5;
 
-function trampoline97(arg0) {
+function trampoline102(arg0) {
   _debugLog('[iface="wasi:cli/terminal-stdout@0.2.9", function="get-terminal-stdout"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-terminal-stdout');
   const ret = getTerminalStdout();
@@ -9488,7 +9830,7 @@ function trampoline97(arg0) {
 }
 
 
-function trampoline98(arg0) {
+function trampoline103(arg0) {
   _debugLog('[iface="wasi:cli/terminal-stderr@0.2.9", function="get-terminal-stderr"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-terminal-stderr');
   const ret = getTerminalStderr();
@@ -9520,7 +9862,7 @@ function trampoline98(arg0) {
 }
 
 
-function trampoline99(arg0) {
+function trampoline104(arg0) {
   _debugLog('[iface="wasi:clocks/wall-clock@0.2.9", function="now"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'now');
   const ret = now$1();
@@ -9538,7 +9880,7 @@ function trampoline99(arg0) {
 }
 
 
-function trampoline100(arg0) {
+function trampoline105(arg0) {
   _debugLog('[iface="wasi:filesystem/preopens@0.2.9", function="get-directories"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-directories');
   const ret = getDirectories();
@@ -9576,7 +9918,7 @@ function trampoline100(arg0) {
 }
 
 
-const trampoline101 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
+const trampoline106 = new WebAssembly.Suspending(async function(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   var rep2 = handleTable2[(handle1 << 1) + 1] & ~T_FLAG;
   var rsc0 = captureTable2.get(rep2);
@@ -9653,7 +9995,7 @@ const trampoline101 = new WebAssembly.Suspending(async function(arg0, arg1, arg2
 }
 );
 
-function trampoline102(arg0, arg1) {
+function trampoline107(arg0, arg1) {
   _debugLog('[iface="wasi:random/random@0.2.9", function="get-random-bytes"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'get-random-bytes');
   const ret = getRandomBytes(BigInt.asUintN(64, arg0));
@@ -9938,12 +10280,19 @@ const $init = (() => {
   let gen = (function* _initGenerator () {
     const module0 = fetchCompile(new URL('./codex-wasm-tui.core.wasm', import.meta.url));
     const module1 = base64Compile('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MCRhcyR1MjAkd2FzaV9zbmFwc2hvdF9wcmV2aWV3MS4uYmluZGluZ3MuLl9ydC4uV2FzbVJlc291cmNlJEdUJDRkcm9wNGRyb3AxN2hkMmZkZGI4NWYyNTM3NTZkRQNqX1pOMjJ3YXNpX3NuYXBzaG90X3ByZXZpZXcxOGJpbmRpbmdzNHdhc2k2cmFuZG9tNnJhbmRvbTE2Z2V0X3JhbmRvbV9ieXRlczExd2l0X2ltcG9ydDExN2g0OTk2NGJjZjVmMTNjYjg3RQRhX1pOMjJ3YXNpX3NuYXBzaG90X3ByZXZpZXcxOGJpbmRpbmdzNHdhc2kzY2xpNnN0ZGVycjEwZ2V0X3N0ZGVycjExd2l0X2ltcG9ydDAxN2g0NzQxNGFmNzNiMmI4MmQ5RQV9X1pOMjJ3YXNpX3NuYXBzaG90X3ByZXZpZXcxOGJpbmRpbmdzNHdhc2kyaW83c3RyZWFtczEyT3V0cHV0U3RyZWFtMjRibG9ja2luZ193cml0ZV9hbmRfZmx1c2gxMXdpdF9pbXBvcnQyMTdoMzEyZGJmZTQzZTBlYjA0ZEUGSl9aTjIyd2FzaV9zbmFwc2hvdF9wcmV2aWV3MTZtYWNyb3MxOGVwcmludF91bnJlYWNoYWJsZTE3aDQ1YWQxMTY5NDI3YzQ3NzFFBzxfWk4yMndhc2lfc25hcHNob3RfcHJldmlldzE2bWFjcm9zNXByaW50MTdoZjNmYzNiYTBjNGI4N2E4MkUIQ19aTjIyd2FzaV9zbmFwc2hvdF9wcmV2aWV3MTZtYWNyb3MxMWFzc2VydF9mYWlsMTdoMDM0YmU5OTAxYTYwM2VlY0UJcF9aTjIyd2FzaV9zbmFwc2hvdF9wcmV2aWV3MThiaW5kaW5nczR3YXNpMmlvN3N0cmVhbXMxMk91dHB1dFN0cmVhbTI0YmxvY2tpbmdfd3JpdGVfYW5kX2ZsdXNoMTdoZTc3MzRkM2I2YjQ4NzUyZEUKOV9aTjIyd2FzaV9zbmFwc2hvdF9wcmV2aWV3MTVTdGF0ZTNuZXcxN2g0Zjg2NGMxYjRkNjRlNTMwRQs5X1pOMjJ3YXNpX3NuYXBzaG90X3ByZXZpZXcxNVN0YXRlM3B0cjE3aDBkZTgyMDM4NTk1ZDk5NTFFDD9fWk4yMndhc2lfc25hcHNob3RfcHJldmlldzE5QnVtcEFsbG9jNWFsbG9jMTdoOWFmNDM5MzgwNDc1OWE5YUUNE2NhYmlfaW1wb3J0X3JlYWxsb2MOCnJhbmRvbV9nZXQPU19aTjIyd2FzaV9zbmFwc2hvdF9wcmV2aWV3MTZtYWNyb3MxMGVwcmludF91MzIxNWVwcmludF91MzJfaW1wbDE3aDY0ZWY2MDg4NGY2OWQyOTFFEEJfWk4yMndhc2lfc25hcHNob3RfcHJldmlldzE2bWFjcm9zMTBlcHJpbnRfdTMyMTdoOTk2YmU5ZmE3ZmVkYzkzOEURDWdldF9zdGF0ZV9wdHISDXNldF9zdGF0ZV9wdHITFGdldF9hbGxvY2F0aW9uX3N0YXRlFBRzZXRfYWxsb2NhdGlvbl9zdGF0ZRUOYWxsb2NhdGVfc3RhY2sHOAMAD19fc3RhY2tfcG9pbnRlcgESaW50ZXJuYWxfc3RhdGVfcHRyAhBhbGxvY2F0aW9uX3N0YXRlAE0JcHJvZHVjZXJzAghsYW5ndWFnZQEEUnVzdAAMcHJvY2Vzc2VkLWJ5AQVydXN0Yx0xLjkxLjAgKGY4Mjk3ZTM1MSAyMDI1LTEwLTI4KQ');
-    const module2 = base64Compile('AGFzbQEAAAABpQEUYAJ/fwBgDn9/f39/f39/f39/f39/AGACf38AYAR/f39/AGAFf39/f38AYAZ/f39/f38AYAR/f39/AX9gBX9/f39/AX9gBH9/f38AYAN/fn8AYAN/f38AYAZ/f39/f38AYAF/AGACf38Bf2AIf39+f39+f38AYAV/f39/fwBgC39/f39/fn9/fn9/AGAHf39/f39/fwBgB39/f39/f38AYAJ+fwADREMAAAABAgMEBQYHBgYCAggCAgICAwkICgIDAgsCCwwMAgwMDAwNAgIJCQICCQ4CAgMCDxARAwMSAwIPAgwMDAwMDAMTBAUBcAFDQwfRAkQBMAAAATEAAQEyAAIBMwADATQABAE1AAUBNgAGATcABwE4AAgBOQAJAjEwAAoCMTEACwIxMgAMAjEzAA0CMTQADgIxNQAPAjE2ABACMTcAEQIxOAASAjE5ABMCMjAAFAIyMQAVAjIyABYCMjMAFwIyNAAYAjI1ABkCMjYAGgIyNwAbAjI4ABwCMjkAHQIzMAAeAjMxAB8CMzIAIAIzMwAhAjM0ACICMzUAIwIzNgAkAjM3ACUCMzgAJgIzOQAnAjQwACgCNDEAKQI0MgAqAjQzACsCNDQALAI0NQAtAjQ2AC4CNDcALwI0OAAwAjQ5ADECNTAAMgI1MQAzAjUyADQCNTMANQI1NAA2AjU1ADcCNTYAOAI1NwA5AjU4ADoCNTkAOwI2MAA8AjYxAD0CNjIAPgI2MwA/AjY0AEACNjUAQQI2NgBCCCRpbXBvcnRzAQAKyAdDCwAgACABQQARAAALCwAgACABQQERAAALCwAgACABQQIRAAALIwAgACABIAIgAyAEIAUgBiAHIAggCSAKIAsgDCANQQMRAQALCwAgACABQQQRAgALDwAgACABIAIgA0EFEQMACxEAIAAgASACIAMgBEEGEQQACxMAIAAgASACIAMgBCAFQQcRBQALDwAgACABIAIgA0EIEQYACxEAIAAgASACIAMgBEEJEQcACw8AIAAgASACIANBChEGAAsPACAAIAEgAiADQQsRBgALCwAgACABQQwRAgALCwAgACABQQ0RAgALDwAgACABIAIgA0EOEQgACwsAIAAgAUEPEQIACwsAIAAgAUEQEQIACwsAIAAgAUEREQIACwsAIAAgAUESEQIACw8AIAAgASACIANBExEDAAsNACAAIAEgAkEUEQkACw8AIAAgASACIANBFREIAAsNACAAIAEgAkEWEQoACwsAIAAgAUEXEQIACw8AIAAgASACIANBGBEDAAsLACAAIAFBGRECAAsTACAAIAEgAiADIAQgBUEaEQsACwsAIAAgAUEbEQIACxMAIAAgASACIAMgBCAFQRwRCwALCQAgAEEdEQwACwkAIABBHhEMAAsLACAAIAFBHxECAAsJACAAQSARDAALCQAgAEEhEQwACwkAIABBIhEMAAsJACAAQSMRDAALCwAgACABQSQRDQALCwAgACABQSURAgALCwAgACABQSYRAgALDQAgACABIAJBJxEJAAsNACAAIAEgAkEoEQkACwsAIAAgAUEpEQIACwsAIAAgAUEqEQIACw0AIAAgASACQSsRCQALFwAgACABIAIgAyAEIAUgBiAHQSwRDgALCwAgACABQS0RAgALCwAgACABQS4RAgALDwAgACABIAIgA0EvEQMACwsAIAAgAUEwEQIACxEAIAAgASACIAMgBEExEQ8ACx0AIAAgASACIAMgBCAFIAYgByAIIAkgCkEyERAACxUAIAAgASACIAMgBCAFIAZBMxERAAsPACAAIAEgAiADQTQRAwALDwAgACABIAIgA0E1EQMACxUAIAAgASACIAMgBCAFIAZBNhESAAsPACAAIAEgAiADQTcRAwALCwAgACABQTgRAgALEQAgACABIAIgAyAEQTkRDwALCwAgACABQToRAgALCQAgAEE7EQwACwkAIABBPBEMAAsJACAAQT0RDAALCQAgAEE+EQwACwkAIABBPxEMAAsKACAAQcAAEQwACxAAIAAgASACIANBwQARAwALDAAgACABQcIAERMACwAvCXByb2R1Y2VycwEMcHJvY2Vzc2VkLWJ5AQ13aXQtY29tcG9uZW50BzAuMjQzLjA');
-    const module3 = base64Compile('AGFzbQEAAAABpQEUYAJ/fwBgDn9/f39/f39/f39/f39/AGACf38AYAR/f39/AGAFf39/f38AYAZ/f39/f38AYAR/f39/AX9gBX9/f39/AX9gBH9/f38AYAN/fn8AYAN/f38AYAZ/f39/f38AYAF/AGACf38Bf2AIf39+f39+f38AYAV/f39/fwBgC39/f39/fn9/fn9/AGAHf39/f39/fwBgB39/f39/f38AYAJ+fwACmANEAAEwAAAAATEAAAABMgAAAAEzAAEAATQAAgABNQADAAE2AAQAATcABQABOAAGAAE5AAcAAjEwAAYAAjExAAYAAjEyAAIAAjEzAAIAAjE0AAgAAjE1AAIAAjE2AAIAAjE3AAIAAjE4AAIAAjE5AAMAAjIwAAkAAjIxAAgAAjIyAAoAAjIzAAIAAjI0AAMAAjI1AAIAAjI2AAsAAjI3AAIAAjI4AAsAAjI5AAwAAjMwAAwAAjMxAAIAAjMyAAwAAjMzAAwAAjM0AAwAAjM1AAwAAjM2AA0AAjM3AAIAAjM4AAIAAjM5AAkAAjQwAAkAAjQxAAIAAjQyAAIAAjQzAAkAAjQ0AA4AAjQ1AAIAAjQ2AAIAAjQ3AAMAAjQ4AAIAAjQ5AA8AAjUwABAAAjUxABEAAjUyAAMAAjUzAAMAAjU0ABIAAjU1AAMAAjU2AAIAAjU3AA8AAjU4AAIAAjU5AAwAAjYwAAwAAjYxAAwAAjYyAAwAAjYzAAwAAjY0AAwAAjY1AAMAAjY2ABMACCRpbXBvcnRzAXABQ0MJSQEAQQALQwABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUIALwlwcm9kdWNlcnMBDHByb2Nlc3NlZC1ieQENd2l0LWNvbXBvbmVudAcwLjI0My4w');
+    const module2 = base64Compile('AGFzbQEAAAABvgEWYAJ/fwBgDn9/f39/f39/f39/f39/AGACf38AYAR/f39/AGAFf39/f38AYAZ/f39/f38AYAR/f39/AX9gBX9/f39/AX9gBH9/f38AYAN/fn8AYAF/AGAGf39/f39/AGADf39/AGAKf39/f39/f39/fwBgCX9/f35/f39+fwBgAn9/AX9gCH9/fn9/fn9/AGAFf39/f38AYAt/f39/f35/f35/fwBgB39/f39/f38AYAd/f39/f39/AGACfn8AA0lIAAAAAQIDBAUGBwYGAgIIAgICAgMJCAoKAwICCwICCgoLDAwNDgQMCgoPAgIJCQICCRACAgMCERITAwMUAwIRAgoKCgoKCgMVBAUBcAFISAfqAkkBMAAAATEAAQEyAAIBMwADATQABAE1AAUBNgAGATcABwE4AAgBOQAJAjEwAAoCMTEACwIxMgAMAjEzAA0CMTQADgIxNQAPAjE2ABACMTcAEQIxOAASAjE5ABMCMjAAFAIyMQAVAjIyABYCMjMAFwIyNAAYAjI1ABkCMjYAGgIyNwAbAjI4ABwCMjkAHQIzMAAeAjMxAB8CMzIAIAIzMwAhAjM0ACICMzUAIwIzNgAkAjM3ACUCMzgAJgIzOQAnAjQwACgCNDEAKQI0MgAqAjQzACsCNDQALAI0NQAtAjQ2AC4CNDcALwI0OAAwAjQ5ADECNTAAMgI1MQAzAjUyADQCNTMANQI1NAA2AjU1ADcCNTYAOAI1NwA5AjU4ADoCNTkAOwI2MAA8AjYxAD0CNjIAPgI2MwA/AjY0AEACNjUAQQI2NgBCAjY3AEMCNjgARAI2OQBFAjcwAEYCNzEARwgkaW1wb3J0cwEACrEISAsAIAAgAUEAEQAACwsAIAAgAUEBEQAACwsAIAAgAUECEQAACyMAIAAgASACIAMgBCAFIAYgByAIIAkgCiALIAwgDUEDEQEACwsAIAAgAUEEEQIACw8AIAAgASACIANBBREDAAsRACAAIAEgAiADIARBBhEEAAsTACAAIAEgAiADIAQgBUEHEQUACw8AIAAgASACIANBCBEGAAsRACAAIAEgAiADIARBCREHAAsPACAAIAEgAiADQQoRBgALDwAgACABIAIgA0ELEQYACwsAIAAgAUEMEQIACwsAIAAgAUENEQIACw8AIAAgASACIANBDhEIAAsLACAAIAFBDxECAAsLACAAIAFBEBECAAsLACAAIAFBERECAAsLACAAIAFBEhECAAsPACAAIAEgAiADQRMRAwALDQAgACABIAJBFBEJAAsPACAAIAEgAiADQRURCAALCQAgAEEWEQoACwkAIABBFxEKAAsPACAAIAEgAiADQRgRAwALCwAgACABQRkRAgALCwAgACABQRoRAgALEwAgACABIAIgAyAEIAVBGxELAAsLACAAIAFBHBECAAsLACAAIAFBHRECAAsJACAAQR4RCgALCQAgAEEfEQoACxMAIAAgASACIAMgBCAFQSARCwALDQAgACABIAJBIREMAAsNACAAIAEgAkEiEQwACxsAIAAgASACIAMgBCAFIAYgByAIIAlBIxENAAsZACAAIAEgAiADIAQgBSAGIAcgCEEkEQ4ACxEAIAAgASACIAMgBEElEQQACw0AIAAgASACQSYRDAALCQAgAEEnEQoACwkAIABBKBEKAAsLACAAIAFBKREPAAsLACAAIAFBKhECAAsLACAAIAFBKxECAAsNACAAIAEgAkEsEQkACw0AIAAgASACQS0RCQALCwAgACABQS4RAgALCwAgACABQS8RAgALDQAgACABIAJBMBEJAAsXACAAIAEgAiADIAQgBSAGIAdBMREQAAsLACAAIAFBMhECAAsLACAAIAFBMxECAAsPACAAIAEgAiADQTQRAwALCwAgACABQTURAgALEQAgACABIAIgAyAEQTYREQALHQAgACABIAIgAyAEIAUgBiAHIAggCSAKQTcREgALFQAgACABIAIgAyAEIAUgBkE4ERMACw8AIAAgASACIANBOREDAAsPACAAIAEgAiADQToRAwALFQAgACABIAIgAyAEIAUgBkE7ERQACw8AIAAgASACIANBPBEDAAsLACAAIAFBPRECAAsRACAAIAEgAiADIARBPhERAAsLACAAIAFBPxECAAsKACAAQcAAEQoACwoAIABBwQARCgALCgAgAEHCABEKAAsKACAAQcMAEQoACwoAIABBxAARCgALCgAgAEHFABEKAAsQACAAIAEgAiADQcYAEQMACwwAIAAgAUHHABEVAAsALwlwcm9kdWNlcnMBDHByb2Nlc3NlZC1ieQENd2l0LWNvbXBvbmVudAcwLjI0My4w');
+    const module3 = base64Compile('AGFzbQEAAAABvgEWYAJ/fwBgDn9/f39/f39/f39/f39/AGACf38AYAR/f39/AGAFf39/f38AYAZ/f39/f38AYAR/f39/AX9gBX9/f39/AX9gBH9/f38AYAN/fn8AYAF/AGAGf39/f39/AGADf39/AGAKf39/f39/f39/fwBgCX9/f35/f39+fwBgAn9/AX9gCH9/fn9/fn9/AGAFf39/f38AYAt/f39/f35/f35/fwBgB39/f39/f38AYAd/f39/f39/AGACfn8AArYDSQABMAAAAAExAAAAATIAAAABMwABAAE0AAIAATUAAwABNgAEAAE3AAUAATgABgABOQAHAAIxMAAGAAIxMQAGAAIxMgACAAIxMwACAAIxNAAIAAIxNQACAAIxNgACAAIxNwACAAIxOAACAAIxOQADAAIyMAAJAAIyMQAIAAIyMgAKAAIyMwAKAAIyNAADAAIyNQACAAIyNgACAAIyNwALAAIyOAACAAIyOQACAAIzMAAKAAIzMQAKAAIzMgALAAIzMwAMAAIzNAAMAAIzNQANAAIzNgAOAAIzNwAEAAIzOAAMAAIzOQAKAAI0MAAKAAI0MQAPAAI0MgACAAI0MwACAAI0NAAJAAI0NQAJAAI0NgACAAI0NwACAAI0OAAJAAI0OQAQAAI1MAACAAI1MQACAAI1MgADAAI1MwACAAI1NAARAAI1NQASAAI1NgATAAI1NwADAAI1OAADAAI1OQAUAAI2MAADAAI2MQACAAI2MgARAAI2MwACAAI2NAAKAAI2NQAKAAI2NgAKAAI2NwAKAAI2OAAKAAI2OQAKAAI3MAADAAI3MQAVAAgkaW1wb3J0cwFwAUhICU4BAEEAC0gAAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkcALwlwcm9kdWNlcnMBDHByb2Nlc3NlZC1ieQENd2l0LWNvbXBvbmVudAcwLjI0My4w');
     ({ exports: exports0 } = yield instantiateCore(yield module2));
     ({ exports: exports1 } = yield instantiateCore(yield module0, {
       'codex:tui/shell-exec@0.1.0': {
         exec: exports0['3'],
+      },
+      'codex:tui/shell-pty@0.1.0': {
+        'poll-wake': exports0['34'],
+        read: exports0['36'],
+        start: exports0['35'],
+        terminate: exports0['38'],
+        write: exports0['37'],
       },
       'codex:tui/websocket@0.1.0': {
         close: trampoline0,
@@ -9953,19 +10302,19 @@ const $init = (() => {
         send: exports0['5'],
       },
       'host:browser/actions@0.1.0': {
-        'open-url': exports0['22'],
+        'open-url': exports0['33'],
       },
       'host:browser/audio@0.1.0': {
-        'clear-playback': exports0['23'],
-        'default-input-config': exports0['30'],
-        'default-output-config': exports0['29'],
+        'clear-playback': exports0['29'],
+        'default-input-config': exports0['31'],
+        'default-output-config': exports0['30'],
         'enqueue-playback': exports0['24'],
-        'list-input-devices': exports0['33'],
-        'list-output-devices': exports0['32'],
-        'read-capture-data': exports0['27'],
-        'start-capture': exports0['28'],
-        'start-playback': exports0['26'],
-        'stop-capture': exports0['31'],
+        'list-input-devices': exports0['23'],
+        'list-output-devices': exports0['22'],
+        'read-capture-data': exports0['28'],
+        'start-capture': exports0['27'],
+        'start-playback': exports0['32'],
+        'stop-capture': exports0['26'],
         'stop-playback': exports0['25'],
       },
       'host:console/logging@0.1.0': {
@@ -9974,10 +10323,10 @@ const $init = (() => {
         warn: exports0['2'],
       },
       'wasi:cli/environment@0.2.0': {
-        'get-environment': exports0['59'],
+        'get-environment': exports0['64'],
       },
       'wasi:cli/environment@0.2.9': {
-        'get-arguments': exports0['34'],
+        'get-arguments': exports0['39'],
       },
       'wasi:cli/exit@0.2.0': {
         exit: trampoline30,
@@ -9998,13 +10347,13 @@ const $init = (() => {
         '[resource-drop]terminal-output': trampoline27,
       },
       'wasi:cli/terminal-stderr@0.2.0': {
-        'get-terminal-stderr': exports0['62'],
+        'get-terminal-stderr': exports0['67'],
       },
       'wasi:cli/terminal-stdin@0.2.0': {
-        'get-terminal-stdin': exports0['60'],
+        'get-terminal-stdin': exports0['65'],
       },
       'wasi:cli/terminal-stdout@0.2.0': {
-        'get-terminal-stdout': exports0['61'],
+        'get-terminal-stdout': exports0['66'],
       },
       'wasi:clocks/monotonic-clock@0.2.0': {
         now: trampoline35,
@@ -10015,32 +10364,32 @@ const $init = (() => {
         'subscribe-duration': trampoline2,
       },
       'wasi:clocks/wall-clock@0.2.0': {
-        now: exports0['63'],
+        now: exports0['68'],
       },
       'wasi:filesystem/preopens@0.2.0': {
-        'get-directories': exports0['64'],
+        'get-directories': exports0['69'],
       },
       'wasi:filesystem/types@0.2.0': {
-        '[method]descriptor.append-via-stream': exports0['41'],
-        '[method]descriptor.create-directory-at': exports0['47'],
-        '[method]descriptor.get-flags': exports0['42'],
-        '[method]descriptor.metadata-hash': exports0['56'],
-        '[method]descriptor.metadata-hash-at': exports0['57'],
-        '[method]descriptor.open-at': exports0['51'],
-        '[method]descriptor.read-directory': exports0['45'],
-        '[method]descriptor.read-via-stream': exports0['39'],
-        '[method]descriptor.readlink-at': exports0['52'],
-        '[method]descriptor.remove-directory-at': exports0['53'],
-        '[method]descriptor.rename-at': exports0['54'],
-        '[method]descriptor.set-size': exports0['43'],
-        '[method]descriptor.set-times': exports0['44'],
-        '[method]descriptor.set-times-at': exports0['50'],
-        '[method]descriptor.stat': exports0['48'],
-        '[method]descriptor.stat-at': exports0['49'],
-        '[method]descriptor.sync': exports0['46'],
-        '[method]descriptor.unlink-file-at': exports0['55'],
-        '[method]descriptor.write-via-stream': exports0['40'],
-        '[method]directory-entry-stream.read-directory-entry': exports0['58'],
+        '[method]descriptor.append-via-stream': exports0['46'],
+        '[method]descriptor.create-directory-at': exports0['52'],
+        '[method]descriptor.get-flags': exports0['47'],
+        '[method]descriptor.metadata-hash': exports0['61'],
+        '[method]descriptor.metadata-hash-at': exports0['62'],
+        '[method]descriptor.open-at': exports0['56'],
+        '[method]descriptor.read-directory': exports0['50'],
+        '[method]descriptor.read-via-stream': exports0['44'],
+        '[method]descriptor.readlink-at': exports0['57'],
+        '[method]descriptor.remove-directory-at': exports0['58'],
+        '[method]descriptor.rename-at': exports0['59'],
+        '[method]descriptor.set-size': exports0['48'],
+        '[method]descriptor.set-times': exports0['49'],
+        '[method]descriptor.set-times-at': exports0['55'],
+        '[method]descriptor.stat': exports0['53'],
+        '[method]descriptor.stat-at': exports0['54'],
+        '[method]descriptor.sync': exports0['51'],
+        '[method]descriptor.unlink-file-at': exports0['60'],
+        '[method]descriptor.write-via-stream': exports0['45'],
+        '[method]directory-entry-stream.read-directory-entry': exports0['63'],
         '[resource-drop]descriptor': trampoline28,
         '[resource-drop]directory-entry-stream': trampoline29,
       },
@@ -10094,8 +10443,8 @@ const $init = (() => {
       'wasi:io/streams@0.2.0': {
         '[method]input-stream.blocking-read': exports0['20'],
         '[method]input-stream.subscribe': trampoline31,
-        '[method]output-stream.blocking-flush': exports0['38'],
-        '[method]output-stream.check-write': exports0['37'],
+        '[method]output-stream.blocking-flush': exports0['43'],
+        '[method]output-stream.check-write': exports0['42'],
         '[method]output-stream.subscribe': trampoline5,
         '[method]output-stream.write': exports0['19'],
         '[resource-drop]input-stream': trampoline18,
@@ -10109,13 +10458,13 @@ const $init = (() => {
         '[resource-drop]output-stream': trampoline22,
       },
       'wasi:random/insecure-seed@0.2.4': {
-        'insecure-seed': exports0['35'],
+        'insecure-seed': exports0['40'],
       },
       'wasi:random/random@0.2.9': {
         'get-random-u64': trampoline25,
       },
       wasi_snapshot_preview1: {
-        random_get: exports0['36'],
+        random_get: exports0['41'],
       },
     }));
     ({ exports: exports2 } = yield instantiateCore(yield module1, {
@@ -10132,11 +10481,11 @@ const $init = (() => {
         '[resource-drop]error': trampoline19,
       },
       'wasi:io/streams@0.2.6': {
-        '[method]output-stream.blocking-write-and-flush': exports0['65'],
+        '[method]output-stream.blocking-write-and-flush': exports0['70'],
         '[resource-drop]output-stream': trampoline22,
       },
       'wasi:random/random@0.2.6': {
-        'get-random-bytes': exports0['66'],
+        'get-random-bytes': exports0['71'],
       },
     }));
     memory0 = exports1.memory;
@@ -10175,13 +10524,13 @@ const $init = (() => {
         '33': trampoline70,
         '34': trampoline71,
         '35': trampoline72,
-        '36': exports2.random_get,
-        '37': trampoline73,
-        '38': trampoline74,
-        '39': trampoline75,
+        '36': trampoline73,
+        '37': trampoline74,
+        '38': trampoline75,
+        '39': trampoline76,
         '4': trampoline41,
-        '40': trampoline76,
-        '41': trampoline77,
+        '40': trampoline77,
+        '41': exports2.random_get,
         '42': trampoline78,
         '43': trampoline79,
         '44': trampoline80,
@@ -10209,7 +10558,12 @@ const $init = (() => {
         '64': trampoline100,
         '65': trampoline101,
         '66': trampoline102,
+        '67': trampoline103,
+        '68': trampoline104,
+        '69': trampoline105,
         '7': trampoline44,
+        '70': trampoline106,
+        '71': trampoline107,
         '8': trampoline45,
         '9': trampoline46,
       },
