@@ -5,7 +5,6 @@ projects:
   - "frontend"
   - "worker"
   - "runtime"
-  - "stripe-cli-wasm"
   - "git-cli-wasm"
 
 vcs:
