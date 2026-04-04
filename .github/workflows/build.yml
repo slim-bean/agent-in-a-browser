@@ -86,8 +86,10 @@ jobs:
       - name: Build pidfd workaround
         run: gcc -shared -fPIC -o /tmp/no_pidfd.so scripts/no_pidfd.c -ldl
 
-      - name: Clean Rust target (avoid stale cache)
-        run: cd runtime && cargo clean
+      - name: Clean Rust target and Moon cache (avoid stale cache)
+        run: |
+          cd runtime && cargo clean
+          rm -rf ../.moon/cache 2>/dev/null || true
 
       - name: Apply tree-sitter WASM codemod
         run: |
