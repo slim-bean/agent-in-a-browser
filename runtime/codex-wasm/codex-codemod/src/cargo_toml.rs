@@ -9,6 +9,27 @@ use std::path::Path;
 use toml_edit::{DocumentMut, Item, Value};
 use walkdir::WalkDir;
 
+/// Dependencies to redirect to local fork submodules.
+/// Format: (dep_name, relative_path_from_workspace_root).
+const SUBMODULE_REDIRECTS: &[(&str, &str)] = &[
+    ("tree-sitter", "../../../tree-sitter-wasm/tree-sitter/lib"),
+    (
+        "tree-sitter-bash",
+        "../../../tree-sitter-wasm/tree-sitter-bash",
+    ),
+];
+
+/// Patches to inject into [patch.crates-io] to unify transitive dependencies.
+/// Format: (dep_name, relative_path_from_workspace_root).
+const INJECT_PATCHES: &[(&str, &str)] = &[
+    // Ensure tree-sitter-bash uses the same tree-sitter-language as our local tree-sitter,
+    // avoiding diamond dependency (different crate instances for the same type).
+    (
+        "tree-sitter-language",
+        "../../../tree-sitter-wasm/tree-sitter/lib/language",
+    ),
+];
+
 /// Dependencies to redirect to our shim crates.
 const SHIM_REDIRECTS: &[(&str, &str)] = &[
     ("tokio", "wasi-tokio"),
@@ -190,9 +211,9 @@ const STRIP_DEPS: &[&str] = &[
     "zip",
     // which — uses unstable wasip2 std::os::wasi feature
     "which",
-    // tree-sitter — C code, doesn't compile for wasm32-wasip2
-    "tree-sitter",
-    "tree-sitter-bash",
+    // tree-sitter — redirected to local fork submodules (see SUBMODULE_REDIRECTS)
+    // "tree-sitter",
+    // "tree-sitter-bash",
     // flate2/tar — archive deps (archive handling done by host)
     "flate2",
     "tar",
@@ -420,6 +441,16 @@ fn transform_workspace_root(path: &Path, dry_run: bool) -> Result<()> {
                 println!("  [workspace.dependencies] redirect {dep_name} → {shim_crate}");
             }
         }
+
+        // Redirect submodule deps (tree-sitter forks etc.)
+        for (dep_name, relative_path) in SUBMODULE_REDIRECTS {
+            if deps.contains_key(dep_name) {
+                let mut table = toml_edit::InlineTable::new();
+                table.insert("path", Value::from(*relative_path));
+                deps.insert(dep_name, Item::Value(Value::InlineTable(table)));
+                println!("  [workspace.dependencies] redirect {dep_name} → {relative_path}");
+            }
+        }
     }
 
     // 4. Clean up [patch.crates-io] — keep websocket patches, remove shim-redirected ones
@@ -436,6 +467,14 @@ fn transform_workspace_root(path: &Path, dry_run: bool) -> Result<()> {
                 }
             }
             // Keep tokio-tungstenite and tungstenite patches — needed for websockets
+
+            // Inject patches for transitive dependency unification
+            for (dep_name, relative_path) in INJECT_PATCHES {
+                let mut table = toml_edit::InlineTable::new();
+                table.insert("path", Value::from(*relative_path));
+                crates_io.insert(dep_name, Item::Value(Value::InlineTable(table)));
+                println!("  [patch.crates-io] inject {dep_name} → {relative_path}");
+            }
         }
     }
 

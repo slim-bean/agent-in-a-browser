@@ -57,6 +57,9 @@ codex-network-proxy = { path = "../wasi-network-proxy" }
 codex-exec-server = { path = "../wasi-exec-server" }
 codex-rmcp-client = { path = "../wasi-rmcp-client" }
 futures-util = { path = "../patches/futures-util" }
+# Unify tree-sitter-language to avoid diamond dependency between local
+# tree-sitter (uses path dep) and tree-sitter-bash (uses crates.io version)
+tree-sitter-language = { path = "../../../tree-sitter-wasm/tree-sitter/lib/language" }
 
 [package.metadata.component]
 package = "codex:tui"

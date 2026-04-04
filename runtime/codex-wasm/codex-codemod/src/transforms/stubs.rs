@@ -149,14 +149,8 @@ pub fn transforms() -> Vec<Transform> {
         //
         // Large replacements already extracted (REPLACE_FILES_LARGE)
         //
-        Transform::ReplaceFile {
-            path_suffix: "apply-patch/src/invocation.rs",
-            content: include_str!("../../replacements/apply-patch/src/invocation.rs"),
-        },
-        Transform::ReplaceFile {
-            path_suffix: "shell-command/src/bash.rs",
-            content: include_str!("../../replacements/shell-command/src/bash.rs"),
-        },
+        // tree-sitter stubs removed — tree-sitter now compiles for wasip2
+        // via local fork submodules (tree-sitter-wasm/).
         // ---------------------------------------------------------------
         // App-server platform-specific edge stubs
         // ---------------------------------------------------------------

@@ -29,7 +29,7 @@ jobs:
       - name: Checkout submodules
         run: |
           git submodule deinit --all -f 2>/dev/null || true
-          git submodule update --init --force stripe-cli-wasm git-cli-wasm/patches/go-git runtime/codex-upstream
+          git submodule update --init --force stripe-cli-wasm git-cli-wasm/patches/go-git runtime/codex-upstream tree-sitter-wasm/tree-sitter tree-sitter-wasm/tree-sitter-bash
 
       - name: Setup Rust
         uses: moonrepo/setup-rust@v1
@@ -88,6 +88,11 @@ jobs:
 
       - name: Clean Rust target (avoid stale cache)
         run: cd runtime && cargo clean
+
+      - name: Apply tree-sitter WASM codemod
+        run: |
+          cd tree-sitter-wasm/codemod
+          cargo run --release -- $GITHUB_WORKSPACE/tree-sitter-wasm
 
       - name: Build stripe-cli WASM
         run: |
