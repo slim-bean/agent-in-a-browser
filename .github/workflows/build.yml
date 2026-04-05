@@ -23,9 +23,14 @@ jobs:
 
       - name: Checkout submodules
         run: |
-          # Clean stale submodule metadata (self-hosted runners cache .git/modules
-          # between runs; force-pushed submodule commits become stale references)
-          rm -rf .git/modules 2>/dev/null || true
+          # Clean stale submodule metadata for submodules whose commits get
+          # force-pushed (self-hosted runners cache .git/modules between runs).
+          # Only clean specific modules — wiping all of .git/modules breaks
+          # nested submodules that need their parent's metadata.
+          for mod in runtime/codex-upstream stripe-cli-wasm; do
+            rm -rf ".git/modules/$mod" 2>/dev/null || true
+            rm -rf "$mod" 2>/dev/null || true
+          done
           git submodule update --init --force stripe-cli-wasm git-cli-wasm/patches/go-git runtime/codex-upstream tree-sitter-wasm/tree-sitter tree-sitter-wasm/tree-sitter-bash
 
       - name: Setup Rust
