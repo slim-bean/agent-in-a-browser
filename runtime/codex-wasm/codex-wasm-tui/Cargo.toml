@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 codex-tui = { path = "../../codex-upstream/codex-rs/tui", default-features = false }
 codex-core = { path = "../../codex-upstream/codex-rs/core" }
 codex-protocol = { path = "../../codex-upstream/codex-rs/protocol" }
-codex-login = { path = "../../codex-upstream/codex-rs/login" }
+codex-login = { path = "../wasi-codex-login" }
 codex-arg0 = { path = "../../codex-upstream/codex-rs/arg0" }
 codex-feedback = { path = "../wasi-codex-feedback" }
 codex-exec-server = { path = "../wasi-exec-server" }

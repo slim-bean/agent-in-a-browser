@@ -37,7 +37,7 @@ const SHIM_REDIRECTS: &[(&str, &str)] = &[
     ("reqwest", "wasi-reqwest"),
     ("crossterm", "wasi-crossterm"),
     ("codex-otel", "wasi-codex-otel"),
-    // codex-login: use upstream (not redirected to stub)
+    ("codex-login", "wasi-codex-login"),
     // libc: use real crate (0.2.x has wasm32-wasip2 support)
     ("os_info", "wasi-os-info"),
     ("codex-keyring-store", "wasi-keyring-store"),

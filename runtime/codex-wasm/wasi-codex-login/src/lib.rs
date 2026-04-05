@@ -15,28 +15,8 @@ pub const REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR: &str = "CODEX_REFRESH_TOKEN_URL_OV
 pub const CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
 pub const DEFAULT_ISSUER: &str = "https://auth.openai.com";
 
-// ---------------------------------------------------------------------------
-// AuthMode (mirrors codex_app_server_protocol::AuthMode)
-// ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum AuthMode {
-    ApiKey,
-    Chatgpt,
-    #[serde(rename = "chatgptAuthTokens")]
-    ChatgptAuthTokens,
-}
-
-impl std::fmt::Display for AuthMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::ApiKey => write!(f, "apikey"),
-            Self::Chatgpt => write!(f, "chatgpt"),
-            Self::ChatgptAuthTokens => write!(f, "chatgptAuthTokens"),
-        }
-    }
-}
+// Re-export AuthMode from codex_app_server_protocol (canonical definition).
+pub use codex_app_server_protocol::AuthMode;
 
 // ---------------------------------------------------------------------------
 // AuthManager
@@ -78,6 +58,24 @@ impl AuthManager {
         Arc::new(mgr)
     }
 
+    /// Create an auth manager for provider-scoped command-backed auth.
+    /// In WASM, we can't execute the token command, so this returns an
+    /// empty manager. The provider will fall back to the base auth.
+    pub fn external_bearer_only(
+        _config: codex_protocol::config_types::ModelProviderAuthInfo,
+    ) -> Arc<Self> {
+        Arc::new(Self::new())
+    }
+
+    pub fn shared_with_external_auth(
+        codex_home: std::path::PathBuf,
+        _enable_codex_api_key_env: bool,
+        _auth_credentials_store_mode: AuthCredentialsStoreMode,
+        _external_auth: Arc<dyn ExternalAuth>,
+    ) -> Arc<Self> {
+        Self::shared(codex_home, _enable_codex_api_key_env, _auth_credentials_store_mode)
+    }
+
     pub fn from_auth_for_testing(auth: CodexAuth) -> Arc<Self> {
         let mgr = Self::new();
         mgr.set_auth(auth);
@@ -100,7 +98,9 @@ impl AuthManager {
             .unwrap_or_else(|e| e.into_inner())
             .clone();
         if let Some(codex_home) = home {
-            if let Ok(Some(auth_json)) = auth::load_auth_dot_json(&codex_home) {
+            if let Ok(Some(auth_json)) =
+                auth::load_auth_dot_json(&codex_home, AuthCredentialsStoreMode::File)
+            {
                 if let Some(key) = auth_json.openai_api_key {
                     self.set_auth(CodexAuth::from_api_key(key));
                     return true;
@@ -112,6 +112,57 @@ impl AuthManager {
 
     pub fn codex_api_key_env_enabled(&self) -> bool {
         false
+    }
+
+    pub fn set_external_auth(&self, _external_auth: Arc<dyn ExternalAuth>) {}
+
+    pub fn clear_external_auth(&self) {}
+
+    pub fn set_forced_chatgpt_workspace_id(&self, _workspace_id: Option<String>) {}
+
+    pub fn forced_chatgpt_workspace_id(&self) -> Option<String> {
+        None
+    }
+
+    pub fn has_external_auth(&self) -> bool {
+        false
+    }
+
+    pub fn is_external_chatgpt_auth_active(&self) -> bool {
+        false
+    }
+
+    pub fn refresh_failure_for_auth(
+        &self,
+        _auth: &CodexAuth,
+    ) -> Option<auth::RefreshTokenFailedError> {
+        None
+    }
+
+    pub fn get_api_auth_mode(&self) -> Option<AuthMode> {
+        self.auth_cached().map(|a| a.auth_mode())
+    }
+
+    pub async fn refresh_token(&self) -> Result<(), auth::RefreshTokenError> {
+        Ok(())
+    }
+
+    pub async fn refresh_token_from_authority(&self) -> Result<(), auth::RefreshTokenError> {
+        Ok(())
+    }
+
+    pub fn logout(&self) -> std::io::Result<bool> {
+        let home = self
+            .codex_home
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        if let Some(codex_home) = home {
+            auth::logout(&codex_home, AuthCredentialsStoreMode::File)?;
+            *self.auth.lock().unwrap_or_else(|e| e.into_inner()) = None;
+            return Ok(true);
+        }
+        Ok(false)
     }
 
     pub async fn auth(&self) -> Option<CodexAuth> {
@@ -197,6 +248,10 @@ impl CodexAuth {
         }
     }
 
+    pub fn api_auth_mode(&self) -> AuthMode {
+        self.auth_mode()
+    }
+
     pub fn get_account_id(&self) -> Option<String> {
         self.token_data_cached()
             .and_then(|td| td.id_token.chatgpt_account_id.clone())
@@ -231,15 +286,10 @@ impl CodexAuth {
         codex_home: &std::path::Path,
         _store_mode: AuthCredentialsStoreMode,
     ) -> std::io::Result<Option<Self>> {
-        match auth::load_auth_dot_json(codex_home)? {
+        match auth::load_auth_dot_json(codex_home, _store_mode)? {
             Some(auth_json) => {
                 if let Some(key) = auth_json.openai_api_key {
-                    // Try to decode token data from the saved tokens
-                    let td = auth_json
-                        .tokens
-                        .as_ref()
-                        .and_then(|t| token_data::decode_token_data_from_json(t));
-                    Ok(Some(Self::with_token_data(key, td)))
+                    Ok(Some(Self::with_token_data(key, auth_json.tokens)))
                 } else {
                     Ok(None)
                 }
@@ -248,9 +298,31 @@ impl CodexAuth {
         }
     }
 
-    pub fn account_plan_type(&self) -> Option<token_data::PlanType> {
+    pub fn account_plan_type(&self) -> Option<codex_protocol::account::PlanType> {
+        // Convert from our internal PlanType to the protocol PlanType
         self.token_data_cached()
             .and_then(|td| td.id_token.chatgpt_plan_type)
+            .and_then(|pt| match pt {
+                token_data::PlanType::Known(k) => Some(match k {
+                    token_data::KnownPlan::Free => codex_protocol::account::PlanType::Free,
+                    token_data::KnownPlan::Go => codex_protocol::account::PlanType::Go,
+                    token_data::KnownPlan::Plus => codex_protocol::account::PlanType::Plus,
+                    token_data::KnownPlan::Pro => codex_protocol::account::PlanType::Pro,
+                    token_data::KnownPlan::Team => codex_protocol::account::PlanType::Team,
+                    token_data::KnownPlan::Business => codex_protocol::account::PlanType::Business,
+                    token_data::KnownPlan::Enterprise => {
+                        codex_protocol::account::PlanType::Enterprise
+                    }
+                    token_data::KnownPlan::Edu => codex_protocol::account::PlanType::Edu,
+                    token_data::KnownPlan::SelfServeBusinessUsageBased => {
+                        codex_protocol::account::PlanType::SelfServeBusinessUsageBased
+                    }
+                    token_data::KnownPlan::EnterpriseCbpUsageBased => {
+                        codex_protocol::account::PlanType::EnterpriseCbpUsageBased
+                    }
+                }),
+                token_data::PlanType::Unknown(_) => Some(codex_protocol::account::PlanType::Unknown),
+            })
     }
 
     pub fn get_chatgpt_user_id(&self) -> Option<String> {
@@ -406,11 +478,37 @@ pub mod auth {
 
     // -- ExternalAuth types --
 
-    #[derive(Clone, Debug, PartialEq, Eq)]
+    #[derive(Clone, Debug)]
     pub struct ExternalAuthTokens {
         pub access_token: String,
-        pub chatgpt_account_id: String,
-        pub chatgpt_plan_type: Option<String>,
+        pub chatgpt_metadata: Option<super::ExternalAuthChatgptMetadata>,
+    }
+
+    impl ExternalAuthTokens {
+        pub fn access_token_only(access_token: impl Into<String>) -> Self {
+            Self {
+                access_token: access_token.into(),
+                chatgpt_metadata: None,
+            }
+        }
+
+        pub fn chatgpt(
+            access_token: impl Into<String>,
+            account_id: impl Into<String>,
+            plan_type: Option<String>,
+        ) -> Self {
+            Self {
+                access_token: access_token.into(),
+                chatgpt_metadata: Some(super::ExternalAuthChatgptMetadata {
+                    account_id: account_id.into(),
+                    plan_type,
+                }),
+            }
+        }
+
+        pub fn chatgpt_metadata(&self) -> Option<&super::ExternalAuthChatgptMetadata> {
+            self.chatgpt_metadata.as_ref()
+        }
     }
 
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -434,6 +532,9 @@ pub mod auth {
 
     // -- Misc stubs expected by upstream re-exports --
 
+    pub use super::ExternalAuth;
+    pub use super::ExternalAuthChatgptMetadata;
+
     pub fn login_with_chatgpt_auth_tokens(
         _codex_home: &std::path::Path,
         _access_token: &str,
@@ -445,6 +546,7 @@ pub mod auth {
 
     pub fn load_auth_dot_json(
         codex_home: &std::path::Path,
+        _auth_credentials_store_mode: AuthCredentialsStoreMode,
     ) -> std::io::Result<Option<super::AuthDotJson>> {
         let path = codex_home.join("auth.json");
         match std::fs::read_to_string(&path) {
@@ -488,10 +590,16 @@ pub mod auth {
     }
 
     pub fn logout(
-        _codex_home: &std::path::Path,
+        codex_home: &std::path::Path,
         _auth_credentials_store_mode: AuthCredentialsStoreMode,
     ) -> std::io::Result<bool> {
-        Ok(false)
+        let path = codex_home.join("auth.json");
+        if path.exists() {
+            std::fs::remove_file(&path)?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 
     pub fn save_auth(
@@ -530,19 +638,22 @@ pub enum AuthCredentialsStoreMode {
 }
 
 // ---------------------------------------------------------------------------
-// AuthDotJson (stub)
+// AuthDotJson
 // ---------------------------------------------------------------------------
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthDotJson {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auth_mode: Option<AuthMode>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+
+    #[serde(rename = "OPENAI_API_KEY")]
     pub openai_api_key: Option<String>,
+
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub tokens: Option<serde_json::Value>,
+    pub tokens: Option<TokenData>,
+
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub last_refresh: Option<String>,
+    pub last_refresh: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 // ---------------------------------------------------------------------------
@@ -565,6 +676,13 @@ pub mod token_data {
     impl IdTokenInfo {
         pub fn is_workspace_account(&self) -> bool {
             false
+        }
+
+        pub fn get_chatgpt_plan_type_raw(&self) -> Option<String> {
+            self.chatgpt_plan_type.as_ref().map(|pt| match pt {
+                PlanType::Known(k) => format!("{k:?}").to_ascii_lowercase(),
+                PlanType::Unknown(s) => s.clone(),
+            })
         }
     }
 
@@ -596,6 +714,12 @@ pub mod token_data {
                 "business" => Self::Known(KnownPlan::Business),
                 "enterprise" => Self::Known(KnownPlan::Enterprise),
                 "education" | "edu" => Self::Known(KnownPlan::Edu),
+                "selfservebusinessusagebased" => {
+                    Self::Known(KnownPlan::SelfServeBusinessUsageBased)
+                }
+                "enterprisecbpusagebased" => {
+                    Self::Known(KnownPlan::EnterpriseCbpUsageBased)
+                }
                 _ => Self::Unknown(raw.to_string()),
             }
         }
@@ -612,6 +736,8 @@ pub mod token_data {
         Business,
         Enterprise,
         Edu,
+        SelfServeBusinessUsageBased,
+        EnterpriseCbpUsageBased,
     }
 
     /// Decode token data from a JWT string (base64 payload, no signature verification).
@@ -715,25 +841,38 @@ pub use auth::login_with_chatgpt_auth_tokens;
 pub use auth::logout;
 pub use auth::save_auth;
 
-// ---------------------------------------------------------------------------
-// ForcedLoginMethod (stub for codex_protocol::config_types::ForcedLoginMethod)
-// ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ForcedLoginMethod {
-    Chatgpt,
-    Api,
-}
-
-impl std::fmt::Display for ForcedLoginMethod {
+/// Stub for codex_client::BuildCustomCaTransportError (not available in WASM).
+#[derive(Debug)]
+pub struct BuildLoginHttpClientError;
+impl std::fmt::Display for BuildLoginHttpClientError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Chatgpt => write!(f, "chatgpt"),
-            Self::Api => write!(f, "api"),
-        }
+        write!(f, "custom CA transport not available in WASM")
     }
 }
+impl std::error::Error for BuildLoginHttpClientError {}
+
+/// External auth provider trait — used by ChatGPT desktop integration.
+#[async_trait::async_trait]
+pub trait ExternalAuth: Send + Sync {
+    fn auth_mode(&self) -> AuthMode;
+    async fn resolve(&self) -> std::io::Result<Option<ExternalAuthTokens>> {
+        Ok(None)
+    }
+    async fn refresh(
+        &self,
+        context: auth::ExternalAuthRefreshContext,
+    ) -> std::io::Result<auth::ExternalAuthTokens>;
+}
+
+/// ChatGPT-specific metadata for external auth tokens.
+#[derive(Clone, Debug)]
+pub struct ExternalAuthChatgptMetadata {
+    pub account_id: String,
+    pub plan_type: Option<String>,
+}
+
+// Re-export ForcedLoginMethod from codex_protocol (canonical definition).
+pub use codex_protocol::config_types::ForcedLoginMethod;
 
 // ---------------------------------------------------------------------------
 // AuthConfig (stub for codex_login::auth::AuthConfig)
@@ -991,10 +1130,13 @@ fn urlencoded(s: &str) -> String {
 
 pub mod default_client {
     use reqwest::header::{HeaderMap, HeaderValue};
+    use std::sync::{LazyLock, Mutex};
 
     pub use super::AuthManager;
     pub use super::CodexAuth;
 
+    pub static USER_AGENT_SUFFIX: LazyLock<Mutex<Option<String>>> =
+        LazyLock::new(|| Mutex::new(None));
     pub const DEFAULT_ORIGINATOR: &str = "codex_cli_rs";
     pub const CODEX_INTERNAL_ORIGINATOR_OVERRIDE_ENV_VAR: &str =
         "CODEX_INTERNAL_ORIGINATOR_OVERRIDE";
@@ -1059,5 +1201,10 @@ pub mod default_client {
         headers
     }
 
-    pub fn set_default_client_residency_requirement(_enforce_residency: Option<()>) {}
+    pub use codex_config::ResidencyRequirement;
+
+    pub fn set_default_client_residency_requirement(
+        _enforce_residency: Option<codex_config::ResidencyRequirement>,
+    ) {
+    }
 }

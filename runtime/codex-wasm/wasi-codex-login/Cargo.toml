@@ -10,6 +10,7 @@ path = "src/lib.rs"
 
 [dependencies]
 async-trait = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
 base64 = "0.22"
 rand = "0.9"
 reqwest = { path = "../wasi-reqwest" }
@@ -19,3 +20,6 @@ serde_json = "1"
 sha2 = "0.10"
 thiserror = "2"
 tokio = { path = "../wasi-tokio" }
+codex-protocol = { path = "../../codex-upstream/codex-rs/protocol" }
+codex-app-server-protocol = { path = "../../codex-upstream/codex-rs/app-server-protocol" }
+codex-config = { path = "../../codex-upstream/codex-rs/config" }
