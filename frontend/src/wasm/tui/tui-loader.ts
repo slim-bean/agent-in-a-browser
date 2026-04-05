@@ -549,6 +549,9 @@ export async function launchTui(options: TuiLoaderOptions): Promise<{
         // Sentinel URL so EnvironmentManager takes the remote exec path,
         // routing unified_exec through our WIT shell-pty backend.
         ['CODEX_EXEC_SERVER_URL', 'wasm-host'],
+        // OAuth redirect URI origin — must match the page URL so the
+        // callback lands on our domain (localhost in dev, production domain in prod).
+        ['CODEX_ORIGIN', globalThis.location?.origin ?? 'https://agent.edge-agent.dev'],
     ]);
 
     // Pre-create /.codex in OPFS so find_codex_home() succeeds.

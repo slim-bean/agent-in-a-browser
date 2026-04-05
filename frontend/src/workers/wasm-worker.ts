@@ -639,7 +639,7 @@ async function runTuiJspi(msg: WorkerRunMessage): Promise<void> {
         ['TERM', 'xterm-256color'],
         ['SHELL', '/bin/sh'],
         ['RUST_BACKTRACE', '1'],
-        ['CODEX_REDIRECT_URI', `${self.location.origin}/oauth-callback`],
+        ['CODEX_ORIGIN', self.location.origin],
     ]);
 
     // Initialize OPFS filesystem (async version, works in Workers)
@@ -832,7 +832,7 @@ async function runShellJspi(msg: WorkerRunMessage): Promise<void> {
         ['TERM', 'xterm-256color'],
         ['SHELL', '/bin/sh'],
         ['PATH', '/usr/local/bin:/usr/bin:/bin'],
-        ['CODEX_REDIRECT_URI', `${self.location.origin}/oauth-callback`],
+        ['CODEX_ORIGIN', self.location.origin],
     ]);
 
     // Initialize OPFS filesystem

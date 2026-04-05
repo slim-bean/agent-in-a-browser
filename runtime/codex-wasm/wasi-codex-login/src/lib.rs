@@ -909,7 +909,7 @@ pub fn run_login_server(options: ServerOptions) -> std::io::Result<LoginServer> 
         base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(state_bytes);
 
     let redirect_uri = format!(
-        "{}/oauth/callback",
+        "{}/oauth-callback",
         std::env::var("CODEX_ORIGIN")
             .unwrap_or_else(|_| "https://agent.edge-agent.dev".into())
     );
