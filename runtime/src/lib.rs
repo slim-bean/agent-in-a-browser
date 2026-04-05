@@ -699,19 +699,30 @@ impl HttpGuest for Component {
     }
 }
 
-/// Handle SSE connection for MCP streaming protocol
+/// Handle SSE connection for MCP Streamable HTTP Transport.
+///
+/// Per the MCP spec, the SSE endpoint returns:
+/// 1. An `endpoint` event with the session message URI
+/// 2. An initialization notification
+///
+/// In WASM's request/response model we can't hold the connection open,
+/// so we return both events in a single response. The client should then
+/// POST JSON-RPC messages to the endpoint URI returned in the first event.
 fn handle_sse_connection(_request_bytes: &[u8]) -> String {
-    // For SSE, we send events in the format:
-    // event: message\ndata: {...}\n\n
+    let mut events = String::new();
 
-    // Send initialization event
+    // Event 1: endpoint — tells the client where to POST messages
+    events.push_str("event: endpoint\ndata: /mcp/message\n\n");
+
+    // Event 2: initialization notification
     let init_event = json!({
         "jsonrpc": "2.0",
         "method": "notifications/initialized",
         "params": {}
     });
+    events.push_str(&format!("event: message\ndata: {}\n\n", init_event));
 
-    format!("event: message\ndata: {}\n\n", init_event)
+    events
 }
 
 // cdylib component entry point - exports handle the actual entry point
