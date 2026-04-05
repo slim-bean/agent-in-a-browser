@@ -71,6 +71,10 @@ listenForOpenUrl();
         // Expose terminal for E2E tests immediately (bridge.runModule doesn't return)
         (window as unknown as { tuiTerminal: unknown }).tuiTerminal = terminal;
 
+        // Register link providers so URLs are clickable and open in new windows
+        terminal.registerLinkProvider(new ghostty.UrlRegexProvider(terminal));
+        terminal.registerLinkProvider(new ghostty.OSC8LinkProvider(terminal));
+
         // Load FitAddon for proper sizing
         const fitAddon = new ghostty.FitAddon();
         terminal.loadAddon(fitAddon);
