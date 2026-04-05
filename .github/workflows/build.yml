@@ -17,19 +17,15 @@ jobs:
     runs-on: [self-hosted, linux, x64, proxmox]
 
     steps:
-      - name: Clean stale submodule metadata
-        run: |
-          rm -rf .git/modules/stripe-cli-wasm 2>/dev/null || true
-          rm -rf .git/modules/stripe-cli-wasm/stripe-cli 2>/dev/null || true
-          rm -rf .git/modules/runtime/codex-upstream 2>/dev/null || true
-
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Checkout submodules
         run: |
-          git submodule deinit --all -f 2>/dev/null || true
+          # Clean stale submodule metadata (self-hosted runners cache .git/modules
+          # between runs; force-pushed submodule commits become stale references)
+          rm -rf .git/modules 2>/dev/null || true
           git submodule update --init --force stripe-cli-wasm git-cli-wasm/patches/go-git runtime/codex-upstream tree-sitter-wasm/tree-sitter tree-sitter-wasm/tree-sitter-bash
 
       - name: Setup Rust
