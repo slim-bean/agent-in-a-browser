@@ -160,8 +160,43 @@ pub struct StyledContent<D: std::fmt::Display> {
 
 impl<D: std::fmt::Display> std::fmt::Display for StyledContent<D> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // TODO: Write ANSI codes for style, then content, then reset
-        write!(f, "{}", self.content)
+        // Emit attribute SGR codes
+        for attr in [
+            Attribute::Reset,
+            Attribute::Bold,
+            Attribute::Dim,
+            Attribute::Italic,
+            Attribute::Underlined,
+            Attribute::DoubleUnderlined,
+            Attribute::Undercurled,
+            Attribute::Underdotted,
+            Attribute::Underdashed,
+            Attribute::SlowBlink,
+            Attribute::RapidBlink,
+            Attribute::Reverse,
+            Attribute::Hidden,
+            Attribute::CrossedOut,
+        ] {
+            if self.style.attributes.has(attr) {
+                write!(f, "\x1b[{}m", attr.sgr())?;
+            }
+        }
+        // Emit foreground color
+        if let Some(fg) = self.style.foreground_color {
+            SetForegroundColor(fg).write_ansi(f)?;
+        }
+        // Emit background color
+        if let Some(bg) = self.style.background_color {
+            SetBackgroundColor(bg).write_ansi(f)?;
+        }
+        // Emit underline color
+        if let Some(ul) = self.style.underline_color {
+            SetUnderlineColor(ul).write_ansi(f)?;
+        }
+        // Content
+        write!(f, "{}", self.content)?;
+        // Reset all
+        write!(f, "\x1b[0m")
     }
 }
 
@@ -210,7 +245,22 @@ impl super::Command for SetForegroundColor {
             Color::Rgb { r, g, b } => write!(f, "\x1b[38;2;{r};{g};{b}m"),
             Color::AnsiValue(v) => write!(f, "\x1b[38;5;{v}m"),
             Color::Reset => write!(f, "\x1b[39m"),
-            _ => Ok(()), // TODO: map named colors to ANSI codes
+            Color::Black => write!(f, "\x1b[30m"),
+            Color::DarkGrey => write!(f, "\x1b[90m"),
+            Color::Red => write!(f, "\x1b[31m"),
+            Color::DarkRed => write!(f, "\x1b[91m"),
+            Color::Green => write!(f, "\x1b[32m"),
+            Color::DarkGreen => write!(f, "\x1b[92m"),
+            Color::Yellow => write!(f, "\x1b[33m"),
+            Color::DarkYellow => write!(f, "\x1b[93m"),
+            Color::Blue => write!(f, "\x1b[34m"),
+            Color::DarkBlue => write!(f, "\x1b[94m"),
+            Color::Magenta => write!(f, "\x1b[35m"),
+            Color::DarkMagenta => write!(f, "\x1b[95m"),
+            Color::Cyan => write!(f, "\x1b[36m"),
+            Color::DarkCyan => write!(f, "\x1b[96m"),
+            Color::White => write!(f, "\x1b[37m"),
+            Color::Grey => write!(f, "\x1b[97m"),
         }
     }
 }
@@ -225,7 +275,22 @@ impl super::Command for SetBackgroundColor {
             Color::Rgb { r, g, b } => write!(f, "\x1b[48;2;{r};{g};{b}m"),
             Color::AnsiValue(v) => write!(f, "\x1b[48;5;{v}m"),
             Color::Reset => write!(f, "\x1b[49m"),
-            _ => Ok(()),
+            Color::Black => write!(f, "\x1b[40m"),
+            Color::DarkGrey => write!(f, "\x1b[100m"),
+            Color::Red => write!(f, "\x1b[41m"),
+            Color::DarkRed => write!(f, "\x1b[101m"),
+            Color::Green => write!(f, "\x1b[42m"),
+            Color::DarkGreen => write!(f, "\x1b[102m"),
+            Color::Yellow => write!(f, "\x1b[43m"),
+            Color::DarkYellow => write!(f, "\x1b[103m"),
+            Color::Blue => write!(f, "\x1b[44m"),
+            Color::DarkBlue => write!(f, "\x1b[104m"),
+            Color::Magenta => write!(f, "\x1b[45m"),
+            Color::DarkMagenta => write!(f, "\x1b[105m"),
+            Color::Cyan => write!(f, "\x1b[46m"),
+            Color::DarkCyan => write!(f, "\x1b[106m"),
+            Color::White => write!(f, "\x1b[47m"),
+            Color::Grey => write!(f, "\x1b[107m"),
         }
     }
 }
@@ -247,10 +312,27 @@ pub struct SetUnderlineColor(pub Color);
 impl super::Command for SetUnderlineColor {
     fn write_ansi(&self, f: &mut impl fmt::Write) -> fmt::Result {
         match self.0 {
+            // Underline color uses SGR 58 with 256-color index (5;n) since there
+            // are no dedicated named-color codes for underline like fg/bg have.
             Color::Rgb { r, g, b } => write!(f, "\x1b[58;2;{r};{g};{b}m"),
             Color::AnsiValue(v) => write!(f, "\x1b[58;5;{v}m"),
             Color::Reset => write!(f, "\x1b[59m"),
-            _ => Ok(()),
+            Color::Black => write!(f, "\x1b[58;5;0m"),
+            Color::DarkGrey => write!(f, "\x1b[58;5;8m"),
+            Color::Red => write!(f, "\x1b[58;5;1m"),
+            Color::DarkRed => write!(f, "\x1b[58;5;9m"),
+            Color::Green => write!(f, "\x1b[58;5;2m"),
+            Color::DarkGreen => write!(f, "\x1b[58;5;10m"),
+            Color::Yellow => write!(f, "\x1b[58;5;3m"),
+            Color::DarkYellow => write!(f, "\x1b[58;5;11m"),
+            Color::Blue => write!(f, "\x1b[58;5;4m"),
+            Color::DarkBlue => write!(f, "\x1b[58;5;12m"),
+            Color::Magenta => write!(f, "\x1b[58;5;5m"),
+            Color::DarkMagenta => write!(f, "\x1b[58;5;13m"),
+            Color::Cyan => write!(f, "\x1b[58;5;6m"),
+            Color::DarkCyan => write!(f, "\x1b[58;5;14m"),
+            Color::White => write!(f, "\x1b[58;5;7m"),
+            Color::Grey => write!(f, "\x1b[58;5;15m"),
         }
     }
 }

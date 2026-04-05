@@ -267,8 +267,24 @@ impl RequestBuilder {
         self
     }
 
-    pub fn query<T: serde::Serialize>(self, _query: &T) -> Self {
-        // TODO: append query params to URL
+    pub fn query<T: serde::Serialize>(mut self, query: &T) -> Self {
+        // Serialize to a sequence of key-value pairs and append to the URL.
+        // reqwest supports both maps (&[("k","v")]) and structs; serde_urlencoded
+        // handles both via Serialize.
+        if let Some(ref mut url) = self.url {
+            if let Ok(extra) = serde_urlencoded::to_string(query) {
+                if !extra.is_empty() {
+                    // Append to existing query string if present
+                    let existing = url.query().unwrap_or("").to_string();
+                    let combined = if existing.is_empty() {
+                        extra
+                    } else {
+                        format!("{existing}&{extra}")
+                    };
+                    url.set_query(Some(&combined));
+                }
+            }
+        }
         self
     }
 
