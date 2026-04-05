@@ -4089,7 +4089,97 @@ function trampoline58(arg0, arg1, arg2, arg3) {
 }
 
 
-function trampoline59(arg0) {
+function trampoline59(arg0, arg1, arg2, arg3, arg4, arg5) {
+  let variant1;
+  if (arg0) {
+    var ptr0 = arg1;
+    var len0 = arg2;
+    var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+    variant1 = result0;
+  } else {
+    variant1 = undefined;
+  }
+  _debugLog('[iface="host:browser/audio@0.1.0", function="start-capture"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'start-capture');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: startCapture(variant1, arg3 >>> 0, clampGuest(arg4, 0, 65535))};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="host:browser/audio@0.1.0", function="start-capture"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  var variant3 = ret;
+  switch (variant3.tag) {
+    case 'ok': {
+      const e = variant3.val;
+      dataView(memory0).setInt8(arg5 + 0, 0, true);
+      dataView(memory0).setInt32(arg5 + 4, toUint32(e), true);
+      break;
+    }
+    case 'err': {
+      const e = variant3.val;
+      dataView(memory0).setInt8(arg5 + 0, 1, true);
+      var ptr2 = utf8Encode(e, realloc0, memory0);
+      var len2 = utf8EncodedLen;
+      dataView(memory0).setUint32(arg5 + 8, len2, true);
+      dataView(memory0).setUint32(arg5 + 4, ptr2, true);
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="host:browser/audio@0.1.0", function="start-capture"][Instruction::Return]', {
+    funcName: 'start-capture',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+
+
+function trampoline60(arg0, arg1) {
+  _debugLog('[iface="host:browser/audio@0.1.0", function="stop-playback"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'stop-playback');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: stopPlayback(arg0 >>> 0)};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="host:browser/audio@0.1.0", function="stop-playback"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  var variant1 = ret;
+  switch (variant1.tag) {
+    case 'ok': {
+      const e = variant1.val;
+      dataView(memory0).setInt8(arg1 + 0, 0, true);
+      break;
+    }
+    case 'err': {
+      const e = variant1.val;
+      dataView(memory0).setInt8(arg1 + 0, 1, true);
+      var ptr0 = utf8Encode(e, realloc0, memory0);
+      var len0 = utf8EncodedLen;
+      dataView(memory0).setUint32(arg1 + 8, len0, true);
+      dataView(memory0).setUint32(arg1 + 4, ptr0, true);
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="host:browser/audio@0.1.0", function="stop-playback"][Instruction::Return]', {
+    funcName: 'stop-playback',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+
+
+function trampoline61(arg0) {
   _debugLog('[iface="host:browser/audio@0.1.0", function="list-output-devices"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'list-output-devices');
   let ret;
@@ -4141,7 +4231,7 @@ function trampoline59(arg0) {
 }
 
 
-function trampoline60(arg0) {
+function trampoline62(arg0) {
   _debugLog('[iface="host:browser/audio@0.1.0", function="list-input-devices"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'list-input-devices');
   let ret;
@@ -4193,42 +4283,49 @@ function trampoline60(arg0) {
 }
 
 
-function trampoline61(arg0, arg1, arg2, arg3) {
-  var ptr0 = arg1;
-  var len0 = arg2;
-  var result0 = new Uint8Array(memory0.buffer.slice(ptr0, ptr0 + len0 * 1));
-  _debugLog('[iface="host:browser/audio@0.1.0", function="enqueue-playback"] [Instruction::CallInterface] (async? sync, @ enter)');
-  const _interface_call_currentTaskID = startCurrentTask(0, false, 'enqueue-playback');
+function trampoline63(arg0, arg1, arg2, arg3, arg4, arg5) {
+  let variant1;
+  if (arg0) {
+    var ptr0 = arg1;
+    var len0 = arg2;
+    var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+    variant1 = result0;
+  } else {
+    variant1 = undefined;
+  }
+  _debugLog('[iface="host:browser/audio@0.1.0", function="start-playback"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'start-playback');
   let ret;
   try {
-    ret = { tag: 'ok', val: enqueuePlayback(arg0 >>> 0, result0)};
+    ret = { tag: 'ok', val: startPlayback(variant1, arg3 >>> 0, clampGuest(arg4, 0, 65535))};
   } catch (e) {
     ret = { tag: 'err', val: getErrorPayload(e) };
   }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="enqueue-playback"] [Instruction::CallInterface] (sync, @ post-call)');
+  _debugLog('[iface="host:browser/audio@0.1.0", function="start-playback"] [Instruction::CallInterface] (sync, @ post-call)');
   endCurrentTask(0);
-  var variant2 = ret;
-  switch (variant2.tag) {
+  var variant3 = ret;
+  switch (variant3.tag) {
     case 'ok': {
-      const e = variant2.val;
-      dataView(memory0).setInt8(arg3 + 0, 0, true);
+      const e = variant3.val;
+      dataView(memory0).setInt8(arg5 + 0, 0, true);
+      dataView(memory0).setInt32(arg5 + 4, toUint32(e), true);
       break;
     }
     case 'err': {
-      const e = variant2.val;
-      dataView(memory0).setInt8(arg3 + 0, 1, true);
-      var ptr1 = utf8Encode(e, realloc0, memory0);
-      var len1 = utf8EncodedLen;
-      dataView(memory0).setUint32(arg3 + 8, len1, true);
-      dataView(memory0).setUint32(arg3 + 4, ptr1, true);
+      const e = variant3.val;
+      dataView(memory0).setInt8(arg5 + 0, 1, true);
+      var ptr2 = utf8Encode(e, realloc0, memory0);
+      var len2 = utf8EncodedLen;
+      dataView(memory0).setUint32(arg5 + 8, len2, true);
+      dataView(memory0).setUint32(arg5 + 4, ptr2, true);
       break;
     }
     default: {
       throw new TypeError('invalid variant specified for result');
     }
   }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="enqueue-playback"][Instruction::Return]', {
-    funcName: 'enqueue-playback',
+  _debugLog('[iface="host:browser/audio@0.1.0", function="start-playback"][Instruction::Return]', {
+    funcName: 'start-playback',
     paramCount: 0,
     async: false,
     postReturn: false
@@ -4236,16 +4333,16 @@ function trampoline61(arg0, arg1, arg2, arg3) {
 }
 
 
-function trampoline62(arg0, arg1) {
-  _debugLog('[iface="host:browser/audio@0.1.0", function="stop-playback"] [Instruction::CallInterface] (async? sync, @ enter)');
-  const _interface_call_currentTaskID = startCurrentTask(0, false, 'stop-playback');
+function trampoline64(arg0, arg1) {
+  _debugLog('[iface="host:browser/audio@0.1.0", function="clear-playback"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'clear-playback');
   let ret;
   try {
-    ret = { tag: 'ok', val: stopPlayback(arg0 >>> 0)};
+    ret = { tag: 'ok', val: clearPlayback(arg0 >>> 0)};
   } catch (e) {
     ret = { tag: 'err', val: getErrorPayload(e) };
   }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="stop-playback"] [Instruction::CallInterface] (sync, @ post-call)');
+  _debugLog('[iface="host:browser/audio@0.1.0", function="clear-playback"] [Instruction::CallInterface] (sync, @ post-call)');
   endCurrentTask(0);
   var variant1 = ret;
   switch (variant1.tag) {
@@ -4267,8 +4364,8 @@ function trampoline62(arg0, arg1) {
       throw new TypeError('invalid variant specified for result');
     }
   }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="stop-playback"][Instruction::Return]', {
-    funcName: 'stop-playback',
+  _debugLog('[iface="host:browser/audio@0.1.0", function="clear-playback"][Instruction::Return]', {
+    funcName: 'clear-playback',
     paramCount: 0,
     async: false,
     postReturn: false
@@ -4276,7 +4373,7 @@ function trampoline62(arg0, arg1) {
 }
 
 
-function trampoline63(arg0, arg1) {
+function trampoline65(arg0, arg1) {
   _debugLog('[iface="host:browser/audio@0.1.0", function="stop-capture"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'stop-capture');
   let ret;
@@ -4316,49 +4413,43 @@ function trampoline63(arg0, arg1) {
 }
 
 
-function trampoline64(arg0, arg1, arg2, arg3, arg4, arg5) {
-  let variant1;
-  if (arg0) {
-    var ptr0 = arg1;
-    var len0 = arg2;
-    var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
-    variant1 = result0;
-  } else {
-    variant1 = undefined;
-  }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="start-capture"] [Instruction::CallInterface] (async? sync, @ enter)');
-  const _interface_call_currentTaskID = startCurrentTask(0, false, 'start-capture');
+function trampoline66(arg0) {
+  _debugLog('[iface="host:browser/audio@0.1.0", function="default-output-config"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'default-output-config');
   let ret;
   try {
-    ret = { tag: 'ok', val: startCapture(variant1, arg3 >>> 0, clampGuest(arg4, 0, 65535))};
+    ret = { tag: 'ok', val: defaultOutputConfig()};
   } catch (e) {
     ret = { tag: 'err', val: getErrorPayload(e) };
   }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="start-capture"] [Instruction::CallInterface] (sync, @ post-call)');
+  _debugLog('[iface="host:browser/audio@0.1.0", function="default-output-config"] [Instruction::CallInterface] (sync, @ post-call)');
   endCurrentTask(0);
-  var variant3 = ret;
-  switch (variant3.tag) {
+  var variant2 = ret;
+  switch (variant2.tag) {
     case 'ok': {
-      const e = variant3.val;
-      dataView(memory0).setInt8(arg5 + 0, 0, true);
-      dataView(memory0).setInt32(arg5 + 4, toUint32(e), true);
+      const e = variant2.val;
+      dataView(memory0).setInt8(arg0 + 0, 0, true);
+      var [tuple0_0, tuple0_1, tuple0_2] = e;
+      dataView(memory0).setInt32(arg0 + 4, toUint32(tuple0_0), true);
+      dataView(memory0).setInt16(arg0 + 8, toUint16(tuple0_1), true);
+      dataView(memory0).setInt8(arg0 + 10, toUint8(tuple0_2), true);
       break;
     }
     case 'err': {
-      const e = variant3.val;
-      dataView(memory0).setInt8(arg5 + 0, 1, true);
-      var ptr2 = utf8Encode(e, realloc0, memory0);
-      var len2 = utf8EncodedLen;
-      dataView(memory0).setUint32(arg5 + 8, len2, true);
-      dataView(memory0).setUint32(arg5 + 4, ptr2, true);
+      const e = variant2.val;
+      dataView(memory0).setInt8(arg0 + 0, 1, true);
+      var ptr1 = utf8Encode(e, realloc0, memory0);
+      var len1 = utf8EncodedLen;
+      dataView(memory0).setUint32(arg0 + 8, len1, true);
+      dataView(memory0).setUint32(arg0 + 4, ptr1, true);
       break;
     }
     default: {
       throw new TypeError('invalid variant specified for result');
     }
   }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="start-capture"][Instruction::Return]', {
-    funcName: 'start-capture',
+  _debugLog('[iface="host:browser/audio@0.1.0", function="default-output-config"][Instruction::Return]', {
+    funcName: 'default-output-config',
     paramCount: 0,
     async: false,
     postReturn: false
@@ -4366,7 +4457,51 @@ function trampoline64(arg0, arg1, arg2, arg3, arg4, arg5) {
 }
 
 
-function trampoline65(arg0, arg1) {
+function trampoline67(arg0) {
+  _debugLog('[iface="host:browser/audio@0.1.0", function="default-input-config"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'default-input-config');
+  let ret;
+  try {
+    ret = { tag: 'ok', val: defaultInputConfig()};
+  } catch (e) {
+    ret = { tag: 'err', val: getErrorPayload(e) };
+  }
+  _debugLog('[iface="host:browser/audio@0.1.0", function="default-input-config"] [Instruction::CallInterface] (sync, @ post-call)');
+  endCurrentTask(0);
+  var variant2 = ret;
+  switch (variant2.tag) {
+    case 'ok': {
+      const e = variant2.val;
+      dataView(memory0).setInt8(arg0 + 0, 0, true);
+      var [tuple0_0, tuple0_1, tuple0_2] = e;
+      dataView(memory0).setInt32(arg0 + 4, toUint32(tuple0_0), true);
+      dataView(memory0).setInt16(arg0 + 8, toUint16(tuple0_1), true);
+      dataView(memory0).setInt8(arg0 + 10, toUint8(tuple0_2), true);
+      break;
+    }
+    case 'err': {
+      const e = variant2.val;
+      dataView(memory0).setInt8(arg0 + 0, 1, true);
+      var ptr1 = utf8Encode(e, realloc0, memory0);
+      var len1 = utf8EncodedLen;
+      dataView(memory0).setUint32(arg0 + 8, len1, true);
+      dataView(memory0).setUint32(arg0 + 4, ptr1, true);
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant specified for result');
+    }
+  }
+  _debugLog('[iface="host:browser/audio@0.1.0", function="default-input-config"][Instruction::Return]', {
+    funcName: 'default-input-config',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+}
+
+
+function trampoline68(arg0, arg1) {
   _debugLog('[iface="host:browser/audio@0.1.0", function="read-capture-data"] [Instruction::CallInterface] (async? sync, @ enter)');
   const _interface_call_currentTaskID = startCurrentTask(0, false, 'read-capture-data');
   let ret;
@@ -4413,177 +4548,42 @@ function trampoline65(arg0, arg1) {
 }
 
 
-function trampoline66(arg0, arg1) {
-  _debugLog('[iface="host:browser/audio@0.1.0", function="clear-playback"] [Instruction::CallInterface] (async? sync, @ enter)');
-  const _interface_call_currentTaskID = startCurrentTask(0, false, 'clear-playback');
+function trampoline69(arg0, arg1, arg2, arg3) {
+  var ptr0 = arg1;
+  var len0 = arg2;
+  var result0 = new Uint8Array(memory0.buffer.slice(ptr0, ptr0 + len0 * 1));
+  _debugLog('[iface="host:browser/audio@0.1.0", function="enqueue-playback"] [Instruction::CallInterface] (async? sync, @ enter)');
+  const _interface_call_currentTaskID = startCurrentTask(0, false, 'enqueue-playback');
   let ret;
   try {
-    ret = { tag: 'ok', val: clearPlayback(arg0 >>> 0)};
+    ret = { tag: 'ok', val: enqueuePlayback(arg0 >>> 0, result0)};
   } catch (e) {
     ret = { tag: 'err', val: getErrorPayload(e) };
   }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="clear-playback"] [Instruction::CallInterface] (sync, @ post-call)');
-  endCurrentTask(0);
-  var variant1 = ret;
-  switch (variant1.tag) {
-    case 'ok': {
-      const e = variant1.val;
-      dataView(memory0).setInt8(arg1 + 0, 0, true);
-      break;
-    }
-    case 'err': {
-      const e = variant1.val;
-      dataView(memory0).setInt8(arg1 + 0, 1, true);
-      var ptr0 = utf8Encode(e, realloc0, memory0);
-      var len0 = utf8EncodedLen;
-      dataView(memory0).setUint32(arg1 + 8, len0, true);
-      dataView(memory0).setUint32(arg1 + 4, ptr0, true);
-      break;
-    }
-    default: {
-      throw new TypeError('invalid variant specified for result');
-    }
-  }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="clear-playback"][Instruction::Return]', {
-    funcName: 'clear-playback',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-}
-
-
-function trampoline67(arg0) {
-  _debugLog('[iface="host:browser/audio@0.1.0", function="default-output-config"] [Instruction::CallInterface] (async? sync, @ enter)');
-  const _interface_call_currentTaskID = startCurrentTask(0, false, 'default-output-config');
-  let ret;
-  try {
-    ret = { tag: 'ok', val: defaultOutputConfig()};
-  } catch (e) {
-    ret = { tag: 'err', val: getErrorPayload(e) };
-  }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="default-output-config"] [Instruction::CallInterface] (sync, @ post-call)');
+  _debugLog('[iface="host:browser/audio@0.1.0", function="enqueue-playback"] [Instruction::CallInterface] (sync, @ post-call)');
   endCurrentTask(0);
   var variant2 = ret;
   switch (variant2.tag) {
     case 'ok': {
       const e = variant2.val;
-      dataView(memory0).setInt8(arg0 + 0, 0, true);
-      var [tuple0_0, tuple0_1, tuple0_2] = e;
-      dataView(memory0).setInt32(arg0 + 4, toUint32(tuple0_0), true);
-      dataView(memory0).setInt16(arg0 + 8, toUint16(tuple0_1), true);
-      dataView(memory0).setInt8(arg0 + 10, toUint8(tuple0_2), true);
+      dataView(memory0).setInt8(arg3 + 0, 0, true);
       break;
     }
     case 'err': {
       const e = variant2.val;
-      dataView(memory0).setInt8(arg0 + 0, 1, true);
+      dataView(memory0).setInt8(arg3 + 0, 1, true);
       var ptr1 = utf8Encode(e, realloc0, memory0);
       var len1 = utf8EncodedLen;
-      dataView(memory0).setUint32(arg0 + 8, len1, true);
-      dataView(memory0).setUint32(arg0 + 4, ptr1, true);
+      dataView(memory0).setUint32(arg3 + 8, len1, true);
+      dataView(memory0).setUint32(arg3 + 4, ptr1, true);
       break;
     }
     default: {
       throw new TypeError('invalid variant specified for result');
     }
   }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="default-output-config"][Instruction::Return]', {
-    funcName: 'default-output-config',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-}
-
-
-function trampoline68(arg0) {
-  _debugLog('[iface="host:browser/audio@0.1.0", function="default-input-config"] [Instruction::CallInterface] (async? sync, @ enter)');
-  const _interface_call_currentTaskID = startCurrentTask(0, false, 'default-input-config');
-  let ret;
-  try {
-    ret = { tag: 'ok', val: defaultInputConfig()};
-  } catch (e) {
-    ret = { tag: 'err', val: getErrorPayload(e) };
-  }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="default-input-config"] [Instruction::CallInterface] (sync, @ post-call)');
-  endCurrentTask(0);
-  var variant2 = ret;
-  switch (variant2.tag) {
-    case 'ok': {
-      const e = variant2.val;
-      dataView(memory0).setInt8(arg0 + 0, 0, true);
-      var [tuple0_0, tuple0_1, tuple0_2] = e;
-      dataView(memory0).setInt32(arg0 + 4, toUint32(tuple0_0), true);
-      dataView(memory0).setInt16(arg0 + 8, toUint16(tuple0_1), true);
-      dataView(memory0).setInt8(arg0 + 10, toUint8(tuple0_2), true);
-      break;
-    }
-    case 'err': {
-      const e = variant2.val;
-      dataView(memory0).setInt8(arg0 + 0, 1, true);
-      var ptr1 = utf8Encode(e, realloc0, memory0);
-      var len1 = utf8EncodedLen;
-      dataView(memory0).setUint32(arg0 + 8, len1, true);
-      dataView(memory0).setUint32(arg0 + 4, ptr1, true);
-      break;
-    }
-    default: {
-      throw new TypeError('invalid variant specified for result');
-    }
-  }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="default-input-config"][Instruction::Return]', {
-    funcName: 'default-input-config',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-}
-
-
-function trampoline69(arg0, arg1, arg2, arg3, arg4, arg5) {
-  let variant1;
-  if (arg0) {
-    var ptr0 = arg1;
-    var len0 = arg2;
-    var result0 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr0, len0));
-    variant1 = result0;
-  } else {
-    variant1 = undefined;
-  }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="start-playback"] [Instruction::CallInterface] (async? sync, @ enter)');
-  const _interface_call_currentTaskID = startCurrentTask(0, false, 'start-playback');
-  let ret;
-  try {
-    ret = { tag: 'ok', val: startPlayback(variant1, arg3 >>> 0, clampGuest(arg4, 0, 65535))};
-  } catch (e) {
-    ret = { tag: 'err', val: getErrorPayload(e) };
-  }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="start-playback"] [Instruction::CallInterface] (sync, @ post-call)');
-  endCurrentTask(0);
-  var variant3 = ret;
-  switch (variant3.tag) {
-    case 'ok': {
-      const e = variant3.val;
-      dataView(memory0).setInt8(arg5 + 0, 0, true);
-      dataView(memory0).setInt32(arg5 + 4, toUint32(e), true);
-      break;
-    }
-    case 'err': {
-      const e = variant3.val;
-      dataView(memory0).setInt8(arg5 + 0, 1, true);
-      var ptr2 = utf8Encode(e, realloc0, memory0);
-      var len2 = utf8EncodedLen;
-      dataView(memory0).setUint32(arg5 + 8, len2, true);
-      dataView(memory0).setUint32(arg5 + 4, ptr2, true);
-      break;
-    }
-    default: {
-      throw new TypeError('invalid variant specified for result');
-    }
-  }
-  _debugLog('[iface="host:browser/audio@0.1.0", function="start-playback"][Instruction::Return]', {
-    funcName: 'start-playback',
+  _debugLog('[iface="host:browser/audio@0.1.0", function="enqueue-playback"][Instruction::Return]', {
+    funcName: 'enqueue-playback',
     paramCount: 0,
     async: false,
     postReturn: false
@@ -10287,8 +10287,8 @@ export const $init = (() => {
   let gen = (function* _initGenerator () {
     const module0 = fetchCompile(new URL('./codex-wasm-tui.core.wasm', import.meta.url));
     const module1 = base64Compile('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MCRhcyR1MjAkd2FzaV9zbmFwc2hvdF9wcmV2aWV3MS4uYmluZGluZ3MuLl9ydC4uV2FzbVJlc291cmNlJEdUJDRkcm9wNGRyb3AxN2hkMmZkZGI4NWYyNTM3NTZkRQNqX1pOMjJ3YXNpX3NuYXBzaG90X3ByZXZpZXcxOGJpbmRpbmdzNHdhc2k2cmFuZG9tNnJhbmRvbTE2Z2V0X3JhbmRvbV9ieXRlczExd2l0X2ltcG9ydDExN2g0OTk2NGJjZjVmMTNjYjg3RQRhX1pOMjJ3YXNpX3NuYXBzaG90X3ByZXZpZXcxOGJpbmRpbmdzNHdhc2kzY2xpNnN0ZGVycjEwZ2V0X3N0ZGVycjExd2l0X2ltcG9ydDAxN2g0NzQxNGFmNzNiMmI4MmQ5RQV9X1pOMjJ3YXNpX3NuYXBzaG90X3ByZXZpZXcxOGJpbmRpbmdzNHdhc2kyaW83c3RyZWFtczEyT3V0cHV0U3RyZWFtMjRibG9ja2luZ193cml0ZV9hbmRfZmx1c2gxMXdpdF9pbXBvcnQyMTdoMzEyZGJmZTQzZTBlYjA0ZEUGSl9aTjIyd2FzaV9zbmFwc2hvdF9wcmV2aWV3MTZtYWNyb3MxOGVwcmludF91bnJlYWNoYWJsZTE3aDQ1YWQxMTY5NDI3YzQ3NzFFBzxfWk4yMndhc2lfc25hcHNob3RfcHJldmlldzE2bWFjcm9zNXByaW50MTdoZjNmYzNiYTBjNGI4N2E4MkUIQ19aTjIyd2FzaV9zbmFwc2hvdF9wcmV2aWV3MTZtYWNyb3MxMWFzc2VydF9mYWlsMTdoMDM0YmU5OTAxYTYwM2VlY0UJcF9aTjIyd2FzaV9zbmFwc2hvdF9wcmV2aWV3MThiaW5kaW5nczR3YXNpMmlvN3N0cmVhbXMxMk91dHB1dFN0cmVhbTI0YmxvY2tpbmdfd3JpdGVfYW5kX2ZsdXNoMTdoZTc3MzRkM2I2YjQ4NzUyZEUKOV9aTjIyd2FzaV9zbmFwc2hvdF9wcmV2aWV3MTVTdGF0ZTNuZXcxN2g0Zjg2NGMxYjRkNjRlNTMwRQs5X1pOMjJ3YXNpX3NuYXBzaG90X3ByZXZpZXcxNVN0YXRlM3B0cjE3aDBkZTgyMDM4NTk1ZDk5NTFFDD9fWk4yMndhc2lfc25hcHNob3RfcHJldmlldzE5QnVtcEFsbG9jNWFsbG9jMTdoOWFmNDM5MzgwNDc1OWE5YUUNE2NhYmlfaW1wb3J0X3JlYWxsb2MOCnJhbmRvbV9nZXQPU19aTjIyd2FzaV9zbmFwc2hvdF9wcmV2aWV3MTZtYWNyb3MxMGVwcmludF91MzIxNWVwcmludF91MzJfaW1wbDE3aDY0ZWY2MDg4NGY2OWQyOTFFEEJfWk4yMndhc2lfc25hcHNob3RfcHJldmlldzE2bWFjcm9zMTBlcHJpbnRfdTMyMTdoOTk2YmU5ZmE3ZmVkYzkzOEURDWdldF9zdGF0ZV9wdHISDXNldF9zdGF0ZV9wdHITFGdldF9hbGxvY2F0aW9uX3N0YXRlFBRzZXRfYWxsb2NhdGlvbl9zdGF0ZRUOYWxsb2NhdGVfc3RhY2sHOAMAD19fc3RhY2tfcG9pbnRlcgESaW50ZXJuYWxfc3RhdGVfcHRyAhBhbGxvY2F0aW9uX3N0YXRlAE0JcHJvZHVjZXJzAghsYW5ndWFnZQEEUnVzdAAMcHJvY2Vzc2VkLWJ5AQVydXN0Yx0xLjkxLjAgKGY4Mjk3ZTM1MSAyMDI1LTEwLTI4KQ');
-    const module2 = base64Compile('AGFzbQEAAAABvgEWYAJ/fwBgDn9/f39/f39/f39/f39/AGACf38AYAR/f39/AGAFf39/f38AYAZ/f39/f38AYAR/f39/AX9gBX9/f39/AX9gBH9/f38AYAN/fn8AYAF/AGAGf39/f39/AGADf39/AGAKf39/f39/f39/fwBgCX9/f35/f39+fwBgAn9/AX9gCH9/fn9/fn9/AGAFf39/f38AYAt/f39/f35/f35/fwBgB39/f39/f38AYAd/f39/f39/AGACfn8AA0lIAAAAAQIDBAUGBwYGAgIIAgICAgMJCAoKAwICCwICCgoLDAwNDgQMCgoPAgIJCQICCRACAgMCERITAwMUAwIRAgoKCgoKCgMVBAUBcAFISAfqAkkBMAAAATEAAQEyAAIBMwADATQABAE1AAUBNgAGATcABwE4AAgBOQAJAjEwAAoCMTEACwIxMgAMAjEzAA0CMTQADgIxNQAPAjE2ABACMTcAEQIxOAASAjE5ABMCMjAAFAIyMQAVAjIyABYCMjMAFwIyNAAYAjI1ABkCMjYAGgIyNwAbAjI4ABwCMjkAHQIzMAAeAjMxAB8CMzIAIAIzMwAhAjM0ACICMzUAIwIzNgAkAjM3ACUCMzgAJgIzOQAnAjQwACgCNDEAKQI0MgAqAjQzACsCNDQALAI0NQAtAjQ2AC4CNDcALwI0OAAwAjQ5ADECNTAAMgI1MQAzAjUyADQCNTMANQI1NAA2AjU1ADcCNTYAOAI1NwA5AjU4ADoCNTkAOwI2MAA8AjYxAD0CNjIAPgI2MwA/AjY0AEACNjUAQQI2NgBCAjY3AEMCNjgARAI2OQBFAjcwAEYCNzEARwgkaW1wb3J0cwEACrEISAsAIAAgAUEAEQAACwsAIAAgAUEBEQAACwsAIAAgAUECEQAACyMAIAAgASACIAMgBCAFIAYgByAIIAkgCiALIAwgDUEDEQEACwsAIAAgAUEEEQIACw8AIAAgASACIANBBREDAAsRACAAIAEgAiADIARBBhEEAAsTACAAIAEgAiADIAQgBUEHEQUACw8AIAAgASACIANBCBEGAAsRACAAIAEgAiADIARBCREHAAsPACAAIAEgAiADQQoRBgALDwAgACABIAIgA0ELEQYACwsAIAAgAUEMEQIACwsAIAAgAUENEQIACw8AIAAgASACIANBDhEIAAsLACAAIAFBDxECAAsLACAAIAFBEBECAAsLACAAIAFBERECAAsLACAAIAFBEhECAAsPACAAIAEgAiADQRMRAwALDQAgACABIAJBFBEJAAsPACAAIAEgAiADQRURCAALCQAgAEEWEQoACwkAIABBFxEKAAsPACAAIAEgAiADQRgRAwALCwAgACABQRkRAgALCwAgACABQRoRAgALEwAgACABIAIgAyAEIAVBGxELAAsLACAAIAFBHBECAAsLACAAIAFBHRECAAsJACAAQR4RCgALCQAgAEEfEQoACxMAIAAgASACIAMgBCAFQSARCwALDQAgACABIAJBIREMAAsNACAAIAEgAkEiEQwACxsAIAAgASACIAMgBCAFIAYgByAIIAlBIxENAAsZACAAIAEgAiADIAQgBSAGIAcgCEEkEQ4ACxEAIAAgASACIAMgBEElEQQACw0AIAAgASACQSYRDAALCQAgAEEnEQoACwkAIABBKBEKAAsLACAAIAFBKREPAAsLACAAIAFBKhECAAsLACAAIAFBKxECAAsNACAAIAEgAkEsEQkACw0AIAAgASACQS0RCQALCwAgACABQS4RAgALCwAgACABQS8RAgALDQAgACABIAJBMBEJAAsXACAAIAEgAiADIAQgBSAGIAdBMREQAAsLACAAIAFBMhECAAsLACAAIAFBMxECAAsPACAAIAEgAiADQTQRAwALCwAgACABQTURAgALEQAgACABIAIgAyAEQTYREQALHQAgACABIAIgAyAEIAUgBiAHIAggCSAKQTcREgALFQAgACABIAIgAyAEIAUgBkE4ERMACw8AIAAgASACIANBOREDAAsPACAAIAEgAiADQToRAwALFQAgACABIAIgAyAEIAUgBkE7ERQACw8AIAAgASACIANBPBEDAAsLACAAIAFBPRECAAsRACAAIAEgAiADIARBPhERAAsLACAAIAFBPxECAAsKACAAQcAAEQoACwoAIABBwQARCgALCgAgAEHCABEKAAsKACAAQcMAEQoACwoAIABBxAARCgALCgAgAEHFABEKAAsQACAAIAEgAiADQcYAEQMACwwAIAAgAUHHABEVAAsALwlwcm9kdWNlcnMBDHByb2Nlc3NlZC1ieQENd2l0LWNvbXBvbmVudAcwLjI0My4w');
-    const module3 = base64Compile('AGFzbQEAAAABvgEWYAJ/fwBgDn9/f39/f39/f39/f39/AGACf38AYAR/f39/AGAFf39/f38AYAZ/f39/f38AYAR/f39/AX9gBX9/f39/AX9gBH9/f38AYAN/fn8AYAF/AGAGf39/f39/AGADf39/AGAKf39/f39/f39/fwBgCX9/f35/f39+fwBgAn9/AX9gCH9/fn9/fn9/AGAFf39/f38AYAt/f39/f35/f35/fwBgB39/f39/f38AYAd/f39/f39/AGACfn8AArYDSQABMAAAAAExAAAAATIAAAABMwABAAE0AAIAATUAAwABNgAEAAE3AAUAATgABgABOQAHAAIxMAAGAAIxMQAGAAIxMgACAAIxMwACAAIxNAAIAAIxNQACAAIxNgACAAIxNwACAAIxOAACAAIxOQADAAIyMAAJAAIyMQAIAAIyMgAKAAIyMwAKAAIyNAADAAIyNQACAAIyNgACAAIyNwALAAIyOAACAAIyOQACAAIzMAAKAAIzMQAKAAIzMgALAAIzMwAMAAIzNAAMAAIzNQANAAIzNgAOAAIzNwAEAAIzOAAMAAIzOQAKAAI0MAAKAAI0MQAPAAI0MgACAAI0MwACAAI0NAAJAAI0NQAJAAI0NgACAAI0NwACAAI0OAAJAAI0OQAQAAI1MAACAAI1MQACAAI1MgADAAI1MwACAAI1NAARAAI1NQASAAI1NgATAAI1NwADAAI1OAADAAI1OQAUAAI2MAADAAI2MQACAAI2MgARAAI2MwACAAI2NAAKAAI2NQAKAAI2NgAKAAI2NwAKAAI2OAAKAAI2OQAKAAI3MAADAAI3MQAVAAgkaW1wb3J0cwFwAUhICU4BAEEAC0gAAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkcALwlwcm9kdWNlcnMBDHByb2Nlc3NlZC1ieQENd2l0LWNvbXBvbmVudAcwLjI0My4w');
+    const module2 = base64Compile('AGFzbQEAAAABvgEWYAJ/fwBgDn9/f39/f39/f39/f39/AGACf38AYAR/f39/AGAFf39/f38AYAZ/f39/f38AYAR/f39/AX9gBX9/f39/AX9gBH9/f38AYAN/fn8AYAZ/f39/f38AYAF/AGADf39/AGAKf39/f39/f39/fwBgCX9/f35/f39+fwBgAn9/AX9gCH9/fn9/fn9/AGAFf39/f38AYAt/f39/f35/f35/fwBgB39/f39/f38AYAd/f39/f39/AGACfn8AA0lIAAAAAQIDBAUGBwYGAgIIAgICAgMJCAoCCwsKAgILCwIDDAwNDgQMCwsPAgIJCQICCRACAgMCERITAwMUAwIRAgsLCwsLCwMVBAUBcAFISAfqAkkBMAAAATEAAQEyAAIBMwADATQABAE1AAUBNgAGATcABwE4AAgBOQAJAjEwAAoCMTEACwIxMgAMAjEzAA0CMTQADgIxNQAPAjE2ABACMTcAEQIxOAASAjE5ABMCMjAAFAIyMQAVAjIyABYCMjMAFwIyNAAYAjI1ABkCMjYAGgIyNwAbAjI4ABwCMjkAHQIzMAAeAjMxAB8CMzIAIAIzMwAhAjM0ACICMzUAIwIzNgAkAjM3ACUCMzgAJgIzOQAnAjQwACgCNDEAKQI0MgAqAjQzACsCNDQALAI0NQAtAjQ2AC4CNDcALwI0OAAwAjQ5ADECNTAAMgI1MQAzAjUyADQCNTMANQI1NAA2AjU1ADcCNTYAOAI1NwA5AjU4ADoCNTkAOwI2MAA8AjYxAD0CNjIAPgI2MwA/AjY0AEACNjUAQQI2NgBCAjY3AEMCNjgARAI2OQBFAjcwAEYCNzEARwgkaW1wb3J0cwEACrEISAsAIAAgAUEAEQAACwsAIAAgAUEBEQAACwsAIAAgAUECEQAACyMAIAAgASACIAMgBCAFIAYgByAIIAkgCiALIAwgDUEDEQEACwsAIAAgAUEEEQIACw8AIAAgASACIANBBREDAAsRACAAIAEgAiADIARBBhEEAAsTACAAIAEgAiADIAQgBUEHEQUACw8AIAAgASACIANBCBEGAAsRACAAIAEgAiADIARBCREHAAsPACAAIAEgAiADQQoRBgALDwAgACABIAIgA0ELEQYACwsAIAAgAUEMEQIACwsAIAAgAUENEQIACw8AIAAgASACIANBDhEIAAsLACAAIAFBDxECAAsLACAAIAFBEBECAAsLACAAIAFBERECAAsLACAAIAFBEhECAAsPACAAIAEgAiADQRMRAwALDQAgACABIAJBFBEJAAsPACAAIAEgAiADQRURCAALEwAgACABIAIgAyAEIAVBFhEKAAsLACAAIAFBFxECAAsJACAAQRgRCwALCQAgAEEZEQsACxMAIAAgASACIAMgBCAFQRoRCgALCwAgACABQRsRAgALCwAgACABQRwRAgALCQAgAEEdEQsACwkAIABBHhELAAsLACAAIAFBHxECAAsPACAAIAEgAiADQSARAwALDQAgACABIAJBIREMAAsNACAAIAEgAkEiEQwACxsAIAAgASACIAMgBCAFIAYgByAIIAlBIxENAAsZACAAIAEgAiADIAQgBSAGIAcgCEEkEQ4ACxEAIAAgASACIAMgBEElEQQACw0AIAAgASACQSYRDAALCQAgAEEnEQsACwkAIABBKBELAAsLACAAIAFBKREPAAsLACAAIAFBKhECAAsLACAAIAFBKxECAAsNACAAIAEgAkEsEQkACw0AIAAgASACQS0RCQALCwAgACABQS4RAgALCwAgACABQS8RAgALDQAgACABIAJBMBEJAAsXACAAIAEgAiADIAQgBSAGIAdBMREQAAsLACAAIAFBMhECAAsLACAAIAFBMxECAAsPACAAIAEgAiADQTQRAwALCwAgACABQTURAgALEQAgACABIAIgAyAEQTYREQALHQAgACABIAIgAyAEIAUgBiAHIAggCSAKQTcREgALFQAgACABIAIgAyAEIAUgBkE4ERMACw8AIAAgASACIANBOREDAAsPACAAIAEgAiADQToRAwALFQAgACABIAIgAyAEIAUgBkE7ERQACw8AIAAgASACIANBPBEDAAsLACAAIAFBPRECAAsRACAAIAEgAiADIARBPhERAAsLACAAIAFBPxECAAsKACAAQcAAEQsACwoAIABBwQARCwALCgAgAEHCABELAAsKACAAQcMAEQsACwoAIABBxAARCwALCgAgAEHFABELAAsQACAAIAEgAiADQcYAEQMACwwAIAAgAUHHABEVAAsALwlwcm9kdWNlcnMBDHByb2Nlc3NlZC1ieQENd2l0LWNvbXBvbmVudAcwLjI0My4w');
+    const module3 = base64Compile('AGFzbQEAAAABvgEWYAJ/fwBgDn9/f39/f39/f39/f39/AGACf38AYAR/f39/AGAFf39/f38AYAZ/f39/f38AYAR/f39/AX9gBX9/f39/AX9gBH9/f38AYAN/fn8AYAZ/f39/f38AYAF/AGADf39/AGAKf39/f39/f39/fwBgCX9/f35/f39+fwBgAn9/AX9gCH9/fn9/fn9/AGAFf39/f38AYAt/f39/f35/f35/fwBgB39/f39/f38AYAd/f39/f39/AGACfn8AArYDSQABMAAAAAExAAAAATIAAAABMwABAAE0AAIAATUAAwABNgAEAAE3AAUAATgABgABOQAHAAIxMAAGAAIxMQAGAAIxMgACAAIxMwACAAIxNAAIAAIxNQACAAIxNgACAAIxNwACAAIxOAACAAIxOQADAAIyMAAJAAIyMQAIAAIyMgAKAAIyMwACAAIyNAALAAIyNQALAAIyNgAKAAIyNwACAAIyOAACAAIyOQALAAIzMAALAAIzMQACAAIzMgADAAIzMwAMAAIzNAAMAAIzNQANAAIzNgAOAAIzNwAEAAIzOAAMAAIzOQALAAI0MAALAAI0MQAPAAI0MgACAAI0MwACAAI0NAAJAAI0NQAJAAI0NgACAAI0NwACAAI0OAAJAAI0OQAQAAI1MAACAAI1MQACAAI1MgADAAI1MwACAAI1NAARAAI1NQASAAI1NgATAAI1NwADAAI1OAADAAI1OQAUAAI2MAADAAI2MQACAAI2MgARAAI2MwACAAI2NAALAAI2NQALAAI2NgALAAI2NwALAAI2OAALAAI2OQALAAI3MAADAAI3MQAVAAgkaW1wb3J0cwFwAUhICU4BAEEAC0gAAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkcALwlwcm9kdWNlcnMBDHByb2Nlc3NlZC1ieQENd2l0LWNvbXBvbmVudAcwLjI0My4w');
     ({ exports: exports0 } = yield instantiateCore(yield module2));
     ({ exports: exports1 } = yield instantiateCore(yield module0, {
       'codex:tui/shell-exec@0.1.0': {
@@ -10312,17 +10312,17 @@ export const $init = (() => {
         'open-url': exports0['33'],
       },
       'host:browser/audio@0.1.0': {
-        'clear-playback': exports0['29'],
-        'default-input-config': exports0['31'],
-        'default-output-config': exports0['30'],
-        'enqueue-playback': exports0['24'],
-        'list-input-devices': exports0['23'],
-        'list-output-devices': exports0['22'],
-        'read-capture-data': exports0['28'],
-        'start-capture': exports0['27'],
-        'start-playback': exports0['32'],
-        'stop-capture': exports0['26'],
-        'stop-playback': exports0['25'],
+        'clear-playback': exports0['27'],
+        'default-input-config': exports0['30'],
+        'default-output-config': exports0['29'],
+        'enqueue-playback': exports0['32'],
+        'list-input-devices': exports0['25'],
+        'list-output-devices': exports0['24'],
+        'read-capture-data': exports0['31'],
+        'start-capture': exports0['22'],
+        'start-playback': exports0['26'],
+        'stop-capture': exports0['28'],
+        'stop-playback': exports0['23'],
       },
       'host:console/logging@0.1.0': {
         error: exports0['1'],
