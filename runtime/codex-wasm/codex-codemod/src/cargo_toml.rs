@@ -50,7 +50,7 @@ const SHIM_REDIRECTS: &[(&str, &str)] = &[
     ("cpal", "wasi-cpal"),
     ("path-absolutize", "wasi-path-absolutize"),
     ("tokio-tungstenite", "wasi-tokio-tungstenite"),
-    ("tungstenite", "wasi-tokio-tungstenite"),
+    ("tungstenite", "wasi-tungstenite"),
     ("tokio-stream", "wasi-tokio-stream"),
     ("codex-backend-client", "wasi-codex-backend-client"),
     ("codex-cloud-requirements", "wasi-codex-cloud-requirements"),

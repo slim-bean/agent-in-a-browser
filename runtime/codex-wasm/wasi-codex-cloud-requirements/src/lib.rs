@@ -26,6 +26,7 @@ pub fn cloud_requirements_loader_for_storage(
     _codex_home: PathBuf,
     _enable_codex_api_key_env: bool,
     _credentials_store_mode: AuthCredentialsStoreMode,
+    _chatgpt_base_url: String,
 ) -> CloudRequirementsLoader {
     CloudRequirementsLoader::default()
 }

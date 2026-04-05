@@ -709,8 +709,10 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-tungstenite",
  "tokio-util",
  "tracing",
+ "tungstenite",
  "url",
 ]
 
@@ -725,6 +727,8 @@ dependencies = [
  "clap",
  "codex-app-server-protocol",
  "codex-arg0",
+ "codex-backend-client",
+ "codex-cloud-requirements",
  "codex-core",
  "codex-exec-server",
  "codex-features",
@@ -751,6 +755,7 @@ dependencies = [
  "tempfile",
  "time",
  "tokio",
+ "tokio-tungstenite",
  "tokio-util",
  "toml 0.9.12+spec-1.1.0",
  "tracing",
@@ -772,6 +777,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tokio-tungstenite",
  "toml 0.9.12+spec-1.1.0",
  "tracing",
  "url",
@@ -835,6 +841,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "codex-backend-client"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "codex-login",
+ "codex-protocol",
+]
+
+[[package]]
 name = "codex-client"
 version = "0.0.0"
 dependencies = [
@@ -852,6 +867,14 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-opentelemetry",
+]
+
+[[package]]
+name = "codex-cloud-requirements"
+version = "0.0.0"
+dependencies = [
+ "codex-config",
+ "codex-login",
 ]
 
 [[package]]
@@ -983,6 +1006,7 @@ dependencies = [
  "test-log",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-tungstenite",
  "tokio-util",
  "toml 0.9.12+spec-1.1.0",
  "toml_edit 0.24.1+spec-1.1.0",
@@ -1404,6 +1428,7 @@ dependencies = [
  "codex-app-server-client",
  "codex-app-server-protocol",
  "codex-arg0",
+ "codex-cloud-requirements",
  "codex-core",
  "codex-features",
  "codex-feedback",
@@ -1420,6 +1445,7 @@ dependencies = [
  "codex-utils-cli",
  "codex-utils-elapsed",
  "codex-utils-fuzzy-match",
+ "codex-utils-oss",
  "codex-utils-sandbox-summary",
  "codex-utils-sleep-inhibitor",
  "codex-utils-string",
@@ -1472,6 +1498,7 @@ name = "codex-utils-absolute-path"
 version = "0.0.0"
 dependencies = [
  "dirs",
+ "path-absolutize",
  "schemars 0.8.22",
  "serde",
 ]
@@ -1535,6 +1562,13 @@ version = "0.0.0"
 dependencies = [
  "serde_json",
  "toml 0.9.12+spec-1.1.0",
+]
+
+[[package]]
+name = "codex-utils-oss"
+version = "0.0.0"
+dependencies = [
+ "codex-core",
 ]
 
 [[package]]
@@ -3696,6 +3730,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b867cad97c0791bbd3aaa6472142568c6c9e8f71937e98379f584cfb0cf35bec"
 
 [[package]]
+name = "path-absolutize"
+version = "3.1.1"
+
+[[package]]
 name = "pathdiff"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5344,14 +5382,15 @@ dependencies = [
 [[package]]
 name = "tokio-stream"
 version = "0.1.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32da49809aab5c3bc678af03902d4ccddea2a87d028d86392a4b1560c6906c70"
 dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
- "tokio-util",
 ]
+
+[[package]]
+name = "tokio-tungstenite"
+version = "0.26.2"
 
 [[package]]
 name = "tokio-util"
@@ -5581,6 +5620,10 @@ dependencies = [
 [[package]]
 name = "tree-sitter-language"
 version = "0.1.5"
+
+[[package]]
+name = "tungstenite"
+version = "0.26.2"
 
 [[package]]
 name = "two-face"

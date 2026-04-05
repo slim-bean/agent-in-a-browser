@@ -37,6 +37,39 @@ impl<T> Stream for UnboundedReceiverStream<T> {
 impl<T> Unpin for UnboundedReceiverStream<T> {}
 
 // ---------------------------------------------------------------------------
+// ReceiverStream
+// ---------------------------------------------------------------------------
+
+/// Wraps a `tokio::sync::mpsc::Receiver<T>` as a `Stream`.
+pub struct ReceiverStream<T> {
+    inner: tokio::sync::mpsc::Receiver<T>,
+}
+
+impl<T> ReceiverStream<T> {
+    pub fn new(rx: tokio::sync::mpsc::Receiver<T>) -> Self {
+        Self { inner: rx }
+    }
+
+    pub fn into_inner(self) -> tokio::sync::mpsc::Receiver<T> {
+        self.inner
+    }
+
+    pub fn close(&mut self) {
+        self.inner.close();
+    }
+}
+
+impl<T> Stream for ReceiverStream<T> {
+    type Item = T;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        self.inner.poll_recv(cx)
+    }
+}
+
+impl<T> Unpin for ReceiverStream<T> {}
+
+// ---------------------------------------------------------------------------
 // WatchStream
 // ---------------------------------------------------------------------------
 
@@ -57,33 +90,19 @@ impl<T: Clone> WatchStream<T> {
     }
 }
 
-impl<T: Clone + Unpin> WatchStream<T> {
-    fn poll_next_impl(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<T>> {
-        let this = self.get_mut();
-        match this.inner.has_changed() {
-            Ok(true) => {
-                this.inner.mark_changed();
-                let val = this.inner.borrow().clone();
-                // Register waker for next change
-                let _ = this.inner.has_changed();
-                Poll::Ready(Some(val))
-            }
-            Ok(false) => {
-                // No change yet — register waker via changed() future
-                // Since we can't await in poll, use the receiver's waker registration
-                cx.waker().wake_by_ref();
-                Poll::Pending
-            }
-            Err(_) => Poll::Ready(None), // Sender dropped
-        }
-    }
-}
-
 impl<T: Clone + Unpin> Stream for WatchStream<T> {
     type Item = T;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.poll_next_impl(cx)
+        let this = self.get_mut();
+        match this.inner.poll_changed(cx.waker()) {
+            Ok(true) => {
+                let val = this.inner.borrow_and_update().clone();
+                Poll::Ready(Some(val))
+            }
+            Ok(false) => Poll::Pending,
+            Err(_) => Poll::Ready(None), // Sender dropped
+        }
     }
 }
 

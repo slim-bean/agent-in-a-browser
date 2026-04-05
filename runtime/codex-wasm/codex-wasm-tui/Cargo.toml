@@ -59,6 +59,7 @@ codex-exec-server = { path = "../wasi-exec-server" }
 codex-rmcp-client = { path = "../wasi-rmcp-client" }
 path-absolutize = { path = "../wasi-path-absolutize" }
 tokio-tungstenite = { path = "../wasi-tokio-tungstenite" }
+tungstenite = { path = "../wasi-tungstenite" }
 tokio-stream = { path = "../wasi-tokio-stream" }
 codex-utils-oss = { path = "../wasi-codex-utils-oss" }
 codex-cloud-requirements = { path = "../wasi-codex-cloud-requirements" }
