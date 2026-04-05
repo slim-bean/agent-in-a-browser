@@ -1,6 +1,6 @@
 //! Miscellaneous commands: seq, sleep, date, uname, hostname, whoami, id, time
 
-use futures_lite::io::AsyncWriteExt;
+use futures_lite::io::{AsyncReadExt, AsyncWriteExt};
 use runtime_macros::shell_commands;
 
 use super::super::ShellEnv;
@@ -459,6 +459,80 @@ impl MiscCommands {
                 Ok(()) => 0,
                 Err(e) => {
                     let msg = format!("open: {}\n", e);
+                    let _ = stderr.write_all(msg.as_bytes()).await;
+                    1
+                }
+            }
+        })
+    }
+
+    /// pbcopy - copy stdin to system clipboard
+    #[shell_command(
+        name = "pbcopy",
+        usage = "pbcopy",
+        description = "Copy stdin to system clipboard"
+    )]
+    fn cmd_pbcopy(
+        _args: Vec<String>,
+        _env: &ShellEnv,
+        stdin: piper::Reader,
+        _stdout: piper::Writer,
+        mut stderr: piper::Writer,
+    ) -> futures_lite::future::Boxed<i32> {
+        Box::pin(async move {
+            let mut buf = Vec::new();
+            let mut reader = stdin;
+            let mut tmp = [0u8; 4096];
+            loop {
+                match AsyncReadExt::read(&mut reader, &mut tmp).await {
+                    Ok(0) => break,
+                    Ok(n) => buf.extend_from_slice(&tmp[..n]),
+                    Err(_) => break,
+                }
+            }
+
+            let text = match String::from_utf8(buf) {
+                Ok(s) => s,
+                Err(_) => {
+                    let _ = stderr.write_all(b"pbcopy: invalid UTF-8\n").await;
+                    return 1;
+                }
+            };
+
+            match crate::bindings::host::browser::clipboard::write_text(&text) {
+                Ok(()) => 0,
+                Err(e) => {
+                    let msg = format!("pbcopy: {}\n", e);
+                    let _ = stderr.write_all(msg.as_bytes()).await;
+                    1
+                }
+            }
+        })
+    }
+
+    /// pbpaste - paste system clipboard to stdout
+    #[shell_command(
+        name = "pbpaste",
+        usage = "pbpaste",
+        description = "Paste system clipboard to stdout"
+    )]
+    fn cmd_pbpaste(
+        _args: Vec<String>,
+        _env: &ShellEnv,
+        _stdin: piper::Reader,
+        mut stdout: piper::Writer,
+        mut stderr: piper::Writer,
+    ) -> futures_lite::future::Boxed<i32> {
+        Box::pin(async move {
+            match crate::bindings::host::browser::clipboard::read_text() {
+                Ok(text) => {
+                    if stdout.write_all(text.as_bytes()).await.is_err() {
+                        return 1;
+                    }
+                    0
+                }
+                Err(e) => {
+                    let msg = format!("pbpaste: {}\n", e);
                     let _ = stderr.write_all(msg.as_bytes()).await;
                     1
                 }
