@@ -1061,25 +1061,11 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             break;
 
         case 'resize':
-            // Main thread is sending terminal resize event
-            console.log('[WasmWorker] Received resize message:', msg.cols, 'x', msg.rows);
-            if (jspiMode && jspiSetTerminalSize && msg.cols && msg.rows) {
-                // JSPI mode: update terminal size via ghostty-cli-shim
-                // This injects a resize escape sequence into the stdin buffer
+            // Update cached terminal size in ghostty-cli-shim.
+            // The crossterm shim detects size changes via WIT terminal:info/size.
+            // No escape sequences injected into stdin.
+            if (jspiSetTerminalSize && msg.cols && msg.rows) {
                 jspiSetTerminalSize(msg.cols, msg.rows);
-                console.log('[WasmWorker JSPI] Resize via setTerminalSize:', msg.cols, 'x', msg.rows);
-            } else if (controlArray && stdinDataArray && msg.cols && msg.rows) {
-                // Sync mode: inject DECSLPP escape sequence into stdin buffer
-                // CSI 8 ; rows ; cols t
-                const resizeSequence = `\x1b[8;${msg.rows};${msg.cols}t`;
-                const bytes = new TextEncoder().encode(resizeSequence);
-                stdinDataArray.set(bytes);
-                Atomics.store(controlArray, STDIN_CONTROL.DATA_LENGTH, bytes.length);
-                Atomics.store(controlArray, STDIN_CONTROL.RESPONSE_READY, 1);
-                Atomics.notify(controlArray, STDIN_CONTROL.RESPONSE_READY);
-                console.log('[WasmWorker] Resize injected as stdin:', msg.cols, 'x', msg.rows);
-            } else {
-                console.log('[WasmWorker] Resize skipped - missing controlArray/stdinDataArray or cols/rows');
             }
             break;
 

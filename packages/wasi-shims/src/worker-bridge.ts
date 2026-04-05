@@ -510,36 +510,16 @@ export class WorkerBridge {
 
     /**
      * Handle terminal resize event.
-     * In sync mode: inject directly via SharedArrayBuffer (worker is blocked on Atomics.wait).
-     * In JSPI mode: send via postMessage (worker event loop is free while WASM suspended).
+     * Sends resize via postMessage to the worker, which updates the cached
+     * terminal size in ghostty-cli-shim. The crossterm shim detects the change
+     * via the WIT terminal:info/size interface on its next read() call.
+     * No escape sequences are injected into stdin.
      */
     handleResize(cols: number, rows: number): void {
-        if (this.jspiMode) {
-            // JSPI mode: send resize via postMessage
-            if (this.worker) {
-                console.log(`[WorkerBridge] Sending resize via postMessage: ${cols}x${rows}`);
-                this.worker.postMessage({ type: 'resize', cols, rows });
-            }
-            return;
+        if (this.worker) {
+            console.log(`[WorkerBridge] Sending resize via postMessage: ${cols}x${rows}`);
+            this.worker.postMessage({ type: 'resize', cols, rows });
         }
-
-        // Sync mode: inject directly into SharedArrayBuffer
-        if (!this.controlArray || !this.stdinDataArray) {
-            console.log('[WorkerBridge] handleResize called but no SharedArrayBuffer');
-            return;
-        }
-        console.log(`[WorkerBridge] Injecting resize via SharedArrayBuffer: ${cols}x${rows}`);
-
-        // Create DECSLPP escape sequence: CSI 8 ; rows ; cols t
-        const resizeSequence = `\x1b[8;${rows};${cols}t`;
-        const bytes = new TextEncoder().encode(resizeSequence);
-
-        // Inject directly into stdin buffer (same as sendStdinToWorker)
-        this.stdinDataArray.set(bytes);
-        Atomics.store(this.controlArray, STDIN_CONTROL.DATA_LENGTH, bytes.length);
-        Atomics.store(this.controlArray, STDIN_CONTROL.RESPONSE_READY, 1);
-        const notified = Atomics.notify(this.controlArray, STDIN_CONTROL.RESPONSE_READY);
-        console.log(`[WorkerBridge] Resize injected, Atomics.notify returned: ${notified}`);
     }
 
     /**
