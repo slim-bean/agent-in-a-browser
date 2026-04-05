@@ -21,6 +21,7 @@ jobs:
         run: |
           rm -rf .git/modules/stripe-cli-wasm 2>/dev/null || true
           rm -rf .git/modules/stripe-cli-wasm/stripe-cli 2>/dev/null || true
+          rm -rf .git/modules/runtime/codex-upstream 2>/dev/null || true
 
       - uses: actions/checkout@v6
         with:
