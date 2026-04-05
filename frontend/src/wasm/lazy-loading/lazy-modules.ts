@@ -401,9 +401,11 @@ async function loadStripeModule(): Promise<CommandModule> {
             console.log(`[StripeCLI] spawn: name=${name}, args=`, args);
             let exitCode: number | undefined;
 
+            // Ensure HOME=/ so stripe-cli finds ~/.config/stripe/ at the OPFS root
+            const stripeEnv: [string, string][] = [['HOME', '/'], ...env.vars.filter(([k]: [string, string]) => k !== 'HOME')];
             const executionPromise = stripe.run({
                 args: [name, ...args],
-                env: env.vars,
+                env: stripeEnv,
                 cwd: env.cwd,
                 stdout: (data) => stdout.write(data),
                 stderr: (data) => stderr.write(data),
