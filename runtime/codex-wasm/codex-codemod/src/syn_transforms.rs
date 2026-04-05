@@ -1961,12 +1961,7 @@ impl<T> FileRwLock<T> {
             "/// Stub for fd_lock::RwLock (stripped for WASM)\nstruct FileRwLock<T>(T);\nimpl<T> FileRwLock<T> {\n    fn new(inner: T) -> Self { Self(inner) }\n    fn try_write(&mut self) -> std::io::Result<&mut T> { Ok(&mut self.0) }\n}",
         );
 
-        // --- utils/git/src/platform.rs: wasm32 stub for create_symlink ---
-        self.string_replace(
-            "utils/git/src/platform.rs",
-            "#[cfg(not(any(unix, windows)))]\ncompile_error!(\"codex-git symlink support is only implemented for Unix and Windows\");",
-            "#[cfg(not(any(unix, windows)))]\npub fn create_symlink(\n    _source: &Path,\n    _link_target: &Path,\n    _destination: &Path,\n) -> Result<(), GitToolingError> {\n    Err(std::io::Error::new(std::io::ErrorKind::Unsupported, \"symlinks not supported on wasm32\").into())\n}",
-        );
+        // create_symlink stub: canonical version in collect_tui_specific_edits
 
         // --- codex-client/src/transport.rs: replace zstd with no-op ---
         self.string_replace(
@@ -2002,34 +1997,7 @@ impl<T> FileRwLock<T> {
             "    #[cfg(not(target_arch = \"wasm32\"))]\n    builder.thread_stack_size(TOKIO_WORKER_STACK_SIZE_BYTES);",
         );
 
-        // --- tui/src/lib.rs: skip non_blocking writer ---
-        self.string_replace(
-            "tui/src/lib.rs",
-            "    let (non_blocking, _guard) = non_blocking(log_file);\n\n    // use RUST_LOG env var, default to info for codex crates.\n    let env_filter = || {\n        EnvFilter::try_from_default_env().unwrap_or_else(|_| {\n            EnvFilter::new(\"codex_core=info,codex_tui=info,codex_rmcp_client=info\")\n        })\n    };\n\n    let file_layer = tracing_subscriber::fmt::layer()\n        .with_writer(non_blocking)",
-            "    // [codex-codemod] non_blocking replaced with console_log (no thread spawning in WASM)\n    let _guard = ();\n\n    let env_filter = || {\n        EnvFilter::try_from_default_env().unwrap_or_else(|_| {\n            EnvFilter::new(\"codex_core=warn,codex_tui=warn\")\n        })\n    };\n\n    let file_layer = tracing_subscriber::fmt::layer()\n        .with_writer(console_log::MakeConsoleWriter)",
-        );
-
-        // --- tui/src/tui/frame_requester.rs: FrameRequester struct ---
-        self.string_replace(
-            "tui/src/tui/frame_requester.rs",
-            "#[derive(Clone, Debug)]\npub struct FrameRequester {\n    frame_schedule_tx: mpsc::UnboundedSender<Instant>,\n}",
-            "#[derive(Clone)]\npub struct FrameRequester {\n    frame_schedule_tx: mpsc::UnboundedSender<Instant>,\n    draw_tx: broadcast::Sender<()>,\n}\nimpl std::fmt::Debug for FrameRequester {\n    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {\n        f.debug_struct(\"FrameRequester\").finish()\n    }\n}",
-        );
-        self.string_replace(
-            "tui/src/tui/frame_requester.rs",
-            "        let scheduler = FrameScheduler::new(rx, draw_tx);\n        tokio::spawn(scheduler.run());\n        Self {\n            frame_schedule_tx: tx,\n        }",
-            "        let draw_tx_clone = draw_tx.clone();\n        let scheduler = FrameScheduler::new(rx, draw_tx);\n        tokio::spawn(scheduler.run());\n        Self {\n            frame_schedule_tx: tx,\n            draw_tx: draw_tx_clone,\n        }",
-        );
-        self.string_replace(
-            "tui/src/tui/frame_requester.rs",
-            "    pub fn schedule_frame(&self) {\n        let _ = self.frame_schedule_tx.send(Instant::now());\n    }",
-            "    pub fn schedule_frame(&self) {\n        let _ = self.frame_schedule_tx.send(Instant::now());\n        let _ = self.draw_tx.send(());\n    }",
-        );
-        self.string_replace(
-            "tui/src/tui/frame_requester.rs",
-            "    pub fn schedule_frame_in(&self, dur: Duration) {\n        let _ = self.frame_schedule_tx.send(Instant::now() + dur);\n    }",
-            "    pub fn schedule_frame_in(&self, dur: Duration) {\n        let _ = self.frame_schedule_tx.send(Instant::now() + dur);\n        let _ = self.draw_tx.send(());\n    }",
-        );
+        // non_blocking writer, FrameRequester: canonical versions in collect_tui_specific_edits
 
         // --- tui/src/lib.rs: trace/yield injections (gated by --diag-traces) ---
         if diag_traces_enabled() {
@@ -2113,10 +2081,6 @@ impl<T> FileRwLock<T> {
         // codex_utils_oss: handled by wasi-codex-utils-oss shim crate
         // codex_cloud_requirements: handled by wasi-codex-cloud-requirements shim crate
 
-        // [stale] InProcessAppServerClient stub removed from app.rs — moved to lib.rs (handled in replace_in_file)
-
-        // [stale] BackendClient stub removed — upstream removed codex_backend_client from chatwidget
-
         // --- app-server/src/codex_message_processor.rs: fix FeedbackUploadResponse type mismatch ---
         self.string_replace(
             "app-server/src/codex_message_processor.rs",
@@ -2160,13 +2124,7 @@ impl<T> FileRwLock<T> {
             "    let error = \"clipboard not available in WASM\".to_string();",
         );
 
-        // --- core/src/codex_delegate.rs: convert thread::spawn to tokio::spawn ---
-        // NOTE: This must match the ORIGINAL pattern before thread::spawn rewriting.
-        self.string_replace(
-            "core/src/codex_delegate.rs",
-            "std::thread::spawn(move || {\n        let Ok(runtime) = tokio::runtime::Builder::new_current_thread()\n            .enable_all()\n            .build()\n        else {\n            let _ = tx.send(ReviewDecision::Denied);\n            return;\n        };\n        let decision = runtime.block_on(review_approval_request_with_cancel(\n            &session,\n            &turn,\n            request,\n            retry_reason,\n            cancel_token,\n        ));\n        let _ = tx.send(decision);\n    });",
-            "tokio::spawn(async move {\n        let decision = review_approval_request_with_cancel(\n            &session,\n            &turn,\n            request,\n            retry_reason,\n            cancel_token,\n        ).await;\n        let _ = tx.send(decision);\n    });",
-        );
+        // codex_delegate async conversion: canonical version in collect_tui_specific_edits
 
         // --- tui/src/tooltips.rs: stub reqwest::blocking ---
         self.string_replace(
@@ -2234,14 +2192,14 @@ impl<T> FileRwLock<T> {
         // [stale] InProcessAppServerClient::start bail in app.rs removed — moved to lib.rs
 
         // --- tui/src/chatwidget.rs: stub connectors list ---
+        // NOTE: These use the ORIGINAL function names (before AST rename) because edits
+        // are collected against the original source text. The AST rename edit for the
+        // function name overlaps and is subsumed by the larger edit here.
         self.string_replace(
             "tui/src/chatwidget.rs",
             "connectors::list_all_connectors_with_options(&config, force_refetch).await?",
             "{ let _ = (&config, force_refetch); Vec::<connectors::AppInfo>::new() }",
         );
-
-        // --- tui/src/chatwidget.rs: fix merge_connectors call sites ---
-        // Match ORIGINAL name; use NEW name in replacement (syn rename won't reach inside replaced range)
         self.string_replace(
             "tui/src/chatwidget.rs",
             "merge_connectors_with_accessible(\n                    all_connectors,\n                    accessible_connectors,\n                    /*all_connectors_loaded*/ true,\n                )",
@@ -2253,39 +2211,8 @@ impl<T> FileRwLock<T> {
             "merge_plugin_apps_with_accessible(\n                        Vec::new(),\n                        snapshot.connectors,\n                    )",
         );
 
-        // set_default_client_residency_requirement: no transform needed —
-        // using real codex_login which has the correct ResidencyRequirement type.
-        //
-        // forced_login_method: no transform needed —
-        // codex_login::auth::AuthConfig uses codex_protocol::config_types::ForcedLoginMethod
-        // directly (same type the TUI passes). The identity mapping in the old code
-        // is replaced by fixing the TUI to use codex_protocol paths directly.
-
-        // Multiplexer::Zellij pattern — no longer needs transform; our stub now uses enum
-        // [stale] from_auth_storage pattern removed — upstream refactored auth
-
-        // --- tui/src/chatwidget.rs: fix TerminalName variants ---
-        self.string_replace(
-            "tui/src/chatwidget.rs",
-            "TerminalName::AppleTerminal | TerminalName::WarpTerminal | TerminalName::VsCode => {\n            key_hint::shift(KeyCode::Left)\n        }\n        TerminalName::Ghostty\n        | TerminalName::Iterm2\n        | TerminalName::WezTerm\n        | TerminalName::Kitty\n        | TerminalName::Alacritty\n        | TerminalName::Konsole\n        | TerminalName::GnomeTerminal\n        | TerminalName::Vte\n        | TerminalName::WindowsTerminal\n        | TerminalName::Dumb\n        | TerminalName::Unknown => key_hint::alt(KeyCode::Up),",
-            "_ => key_hint::alt(KeyCode::Up),",
-        );
-
-        // tokio-stream: handled by wasi-tokio-stream shim crate (no source transform needed)
-        // Previously inlined 50+ line WatchStream/BroadcastStream/UnboundedReceiverStream stubs.
-
-        // [stale] fetch_rate_limits and auth_manager.auth_cached patterns removed — upstream refactored rate limits
-
-        // [stale] feedback_diagnostics borrow fix removed — upstream now returns &FeedbackDiagnostics directly
-
-        // [stale] feedback_view thread_id and logs_override patterns removed — upstream refactored feedback
-
-        // --- tui/src/tui.rs: fix sync_update return type ---
-        self.string_replace(
-            "tui/src/tui.rs",
-            "            terminal.draw(|frame| {\n                draw_fn(frame);\n            })\n        })?\n    }",
-            "            terminal.draw(|frame| {\n                draw_fn(frame);\n            })\n        })?;\n        Ok(())\n    }",
-        );
+        // TerminalName match, sync_update return type, codex_delegate, create_symlink:
+        // canonical versions in collect_tui_specific_edits (these match post-AST or are file-independent)
 
         // =====================================================================
         // DIAGNOSTIC TRACES: Session initialization hang debugging
@@ -2717,58 +2644,24 @@ impl<T> FileRwLock<T> {
 
         // 3-4. codex_utils_oss and cloud_requirements: handled by shim crates
 
-        // 5. codex-app-server-client: real crate now kept in build — no inline stubs needed
+        // 5-6. Connectors list stub and merge_connectors: canonical versions in
+        // collect_string_replacement_edits (must use pre-rename names to match original source)
 
-        // [stale] 6. BackendClient import stub removed — upstream removed from chatwidget
-
-        // 7. connectors::list_all_connectors_with_options stub (tui/src/chatwidget.rs)
-        self.replace_in_file(
-            "tui/src/chatwidget.rs",
-            "connectors::list_all_connectors_with_options(&config, force_refetch).await?",
-            "{ let _ = (&config, force_refetch); Vec::<connectors::AppInfo>::new() }",
-        );
-
-        // 8. merge_plugin_apps_with_accessible fixes (tui/src/chatwidget.rs)
-        self.replace_in_file(
-            "tui/src/chatwidget.rs",
-            "merge_plugin_apps_with_accessible(\n                    all_connectors,\n                    accessible_connectors,\n                    /*all_connectors_loaded*/ true,\n                )",
-            "merge_plugin_apps_with_accessible(\n                    Vec::new(),\n                    accessible_connectors,\n                )",
-        );
-        self.replace_in_file(
-            "tui/src/chatwidget.rs",
-            "merge_plugin_apps_with_accessible(\n                        Vec::new(),\n                        snapshot.connectors,\n                        /*all_connectors_loaded*/ false,\n                    )",
-            "merge_plugin_apps_with_accessible(\n                        Vec::new(),\n                        snapshot.connectors,\n                    )",
-        );
-
-        // 9. set_default_client_residency_requirement: no transform needed — real type now available
-        // 10. forced_login_method: no transform needed — using codex_protocol paths directly
-
-        // 11. Multiplexer::Zellij — no longer needs transform; our stub now uses enum
-
-        // [stale] 12. from_auth_storage removed — upstream refactored auth
-
-        // 13. TerminalName match simplification (tui/src/chatwidget.rs)
+        // 7. TerminalName match simplification (tui/src/chatwidget.rs)
         self.replace_in_file(
             "tui/src/chatwidget.rs",
             "TerminalName::AppleTerminal | TerminalName::WarpTerminal | TerminalName::VsCode => {\n            key_hint::shift(KeyCode::Left)\n        }\n        TerminalName::Ghostty\n        | TerminalName::Iterm2\n        | TerminalName::WezTerm\n        | TerminalName::Kitty\n        | TerminalName::Alacritty\n        | TerminalName::Konsole\n        | TerminalName::GnomeTerminal\n        | TerminalName::Vte\n        | TerminalName::WindowsTerminal\n        | TerminalName::Dumb\n        | TerminalName::Unknown => key_hint::alt(KeyCode::Up),",
             "_ => key_hint::alt(KeyCode::Up),",
         );
 
-        // 14. UnboundedReceiverStream removal (tui/src/resume_picker.rs)
-        // 14-15. tokio-stream wrappers: handled by wasi-tokio-stream shim crate (no transform needed)
-
-        // [stale] 16-18. fetch_rate_limits, account_plan_type, feedback_diagnostics removed — upstream refactored
-
-        // [stale] 19-20. feedback_view thread_id and logs_override removed — upstream refactored
-
-        // 21. sync_update return type (tui/src/tui.rs)
+        // 8. sync_update return type (tui/src/tui.rs)
         self.replace_in_file(
             "tui/src/tui.rs",
             "            terminal.draw(|frame| {\n                draw_fn(frame);\n            })\n        })?\n    }",
             "            terminal.draw(|frame| {\n                draw_fn(frame);\n            })\n        })?;\n        Ok(())\n    }",
         );
 
-        // 22. codex_delegate async conversion (core/src/codex_delegate.rs)
+        // 9. codex_delegate async conversion (core/src/codex_delegate.rs)
         // Convert thread::spawn+block_on to tokio::spawn async
         self.replace_in_file(
             "core/src/codex_delegate.rs",
@@ -2776,18 +2669,14 @@ impl<T> FileRwLock<T> {
             "tokio::spawn(async move {\n        let decision = review_approval_request_with_cancel(\n            &session,\n            &turn,\n            request,\n            retry_reason,\n            cancel_token,\n        ).await;\n        let _ = tx.send(decision);\n    });",
         );
 
-        // 23. webbrowser::open — handled by wasi-webbrowser shim crate (no inline edit needed)
-
-        // [stale] 24. InProcessAppServerClient start bail removed from app.rs — moved to lib.rs
-
-        // 25. compile_error → create_symlink stub (git-utils/src/platform.rs)
+        // 10. compile_error → create_symlink stub (git-utils/src/platform.rs)
         self.replace_in_file(
             "git-utils/src/platform.rs",
             "#[cfg(not(any(unix, windows)))]\ncompile_error!(\"codex-git symlink support is only implemented for Unix and Windows\");",
             "#[cfg(not(any(unix, windows)))]\npub fn create_symlink(\n    _source: &Path,\n    _link_target: &Path,\n    _destination: &Path,\n) -> Result<(), GitToolingError> {\n    Err(std::io::Error::new(std::io::ErrorKind::Unsupported, \"symlinks not supported on wasm32\").into())\n}",
         );
 
-        // 26. Replace process::exit in tui/src/lib.rs with Result return
+        // 11. Replace process::exit in tui/src/lib.rs with Result return
         self.replace_in_file(
             "tui/src/lib.rs",
             "eprintln!(\"Error parsing -c overrides: {e}\");\n            std::process::exit(1);",
