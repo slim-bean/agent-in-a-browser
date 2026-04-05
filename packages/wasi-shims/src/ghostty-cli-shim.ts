@@ -114,24 +114,16 @@ export function pushStdinData(data: Uint8Array): void {
 }
 
 /**
- * Set terminal size (called on resize)
+ * Set terminal size (called on resize).
+ * Only updates the cached dimensions — does NOT inject escape sequences
+ * into stdin. The crossterm shim detects size changes by comparing the
+ * cached size (via WIT terminal:info/size) against the previous value.
+ * This avoids the resize sequence leaking through the shell's echo to
+ * the terminal display.
  */
 export function setTerminalSize(cols: number, rows: number): void {
     terminalCols = cols;
     terminalRows = rows;
-
-    // Send resize escape sequence to stdin
-    // CSI 8 ; rows ; cols t (DECSLPP - Set terminal size)
-    // But for simplicity, inject a special sequence the TUI can detect
-    const resizeSequence = `\x1b[8;${rows};${cols}t`;
-    const bytes = new TextEncoder().encode(resizeSequence);
-
-    if (stdinWaiters.length > 0) {
-        const waiter = stdinWaiters.shift()!;
-        waiter(bytes);
-    } else {
-        stdinBuffer.push(bytes);
-    }
 }
 
 /**

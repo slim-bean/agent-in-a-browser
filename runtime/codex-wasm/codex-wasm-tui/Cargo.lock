@@ -1628,6 +1628,7 @@ dependencies = [
  "codex-utils-sleep-inhibitor",
  "console-log",
  "cpal",
+ "crossterm",
  "reqwest",
  "tiny_http",
  "tokio",

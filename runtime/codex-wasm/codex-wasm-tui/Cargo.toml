@@ -21,6 +21,7 @@ tokio = { path = "../wasi-tokio" }
 clap = { version = "4", features = ["derive"] }
 
 webbrowser = { path = "../wasi-webbrowser" }
+crossterm = { path = "../wasi-crossterm" }
 arboard = { path = "../wasi-arboard" }
 cpal = { path = "../wasi-cpal" }
 tiny_http = { path = "../wasi-tiny-http" }

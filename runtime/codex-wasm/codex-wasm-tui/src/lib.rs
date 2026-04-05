@@ -49,6 +49,12 @@ fn ensure_initialized() {
         // interface for persistent shell sessions instead of stub errors.
         codex_exec_server::set_exec_backend(std::sync::Arc::new(pty_backend::WitPtyBackend));
         tokio::set_yield_fn(wasm_yield);
+        // Register terminal size query → WIT terminal:info/size binding
+        // This lets crossterm detect resize without stdin-injected escape sequences.
+        crossterm::terminal::set_size_query(|| {
+            let dims = bindings::terminal::info::size::get_terminal_size();
+            (dims.cols as u16, dims.rows as u16)
+        });
         // Register webbrowser shim → WIT browser binding
         webbrowser::set_open_handler(|url| {
             bindings::host::browser::actions::open_url(url).map_err(|e| e.to_string())

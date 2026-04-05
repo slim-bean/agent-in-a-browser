@@ -199,8 +199,26 @@ const PASTE_END: &[u8] = b"\x1b[201~";
 /// Reads raw bytes from WASI stdin and parses ANSI escape sequences
 /// into crossterm Event values. The ghostty-cli-shim delivers
 /// keystrokes from ghostty-web as raw terminal bytes.
+///
+/// Also checks for terminal size changes via the registered host
+/// size query, generating Event::Resize when the size differs from
+/// the cached value.
 pub fn read() -> std::io::Result<Event> {
     use std::io::Read;
+
+    // Check for terminal size changes before reading stdin.
+    // The host updates its cached size when the browser window resizes;
+    // we detect the change here without stdin-injected escape sequences.
+    if let Some((host_cols, host_rows)) = crate::terminal::query_host_size() {
+        let (cached_cols, cached_rows) = (
+            crate::terminal::cached_cols(),
+            crate::terminal::cached_rows(),
+        );
+        if host_cols != cached_cols || host_rows != cached_rows {
+            crate::terminal::update_size(host_cols, host_rows);
+            return Ok(Event::Resize(host_cols, host_rows));
+        }
+    }
 
     let mut buf = [0u8; 4096];
     let n = std::io::stdin().read(&mut buf)?;
