@@ -48,50 +48,15 @@ pub fn transforms() -> Vec<Transform> {
         // - utils/pty → wasi-pty
         // - terminal-detection → wasi-terminal-detection
         // - rmcp-client → wasi-rmcp-client
-        Transform::ReplaceFile {
-            path_suffix: "codex-api/src/endpoint/realtime_websocket/mod.rs",
-            content: include_str!(
-                "../../replacements/codex-api/src/endpoint/realtime_websocket/mod.rs"
-            ),
-        },
+        // Realtime WebSocket: only methods.rs needs replacement (tungstenite → WIT websocket).
+        // All protocol and helper files (protocol.rs, protocol_v1/v2.rs, methods_common.rs,
+        // methods_v1/v2.rs, protocol_common.rs) are pure Rust with no transport dependency
+        // and use upstream code as-is.
         Transform::ReplaceFile {
             path_suffix: "codex-api/src/endpoint/realtime_websocket/methods.rs",
             content: include_str!(
                 "../../replacements/codex-api/src/endpoint/realtime_websocket/methods.rs"
             ),
-        },
-        Transform::ReplaceFile {
-            path_suffix: "codex-api/src/endpoint/realtime_websocket/protocol.rs",
-            content: include_str!(
-                "../../replacements/codex-api/src/endpoint/realtime_websocket/protocol.rs"
-            ),
-        },
-        //
-        // Tiny stubs (< 3 lines) — kept inline
-        //
-        Transform::ReplaceFile {
-            path_suffix: "codex-api/src/endpoint/realtime_websocket/methods_common.rs",
-            content: "//! Stub for wasip2.\n",
-        },
-        Transform::ReplaceFile {
-            path_suffix: "codex-api/src/endpoint/realtime_websocket/methods_v1.rs",
-            content: "//! Stub for wasip2.\n",
-        },
-        Transform::ReplaceFile {
-            path_suffix: "codex-api/src/endpoint/realtime_websocket/methods_v2.rs",
-            content: "//! Stub for wasip2.\n",
-        },
-        Transform::ReplaceFile {
-            path_suffix: "codex-api/src/endpoint/realtime_websocket/protocol_common.rs",
-            content: "//! Stub for wasip2.\n",
-        },
-        Transform::ReplaceFile {
-            path_suffix: "codex-api/src/endpoint/realtime_websocket/protocol_v1.rs",
-            content: "//! Stub for wasip2.\n",
-        },
-        Transform::ReplaceFile {
-            path_suffix: "codex-api/src/endpoint/realtime_websocket/protocol_v2.rs",
-            content: "//! Stub for wasip2.\n",
         },
         //
         // More large replacements
