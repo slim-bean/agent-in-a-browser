@@ -63,11 +63,11 @@ impl AuthManager {
     ) -> Arc<Self> {
         let mgr = Self::new();
         *mgr.codex_home.lock().unwrap_or_else(|e| e.into_inner()) = Some(codex_home.clone());
-        // Try to load from auth.json on disk (OPFS)
-        if let Ok(Some(auth_json)) = auth::load_auth_dot_json(&codex_home) {
-            if let Some(key) = auth_json.openai_api_key {
-                mgr.set_auth(CodexAuth::from_api_key(key));
-            }
+        // Try to load from auth.json on disk (OPFS) with full token data
+        if let Ok(Some(auth)) =
+            CodexAuth::from_auth_storage(&codex_home, AuthCredentialsStoreMode::File)
+        {
+            mgr.set_auth(auth);
         }
         // Also check env var
         if mgr.auth_cached().is_none() {
@@ -143,6 +143,8 @@ impl AuthManager {
 pub struct CodexAuth {
     pub api_key: Option<String>,
     pub chatgpt_session_token: Option<String>,
+    #[serde(skip)]
+    token_data: Option<TokenData>,
 }
 
 impl CodexAuth {
@@ -150,6 +152,16 @@ impl CodexAuth {
         Self {
             api_key: Some(api_key.into()),
             chatgpt_session_token: None,
+            token_data: None,
+        }
+    }
+
+    /// Create with full token data from auth.json.
+    fn with_token_data(api_key: String, token_data: Option<TokenData>) -> Self {
+        Self {
+            api_key: Some(api_key),
+            chatgpt_session_token: None,
+            token_data,
         }
     }
 
@@ -157,6 +169,7 @@ impl CodexAuth {
         Self {
             api_key: None,
             chatgpt_session_token: Some("dummy".to_string()),
+            token_data: None,
         }
     }
 
@@ -185,11 +198,13 @@ impl CodexAuth {
     }
 
     pub fn get_account_id(&self) -> Option<String> {
-        None
+        self.token_data_cached()
+            .and_then(|td| td.id_token.chatgpt_account_id.clone())
     }
 
     pub fn get_account_email(&self) -> Option<String> {
-        None
+        self.token_data_cached()
+            .and_then(|td| td.id_token.email.clone())
     }
 
     pub fn is_external_chatgpt_tokens(&self) -> bool {
@@ -203,7 +218,12 @@ impl CodexAuth {
     }
 
     pub fn get_token_data(&self) -> Result<TokenData, std::io::Error> {
-        Err(std::io::Error::other("Token data is not available."))
+        self.token_data_cached()
+            .ok_or_else(|| std::io::Error::other("Token data is not available."))
+    }
+
+    fn token_data_cached(&self) -> Option<TokenData> {
+        self.token_data.clone()
     }
 
     /// Construct from saved auth storage — reads auth.json from OPFS.
@@ -214,7 +234,12 @@ impl CodexAuth {
         match auth::load_auth_dot_json(codex_home)? {
             Some(auth_json) => {
                 if let Some(key) = auth_json.openai_api_key {
-                    Ok(Some(Self::from_api_key(key)))
+                    // Try to decode token data from the saved tokens
+                    let td = auth_json
+                        .tokens
+                        .as_ref()
+                        .and_then(|t| token_data::decode_token_data_from_json(t));
+                    Ok(Some(Self::with_token_data(key, td)))
                 } else {
                     Ok(None)
                 }
@@ -223,14 +248,14 @@ impl CodexAuth {
         }
     }
 
-    /// Account plan type — stub for WASM.
     pub fn account_plan_type(&self) -> Option<token_data::PlanType> {
-        None
+        self.token_data_cached()
+            .and_then(|td| td.id_token.chatgpt_plan_type)
     }
 
-    /// Get ChatGPT user ID — stub for WASM.
     pub fn get_chatgpt_user_id(&self) -> Option<String> {
-        None
+        self.token_data_cached()
+            .and_then(|td| td.id_token.chatgpt_user_id)
     }
 }
 
@@ -589,8 +614,84 @@ pub mod token_data {
         Edu,
     }
 
-    pub fn decode_token_data(_token: &str) -> Option<TokenData> {
-        None
+    /// Decode token data from a JWT string (base64 payload, no signature verification).
+    pub fn decode_token_data(token: &str) -> Option<TokenData> {
+        decode_jwt_payload(token)
+    }
+
+    /// Decode token data from the saved `tokens` JSON object in auth.json.
+    pub fn decode_token_data_from_json(tokens: &serde_json::Value) -> Option<TokenData> {
+        let access_token = tokens.get("access_token")?.as_str()?.to_string();
+        let refresh_token = tokens
+            .get("refresh_token")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let id_token_raw = tokens.get("id_token").and_then(|v| v.as_str());
+
+        let id_token = id_token_raw
+            .and_then(|jwt| {
+                let claims = decode_jwt_claims(jwt)?;
+                Some(IdTokenInfo {
+                    email: claims.get("email").and_then(|v| v.as_str()).map(String::from),
+                    chatgpt_plan_type: claims
+                        .get("https://api.openai.com/plan_type")
+                        .and_then(|v| v.as_str())
+                        .map(PlanType::from_raw_value),
+                    chatgpt_user_id: claims
+                        .get("https://api.openai.com/auth")
+                        .and_then(|v| v.get("user_id"))
+                        .and_then(|v| v.as_str())
+                        .map(String::from),
+                    chatgpt_account_id: claims.get("sub").and_then(|v| v.as_str()).map(String::from),
+                    raw_jwt: jwt.to_string(),
+                })
+            })
+            .unwrap_or_default();
+
+        let account_id = id_token.chatgpt_account_id.clone();
+
+        Some(TokenData {
+            id_token,
+            access_token,
+            refresh_token,
+            account_id,
+            organization_id: None,
+            project_id: None,
+        })
+    }
+
+    /// Decode the payload of a JWT without signature verification.
+    /// JWTs are `header.payload.signature` — we base64-decode the middle part.
+    fn decode_jwt_claims(jwt: &str) -> Option<serde_json::Value> {
+        use base64::Engine;
+        let parts: Vec<&str> = jwt.splitn(3, '.').collect();
+        if parts.len() < 2 {
+            return None;
+        }
+        let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(parts[1])
+            .ok()?;
+        serde_json::from_slice(&payload).ok()
+    }
+
+    fn decode_jwt_payload(jwt: &str) -> Option<TokenData> {
+        let claims = decode_jwt_claims(jwt)?;
+        let email = claims.get("email").and_then(|v| v.as_str()).map(String::from);
+        let account_id = claims.get("sub").and_then(|v| v.as_str()).map(String::from);
+
+        Some(TokenData {
+            id_token: IdTokenInfo {
+                email,
+                chatgpt_account_id: account_id.clone(),
+                ..Default::default()
+            },
+            access_token: jwt.to_string(),
+            refresh_token: String::new(),
+            account_id,
+            organization_id: None,
+            project_id: None,
+        })
     }
 }
 
