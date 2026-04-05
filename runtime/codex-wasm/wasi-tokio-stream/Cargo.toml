@@ -1,0 +1,18 @@
+[package]
+name = "tokio-stream"
+version = "0.1.18"
+edition = "2021"
+description = "wasip2-compatible shim providing tokio_stream types"
+
+[lib]
+name = "tokio_stream"
+path = "src/lib.rs"
+
+[features]
+default = []
+sync = []
+
+[dependencies]
+futures-core = { version = "0.3", default-features = false }
+tokio = { path = "../wasi-tokio" }
+pin-project-lite = "0.2"

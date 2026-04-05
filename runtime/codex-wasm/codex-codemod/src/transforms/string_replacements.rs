@@ -1,7 +1,7 @@
-//! String replacement transforms — remaining entries not yet in syn.
+//! String replacement transforms that cannot be eliminated by shim crates.
 //!
-//! These are targeted to be migrated to syn_transforms.rs.
-//! Once all are migrated, this file can be deleted.
+//! These inject code that doesn't correspond to any importable crate API
+//! (connector function stubs, timezone workarounds).
 
 use crate::transform::Transform;
 

@@ -2110,19 +2110,8 @@ impl<T> FileRwLock<T> {
             "                Ok(path)",
         );
 
-        // --- tui/src/lib.rs: stub codex_utils_oss ---
-        self.string_replace(
-            "tui/src/lib.rs",
-            "use codex_utils_oss::ensure_oss_provider_ready;\nuse codex_utils_oss::get_default_model_for_oss_provider;",
-            "// codex-utils-oss stripped for WASM — OSS providers not available\nasync fn ensure_oss_provider_ready(_provider_id: &str, _config: &codex_core::config::Config) -> Result<(), std::io::Error> { Ok(()) }\nfn get_default_model_for_oss_provider(_provider_id: &str) -> Option<&'static str> { None }",
-        );
-
-        // --- tui/src/lib.rs: stub cloud_requirements_loader_for_storage ---
-        self.string_replace(
-            "tui/src/lib.rs",
-            "use codex_cloud_requirements::cloud_requirements_loader_for_storage;",
-            "// codex-cloud-requirements stripped for WASM — cloud config not needed\nfn cloud_requirements_loader_for_storage(\n    _codex_home: std::path::PathBuf,\n    _enable_codex_api_key_env: bool,\n    _credentials_store_mode: codex_core::auth::AuthCredentialsStoreMode,\n    _chatgpt_base_url: String,\n) -> codex_core::config_loader::CloudRequirementsLoader {\n    codex_core::config_loader::CloudRequirementsLoader::default()\n}",
-        );
+        // codex_utils_oss: handled by wasi-codex-utils-oss shim crate
+        // codex_cloud_requirements: handled by wasi-codex-cloud-requirements shim crate
 
         // [stale] InProcessAppServerClient stub removed from app.rs — moved to lib.rs (handled in replace_in_file)
 
@@ -2161,24 +2150,8 @@ impl<T> FileRwLock<T> {
             "async fn run_git_command_with_timeout(args: &[&str], cwd: &Path) -> Option<tokio::process::Output> {",
         );
 
-        // --- app-server/src/codex_message_processor.rs: stub stripped crate imports ---
-        // codex_backend_client is stripped; stub BackendClient for rate limit checking
-        self.string_replace(
-            "app-server/src/codex_message_processor.rs",
-            "use codex_backend_client::Client as BackendClient;",
-            "// codex-backend-client stripped for WASM — rate limit checking not available\nstruct BackendClient;\nimpl BackendClient {\n    fn from_auth(_base_url: String, _auth: &codex_core::CodexAuth) -> Result<Self, std::io::Error> {\n        Err(std::io::Error::other(\"backend client not available in WASM\"))\n    }\n    async fn get_rate_limits_many(&self) -> Result<Vec<codex_protocol::protocol::RateLimitSnapshot>, std::io::Error> {\n        Err(std::io::Error::other(\"not available in WASM\"))\n    }\n}",
-        );
-        // codex_cloud_requirements is stripped; stub cloud_requirements_loader in both files
-        self.string_replace(
-            "app-server/src/codex_message_processor.rs",
-            "use codex_cloud_requirements::cloud_requirements_loader;",
-            "// codex-cloud-requirements stripped for WASM\nfn cloud_requirements_loader(\n    _auth_manager: std::sync::Arc<codex_core::AuthManager>,\n    _chatgpt_base_url: String,\n    _codex_home: std::path::PathBuf,\n) -> codex_core::config_loader::CloudRequirementsLoader {\n    codex_core::config_loader::CloudRequirementsLoader::default()\n}",
-        );
-        self.string_replace(
-            "app-server/src/lib.rs",
-            "use codex_cloud_requirements::cloud_requirements_loader;",
-            "// codex-cloud-requirements stripped for WASM\nfn cloud_requirements_loader(\n    _auth_manager: std::sync::Arc<codex_core::AuthManager>,\n    _chatgpt_base_url: String,\n    _codex_home: std::path::PathBuf,\n) -> codex_core::config_loader::CloudRequirementsLoader {\n    codex_core::config_loader::CloudRequirementsLoader::default()\n}",
-        );
+        // codex_backend_client: handled by wasi-codex-backend-client shim crate
+        // codex_cloud_requirements (app-server): handled by wasi-codex-cloud-requirements shim crate
 
         // --- tui/src/clipboard_text.rs: stub arboard clipboard ---
         self.string_replace(
@@ -2286,19 +2259,8 @@ impl<T> FileRwLock<T> {
             "_ => key_hint::alt(KeyCode::Up),",
         );
 
-        // --- tui/src/resume_picker.rs: fix UnboundedReceiverStream ---
-        self.string_replace(
-            "tui/src/resume_picker.rs",
-            "let mut background_events = UnboundedReceiverStream::new(bg_rx).fuse();",
-            "let mut background_events = bg_rx;",
-        );
-
-        // --- tui/src/tui/event_stream.rs: replace tokio_stream wrappers ---
-        self.string_replace(
-            "tui/src/tui/event_stream.rs",
-            "use tokio_stream::wrappers::BroadcastStream;\nuse tokio_stream::wrappers::WatchStream;\nuse tokio_stream::wrappers::errors::BroadcastStreamRecvError;",
-            "/// Thin WatchStream wrapper for our shim watch::Receiver.\nstruct WatchStream<T: Clone>(tokio::sync::watch::Receiver<T>);\nimpl<T: Clone> WatchStream<T> {\n    fn from_changes(rx: tokio::sync::watch::Receiver<T>) -> Self { Self(rx) }\n}\nimpl<T: Clone + Unpin> WatchStream<T> {\n    fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Option<T>> {\n        let this = self.get_mut();\n        match this.0.poll_changed(cx.waker()) {\n            Ok(true) => Poll::Ready(Some(this.0.borrow_and_update().clone())),\n            Ok(false) => Poll::Pending,\n            Err(_) => Poll::Ready(None),\n        }\n    }\n}\n/// Thin BroadcastStream wrapper for our shim broadcast::Receiver.\nstruct BroadcastStream<T: Clone>(tokio::sync::broadcast::Receiver<T>);\nimpl<T: Clone> BroadcastStream<T> {\n    fn new(rx: tokio::sync::broadcast::Receiver<T>) -> Self { Self(rx) }\n}\n#[derive(Debug)]\nenum BroadcastStreamRecvError { Lagged(u64) }\nimpl<T: Clone + Unpin> BroadcastStream<T> {\n    fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Option<Result<T, BroadcastStreamRecvError>>> {\n        match self.get_mut().0.poll_recv(cx.waker()) {\n            Ok(val) => Poll::Ready(Some(Ok(val))),\n            Err(tokio::sync::broadcast::error::TryRecvError::Lagged(n)) => Poll::Ready(Some(Err(BroadcastStreamRecvError::Lagged(n)))),\n            Err(tokio::sync::broadcast::error::TryRecvError::Empty) => Poll::Pending,\n            Err(tokio::sync::broadcast::error::TryRecvError::Closed) => Poll::Ready(None),\n        }\n    }\n}",
-        );
+        // tokio-stream: handled by wasi-tokio-stream shim crate (no source transform needed)
+        // Previously inlined 50+ line WatchStream/BroadcastStream/UnboundedReceiverStream stubs.
 
         // [stale] fetch_rate_limits and auth_manager.auth_cached patterns removed — upstream refactored rate limits
 
@@ -2741,19 +2703,7 @@ impl<T> FileRwLock<T> {
             "    pub fn schedule_frame_in(&self, dur: Duration) {\n        let _ = self.frame_schedule_tx.send(Instant::now() + dur);\n        let _ = self.draw_tx.send(());\n    }",
         );
 
-        // 3. codex_utils_oss import stub (tui/src/lib.rs)
-        self.replace_in_file(
-            "tui/src/lib.rs",
-            "use codex_utils_oss::ensure_oss_provider_ready;\nuse codex_utils_oss::get_default_model_for_oss_provider;",
-            "// codex-utils-oss stripped for WASM — OSS providers not available\nasync fn ensure_oss_provider_ready(_provider_id: &str, _config: &codex_core::config::Config) -> Result<(), std::io::Error> { Ok(()) }\nfn get_default_model_for_oss_provider(_provider_id: &str) -> Option<&'static str> { None }",
-        );
-
-        // 4. cloud_requirements_loader_for_storage import stub (tui/src/lib.rs)
-        self.replace_in_file(
-            "tui/src/lib.rs",
-            "use codex_cloud_requirements::cloud_requirements_loader_for_storage;",
-            "// codex-cloud-requirements stripped for WASM — cloud config not needed\nfn cloud_requirements_loader_for_storage(\n    _codex_home: std::path::PathBuf,\n    _enable_codex_api_key_env: bool,\n    _credentials_store_mode: codex_core::auth::AuthCredentialsStoreMode,\n    _chatgpt_base_url: String,\n) -> codex_core::config_loader::CloudRequirementsLoader {\n    codex_core::config_loader::CloudRequirementsLoader::default()\n}",
-        );
+        // 3-4. codex_utils_oss and cloud_requirements: handled by shim crates
 
         // 5. codex-app-server-client: real crate now kept in build — no inline stubs needed
 
@@ -2793,18 +2743,7 @@ impl<T> FileRwLock<T> {
         );
 
         // 14. UnboundedReceiverStream removal (tui/src/resume_picker.rs)
-        self.replace_in_file(
-            "tui/src/resume_picker.rs",
-            "let mut background_events = UnboundedReceiverStream::new(bg_rx).fuse();",
-            "let mut background_events = bg_rx;",
-        );
-
-        // 15. BroadcastStream/WatchStream inline stubs (tui/src/tui/event_stream.rs)
-        self.replace_in_file(
-            "tui/src/tui/event_stream.rs",
-            "use tokio_stream::wrappers::BroadcastStream;\nuse tokio_stream::wrappers::WatchStream;\nuse tokio_stream::wrappers::errors::BroadcastStreamRecvError;",
-            "/// Thin WatchStream wrapper for our shim watch::Receiver.\nstruct WatchStream<T: Clone>(tokio::sync::watch::Receiver<T>);\nimpl<T: Clone> WatchStream<T> {\n    fn from_changes(rx: tokio::sync::watch::Receiver<T>) -> Self { Self(rx) }\n}\nimpl<T: Clone + Unpin> WatchStream<T> {\n    fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Option<T>> {\n        let this = self.get_mut();\n        match this.0.poll_changed(cx.waker()) {\n            Ok(true) => Poll::Ready(Some(this.0.borrow_and_update().clone())),\n            Ok(false) => Poll::Pending,\n            Err(_) => Poll::Ready(None),\n        }\n    }\n}\n/// Thin BroadcastStream wrapper for our shim broadcast::Receiver.\nstruct BroadcastStream<T: Clone>(tokio::sync::broadcast::Receiver<T>);\nimpl<T: Clone> BroadcastStream<T> {\n    fn new(rx: tokio::sync::broadcast::Receiver<T>) -> Self { Self(rx) }\n}\n#[derive(Debug)]\nenum BroadcastStreamRecvError { Lagged(u64) }\nimpl<T: Clone + Unpin> BroadcastStream<T> {\n    fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Option<Result<T, BroadcastStreamRecvError>>> {\n        match self.get_mut().0.poll_recv(cx.waker()) {\n            Ok(val) => Poll::Ready(Some(Ok(val))),\n            Err(tokio::sync::broadcast::error::TryRecvError::Lagged(n)) => Poll::Ready(Some(Err(BroadcastStreamRecvError::Lagged(n)))),\n            Err(tokio::sync::broadcast::error::TryRecvError::Empty) => Poll::Pending,\n            Err(tokio::sync::broadcast::error::TryRecvError::Closed) => Poll::Ready(None),\n        }\n    }\n}",
-        );
+        // 14-15. tokio-stream wrappers: handled by wasi-tokio-stream shim crate (no transform needed)
 
         // [stale] 16-18. fetch_rate_limits, account_plan_type, feedback_diagnostics removed — upstream refactored
 

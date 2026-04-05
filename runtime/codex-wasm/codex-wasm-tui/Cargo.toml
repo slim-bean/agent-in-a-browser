@@ -59,6 +59,10 @@ codex-exec-server = { path = "../wasi-exec-server" }
 codex-rmcp-client = { path = "../wasi-rmcp-client" }
 path-absolutize = { path = "../wasi-path-absolutize" }
 tokio-tungstenite = { path = "../wasi-tokio-tungstenite" }
+tokio-stream = { path = "../wasi-tokio-stream" }
+codex-utils-oss = { path = "../wasi-codex-utils-oss" }
+codex-cloud-requirements = { path = "../wasi-codex-cloud-requirements" }
+codex-backend-client = { path = "../wasi-codex-backend-client" }
 futures-util = { path = "../patches/futures-util" }
 # Unify tree-sitter-language to avoid diamond dependency between local
 # tree-sitter (uses path dep) and tree-sitter-bash (uses crates.io version)

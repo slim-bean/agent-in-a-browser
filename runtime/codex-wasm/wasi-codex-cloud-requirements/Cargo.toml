@@ -1,0 +1,13 @@
+[package]
+name = "codex-cloud-requirements"
+version = "0.0.0"
+edition = "2021"
+description = "wasip2-compatible shim for codex-cloud-requirements (returns default loader)"
+
+[lib]
+name = "codex_cloud_requirements"
+path = "src/lib.rs"
+
+[dependencies]
+codex-config = { path = "../../codex-upstream/codex-rs/config" }
+codex-login = { path = "../../codex-upstream/codex-rs/login" }

@@ -51,6 +51,10 @@ const SHIM_REDIRECTS: &[(&str, &str)] = &[
     ("path-absolutize", "wasi-path-absolutize"),
     ("tokio-tungstenite", "wasi-tokio-tungstenite"),
     ("tungstenite", "wasi-tokio-tungstenite"),
+    ("tokio-stream", "wasi-tokio-stream"),
+    ("codex-backend-client", "wasi-codex-backend-client"),
+    ("codex-cloud-requirements", "wasi-codex-cloud-requirements"),
+    ("codex-utils-oss", "wasi-codex-utils-oss"),
 ];
 
 /// Per-crate additional deps to strip (crate_dir_name → deps to strip).
@@ -70,8 +74,8 @@ const PER_CRATE_STRIP_DEPS: &[(&str, &[&str])] = &[
             "constant_time_eq",
             "hmac",
             "sha2",
-            "codex-backend-client",
-            "codex-cloud-requirements",
+            // codex-backend-client: now redirected to shim via SHIM_REDIRECTS
+            // codex-cloud-requirements: now redirected to shim via SHIM_REDIRECTS
         ],
     ),
     // app-server-client: tokio-tungstenite/tungstenite now redirected to shim via SHIM_REDIRECTS
@@ -159,15 +163,15 @@ const STRIP_DEPS: &[&str] = &[
     // codex-utils-sleep-inhibitor: kept — used by TUI (no-op dummy backend on WASM)
     "codex-chatgpt",
     "codex-feedback",
-    "codex-backend-client",
+    // codex-backend-client: redirected to wasi-codex-backend-client shim
     "codex-backend-openapi-models",
-    "codex-cloud-requirements",
+    // codex-cloud-requirements: redirected to wasi-codex-cloud-requirements shim
     "codex-cloud-tasks",
     "codex-cloud-tasks-client",
     "codex-stdio-to-uds",
     "codex-debug-client",
     "codex-v8-poc",
-    "codex-utils-oss",
+    // codex-utils-oss: redirected to wasi-codex-utils-oss shim
     "codex-tui-app-server",
     "codex-tui",
     "codex-cli",

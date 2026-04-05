@@ -1,0 +1,14 @@
+[package]
+name = "codex-backend-client"
+version = "0.0.0"
+edition = "2021"
+description = "wasip2-compatible shim for codex-backend-client (no backend API in browser)"
+
+[lib]
+name = "codex_backend_client"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1"
+codex-login = { path = "../../codex-upstream/codex-rs/login" }
+codex-protocol = { path = "../../codex-upstream/codex-rs/protocol" }

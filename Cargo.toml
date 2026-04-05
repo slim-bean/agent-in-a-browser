@@ -34,6 +34,10 @@ exclude = [
     # Shim crates consumed via [patch.crates-io] by codex-wasm-tui
     "runtime/codex-wasm/wasi-path-absolutize",
     "runtime/codex-wasm/wasi-tokio-tungstenite",
+    "runtime/codex-wasm/wasi-tokio-stream",
+    "runtime/codex-wasm/wasi-codex-utils-oss",
+    "runtime/codex-wasm/wasi-codex-cloud-requirements",
+    "runtime/codex-wasm/wasi-codex-backend-client",
 ]
 resolver = "2"
 

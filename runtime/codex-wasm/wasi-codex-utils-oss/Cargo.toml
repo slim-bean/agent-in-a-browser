@@ -1,0 +1,12 @@
+[package]
+name = "codex-utils-oss"
+version = "0.0.0"
+edition = "2021"
+description = "wasip2-compatible shim for codex-utils-oss (no-op: OSS providers not available in browser)"
+
+[lib]
+name = "codex_utils_oss"
+path = "src/lib.rs"
+
+[dependencies]
+codex-core = { path = "../../codex-upstream/codex-rs/core" }
