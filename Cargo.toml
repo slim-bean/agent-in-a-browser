@@ -31,6 +31,9 @@ exclude = [
     "runtime/codex-wasm/wasi-webbrowser",
     "runtime/codex-wasm/wasi-os-info",
     "runtime/codex-wasm/wasi-tiny-http",
+    # Shim crates consumed via [patch.crates-io] by codex-wasm-tui
+    "runtime/codex-wasm/wasi-path-absolutize",
+    "runtime/codex-wasm/wasi-tokio-tungstenite",
 ]
 resolver = "2"
 

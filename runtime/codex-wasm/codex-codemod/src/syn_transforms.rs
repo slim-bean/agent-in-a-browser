@@ -1523,119 +1523,8 @@ impl<'a> EditCollector<'a> {
         // shell-command/src/powershell.rs: which::which(candidate) is handled by path rewrite
         // but the `use` isn't present there — it's an inline path call.
 
-        // path_absolutize: replace import with inline trait + impls
-        if self.file_matches("utils/absolute-path/src/lib.rs") {
-            if let UseTree::Path(ref p) = node.tree {
-                if p.ident == "path_absolutize" {
-                    let (start, _) = self.span_range(node.use_token.span);
-                    let line_start = self.extend_to_line_start(start);
-                    let (_, semi_end) = self.span_range(node.semi_token.span);
-                    let line_end = self.extend_to_line_end(semi_end);
-                    self.edits.push(Edit {
-                        start: line_start,
-                        end: line_end,
-                        replacement: "\
-/// Simple absolutize replacement for WASM (path-absolutize doesn't compile for wasm32)
-trait Absolutize {
-    fn absolutize(&self) -> std::io::Result<std::borrow::Cow<'_, Path>>;
-    fn absolutize_from(&self, base: &Path) -> std::io::Result<std::borrow::Cow<'_, Path>>;
-}
-impl Absolutize for Path {
-    fn absolutize(&self) -> std::io::Result<std::borrow::Cow<'_, Path>> {
-        if self.is_absolute() {
-            Ok(std::borrow::Cow::Borrowed(self))
-        } else {
-            let cwd = std::env::current_dir()?;
-            Ok(std::borrow::Cow::Owned(cwd.join(self)))
-        }
-    }
-    fn absolutize_from(&self, base: &Path) -> std::io::Result<std::borrow::Cow<'_, Path>> {
-        if self.is_absolute() {
-            Ok(std::borrow::Cow::Borrowed(self))
-        } else {
-            Ok(std::borrow::Cow::Owned(base.join(self)))
-        }
-    }
-}\n"
-                        .to_string(),
-                    });
-                }
-            }
-        }
-
-        // execpolicy-legacy: replace path_absolutize with inline trait + impls
-        if self.file_matches("execpolicy-legacy/src/execv_checker.rs") {
-            if let UseTree::Path(ref p) = node.tree {
-                if p.ident == "path_absolutize" {
-                    let (start, _) = self.span_range(node.use_token.span);
-                    let line_start = self.extend_to_line_start(start);
-                    let (_, semi_end) = self.span_range(node.semi_token.span);
-                    let line_end = self.extend_to_line_end(semi_end);
-                    self.edits.push(Edit {
-                        start: line_start,
-                        end: line_end,
-                        replacement: "\
-trait Absolutize {
-    fn absolutize(&self) -> std::io::Result<std::borrow::Cow<'_, std::path::Path>>;
-    fn absolutize_from<P: AsRef<std::path::Path>>(&self, base: P) -> std::io::Result<std::borrow::Cow<'_, std::path::Path>>;
-}
-impl Absolutize for std::path::PathBuf {
-    fn absolutize(&self) -> std::io::Result<std::borrow::Cow<'_, std::path::Path>> {
-        if self.is_absolute() { Ok(std::borrow::Cow::Borrowed(self)) } else { Ok(std::borrow::Cow::Owned(std::env::current_dir()?.join(self))) }
-    }
-    fn absolutize_from<P: AsRef<std::path::Path>>(&self, base: P) -> std::io::Result<std::borrow::Cow<'_, std::path::Path>> {
-        if self.is_absolute() { Ok(std::borrow::Cow::Borrowed(self)) } else { Ok(std::borrow::Cow::Owned(base.as_ref().join(self))) }
-    }
-}\n".to_string(),
-                    });
-                }
-            }
-        }
-
-        // tungstenite stubs: codex-api/src/telemetry.rs
-        if self.file_matches("codex-api/src/telemetry.rs") {
-            if let UseTree::Path(ref p) = node.tree {
-                if p.ident == "tokio_tungstenite" {
-                    let (start, _) = self.span_range(node.use_token.span);
-                    let line_start = self.extend_to_line_start(start);
-                    let (_, semi_end) = self.span_range(node.semi_token.span);
-                    let line_end = self.extend_to_line_end(semi_end);
-                    self.edits.push(Edit {
-                        start: line_start,
-                        end: line_end,
-                        replacement: "\
-/// Stub for tungstenite Error (websocket deps stripped for WASM)
-#[derive(Debug)]
-pub struct Error;
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { write!(f, \"ws error\") }
-}
-impl std::error::Error for Error {}
-/// Stub for tungstenite Message (websocket deps stripped for WASM)
-#[derive(Debug)]
-pub enum Message { Text(String), Binary(Vec<u8>) }\n"
-                            .to_string(),
-                    });
-                }
-            }
-        }
-
-        // tungstenite stubs: core/src/client.rs → re-use from codex_api::telemetry
-        if self.file_matches("core/src/client.rs") {
-            if let UseTree::Path(ref p) = node.tree {
-                if p.ident == "tokio_tungstenite" {
-                    let (start, _) = self.span_range(node.use_token.span);
-                    let line_start = self.extend_to_line_start(start);
-                    let (_, semi_end) = self.span_range(node.semi_token.span);
-                    let line_end = self.extend_to_line_end(semi_end);
-                    self.edits.push(Edit {
-                        start: line_start,
-                        end: line_end,
-                        replacement: "// Re-use the tungstenite stub types from codex_api::telemetry\nuse codex_api::telemetry::Error;\nuse codex_api::telemetry::Message;\n".to_string(),
-                    });
-                }
-            }
-        }
+        // path_absolutize: handled by wasi-path-absolutize shim crate (no source transform needed)
+        // tokio_tungstenite: handled by wasi-tokio-tungstenite shim crate (no source transform needed)
 
         // fd_lock::RwLock stub: package-manager/src/manager.rs
         if self.file_matches("package-manager/src/manager.rs") {
@@ -2059,33 +1948,8 @@ impl<T> FileRwLock<T> {
             "            auth_mode.clone(),\n            originator.clone(),\n            config.otel.log_user_prompt,",
         );
 
-        // --- codex-api/src/telemetry.rs: tungstenite types → local stubs ---
-        self.string_replace(
-            "codex-api/src/telemetry.rs",
-            "use tokio_tungstenite::tungstenite::Error;\nuse tokio_tungstenite::tungstenite::Message;",
-            "/// Stub for tungstenite Error (websocket deps stripped for WASM)\n#[derive(Debug)]\npub struct Error;\nimpl std::fmt::Display for Error {\n    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { write!(f, \"ws error\") }\n}\nimpl std::error::Error for Error {}\n/// Stub for tungstenite Message (websocket deps stripped for WASM)\n#[derive(Debug)]\npub enum Message { Text(String), Binary(Vec<u8>) }",
-        );
-
-        // --- utils/absolute-path/src/lib.rs: path_absolutize → inline trait ---
-        self.string_replace(
-            "utils/absolute-path/src/lib.rs",
-            "use path_absolutize::Absolutize;",
-            "/// Simple absolutize replacement for WASM (path-absolutize doesn't compile for wasm32)\ntrait Absolutize {\n    fn absolutize(&self) -> std::io::Result<std::borrow::Cow<'_, Path>>;\n    fn absolutize_from(&self, base: &Path) -> std::io::Result<std::borrow::Cow<'_, Path>>;\n}\nimpl Absolutize for Path {\n    fn absolutize(&self) -> std::io::Result<std::borrow::Cow<'_, Path>> {\n        if self.is_absolute() {\n            Ok(std::borrow::Cow::Borrowed(self))\n        } else {\n            let cwd = std::env::current_dir()?;\n            Ok(std::borrow::Cow::Owned(cwd.join(self)))\n        }\n    }\n    fn absolutize_from(&self, base: &Path) -> std::io::Result<std::borrow::Cow<'_, Path>> {\n        if self.is_absolute() {\n            Ok(std::borrow::Cow::Borrowed(self))\n        } else {\n            Ok(std::borrow::Cow::Owned(base.join(self)))\n        }\n    }\n}",
-        );
-
-        // --- execpolicy-legacy/src/execv_checker.rs: path_absolutize ---
-        self.string_replace(
-            "execpolicy-legacy/src/execv_checker.rs",
-            "use path_absolutize::*;",
-            "trait Absolutize {\n    fn absolutize(&self) -> std::io::Result<std::borrow::Cow<'_, std::path::Path>>;\n    fn absolutize_from<P: AsRef<std::path::Path>>(&self, base: P) -> std::io::Result<std::borrow::Cow<'_, std::path::Path>>;\n}\nimpl Absolutize for std::path::PathBuf {\n    fn absolutize(&self) -> std::io::Result<std::borrow::Cow<'_, std::path::Path>> {\n        if self.is_absolute() { Ok(std::borrow::Cow::Borrowed(self)) } else { Ok(std::borrow::Cow::Owned(std::env::current_dir()?.join(self))) }\n    }\n    fn absolutize_from<P: AsRef<std::path::Path>>(&self, base: P) -> std::io::Result<std::borrow::Cow<'_, std::path::Path>> {\n        if self.is_absolute() { Ok(std::borrow::Cow::Borrowed(self)) } else { Ok(std::borrow::Cow::Owned(base.as_ref().join(self))) }\n    }\n}",
-        );
-
-        // --- core/src/client.rs: re-use tungstenite stub types ---
-        self.string_replace(
-            "core/src/client.rs",
-            "use tokio_tungstenite::tungstenite::Error;\nuse tokio_tungstenite::tungstenite::Message;",
-            "// Re-use the tungstenite stub types from codex_api::telemetry\nuse codex_api::telemetry::Error;\nuse codex_api::telemetry::Message;",
-        );
+        // path_absolutize: handled by wasi-path-absolutize shim crate (no string_replace needed)
+        // tokio_tungstenite: handled by wasi-tokio-tungstenite shim crate (no string_replace needed)
 
         // config_loader cfg fallbacks: HANDLED BY inject_cfg_fallback_fns (syn visitor)
         // message_history cfg fallback: HANDLED BY inject_cfg_fallback_fns (syn visitor)

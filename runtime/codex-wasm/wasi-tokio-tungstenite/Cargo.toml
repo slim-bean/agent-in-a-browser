@@ -1,0 +1,9 @@
+[package]
+name = "tokio-tungstenite"
+version = "0.26.2"
+edition = "2021"
+description = "wasip2-compatible shim providing tokio_tungstenite types"
+
+[lib]
+name = "tokio_tungstenite"
+path = "src/lib.rs"

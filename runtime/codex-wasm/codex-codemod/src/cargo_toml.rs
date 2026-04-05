@@ -48,6 +48,9 @@ const SHIM_REDIRECTS: &[(&str, &str)] = &[
     ("codex-exec-server", "wasi-exec-server"),
     ("codex-rmcp-client", "wasi-rmcp-client"),
     ("cpal", "wasi-cpal"),
+    ("path-absolutize", "wasi-path-absolutize"),
+    ("tokio-tungstenite", "wasi-tokio-tungstenite"),
+    ("tungstenite", "wasi-tokio-tungstenite"),
 ];
 
 /// Per-crate additional deps to strip (crate_dir_name → deps to strip).
@@ -71,7 +74,7 @@ const PER_CRATE_STRIP_DEPS: &[(&str, &[&str])] = &[
             "codex-cloud-requirements",
         ],
     ),
-    ("app-server-client", &["tokio-tungstenite", "tungstenite"]),
+    // app-server-client: tokio-tungstenite/tungstenite now redirected to shim via SHIM_REDIRECTS
     ("core", &["notify"]),
     ("tui", &["hound"]),
     // state: sqlx is now redirected to wasi-sqlx via [patch.crates-io]
@@ -185,12 +188,8 @@ const STRIP_DEPS: &[&str] = &[
     "v8",
     // cpal: redirected to wasi-cpal shim via SHIM_REDIRECTS (not stripped)
     "hound",
-    // Websocket deps — use OpenAI patched forks with "proxy" feature
-    // that aren't available from crates.io. Websocket support is fully stubbed.
-    "tokio-tungstenite",
-    "tungstenite",
-    // path-absolutize/path-dedot don't compile for wasm32 (missing trait impls)
-    "path-absolutize",
+    // tokio-tungstenite, tungstenite: redirected to wasi-tokio-tungstenite shim
+    // path-absolutize: redirected to wasi-path-absolutize shim
     // ts-rs: TypeScript binding generator, not needed in WASM
     "ts-rs",
     // TLS/crypto — not needed in WASM (HTTP handled by host via wasi:http)

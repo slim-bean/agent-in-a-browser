@@ -1,0 +1,9 @@
+[package]
+name = "path-absolutize"
+version = "3.1.1"
+edition = "2021"
+description = "wasip2-compatible shim providing path_absolutize::Absolutize trait"
+
+[lib]
+name = "path_absolutize"
+path = "src/lib.rs"
