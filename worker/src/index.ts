@@ -165,6 +165,13 @@ async function handleCorsProxy(request: Request): Promise<Response> {
  */
 const CDN_ORIGIN = 'https://cdn.edge-agent.dev';
 
+/**
+ * Pyodide CDN base URL for packages not bundled locally.
+ * Only micropip and packaging are bundled at build time; all other Pyodide-distributed
+ * wheels (e.g. typing-extensions, pydantic_core) are fetched from the CDN on demand.
+ */
+const PYODIDE_CDN = 'https://cdn.jsdelivr.net/pyodide';
+
 function redirectToCdn(pathname: string, buildId: string): Response {
     const cdnUrl = `${CDN_ORIGIN}/builds/${buildId}${pathname}`;
     return Response.redirect(cdnUrl, 301);
@@ -174,6 +181,10 @@ function redirectToCdn(pathname: string, buildId: string): Response {
 
 async function serveAssets(request: Request, env: Env): Promise<Response> {
     const response = await env.ASSETS.fetch(request);
+    return serveAssetsFromResponse(response);
+}
+
+function serveAssetsFromResponse(response: Response): Response {
     const headers = new Headers(response.headers);
 
     // Cross-origin isolation headers for SharedArrayBuffer + OPFS
@@ -429,6 +440,31 @@ export default {
         // Redirect WASM requests to R2 CDN
         if (url.pathname.endsWith('.wasm')) {
             return redirectToCdn(url.pathname, env.BUILD_ID);
+        }
+
+        // Pyodide package files (.whl/.zip) under /pyodide/ — serve locally if bundled,
+        // otherwise proxy from the Pyodide CDN. Only micropip + packaging are bundled;
+        // all other Pyodide-distributed wheels are proxied from CDN on demand.
+        // We proxy instead of redirect because COEP: require-corp blocks cross-origin
+        // redirects unless the target sends Cross-Origin-Resource-Policy headers.
+        if (url.pathname.startsWith('/pyodide/') && (url.pathname.endsWith('.whl') || url.pathname.endsWith('.zip'))) {
+            const assetResponse = await env.ASSETS.fetch(request);
+            // If the asset exists and is the right content type, serve it
+            if (assetResponse.ok && !assetResponse.headers.get('content-type')?.includes('text/html')) {
+                return serveAssetsFromResponse(assetResponse);
+            }
+            // Not found locally — proxy from Pyodide CDN
+            const filename = url.pathname.split('/').pop();
+            const cdnUrl = `${PYODIDE_CDN}/v${env.PYODIDE_VERSION}/full/${filename}`;
+            const cdnResponse = await fetch(cdnUrl);
+            if (!cdnResponse.ok) {
+                return new Response('Package not found', { status: 404 });
+            }
+            const headers = new Headers(cdnResponse.headers);
+            headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+            headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
+            headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+            return new Response(cdnResponse.body, { status: 200, headers });
         }
 
         // Default: serve static assets with COOP/COEP headers

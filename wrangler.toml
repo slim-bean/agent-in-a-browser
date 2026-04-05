@@ -53,6 +53,7 @@ preview_id = "2322559f992941ba989985ae3acc4806"
 # Local dev uses "dev" — upload assets with `BUILD_ID=dev node scripts/offload-r2-assets.mjs`.
 [vars]
 BUILD_ID = "dev"
+PYODIDE_VERSION = "0.27.7"
 
 # Observability configuration for better logging
 [observability]

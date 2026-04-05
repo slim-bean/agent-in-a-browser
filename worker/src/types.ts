@@ -20,6 +20,8 @@ export interface Env {
      *  Used to construct versioned CDN paths (cdn.edge-agent.dev/builds/{BUILD_ID}/...).
      *  Each deploy gets a unique namespace so all .wasm redirects are 301 + immutable. */
     BUILD_ID: string;
+    /** Pyodide version (e.g. "0.27.7") for CDN fallback of unbundled wheel packages. */
+    PYODIDE_VERSION: string;
 }
 
 // ============ Session Hostname Parsing ============
