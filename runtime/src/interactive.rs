@@ -431,6 +431,17 @@ fn read_line(
                                 cursor_pos = buffer.len();
                             }
                         }
+                        Some(b'8') => {
+                            // DECSLPP resize: CSI 8 ; rows ; cols t
+                            // Consume the entire sequence silently — resize is
+                            // detected via WIT terminal:info/size, not stdin.
+                            loop {
+                                match read_byte(stdin) {
+                                    Some(b't') | None => break,
+                                    _ => continue,
+                                }
+                            }
+                        }
                         Some(b'3') => {
                             // Delete key - 3~
                             let _ = read_byte(stdin); // consume ~
