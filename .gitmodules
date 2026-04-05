@@ -18,3 +18,7 @@
 	path = tree-sitter-wasm/tree-sitter-bash
 	url = https://github.com/tjfontaine/tree-sitter-bash.git
 	branch = wasip2
+[submodule "pyodide"]
+	path = pyodide
+	url = git@github.com:tjfontaine/pyodide.git
+	branch = edge-agent-wasmfs
