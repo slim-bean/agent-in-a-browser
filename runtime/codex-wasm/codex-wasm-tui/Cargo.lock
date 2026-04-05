@@ -698,7 +698,9 @@ name = "codex-api"
 version = "0.0.0"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
  "bytes",
+ "chrono",
  "codex-client",
  "codex-protocol",
  "eventsource-stream",
@@ -725,10 +727,12 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "clap",
+ "codex-analytics",
  "codex-app-server-protocol",
  "codex-arg0",
  "codex-backend-client",
  "codex-cloud-requirements",
+ "codex-config",
  "codex-core",
  "codex-exec-server",
  "codex-features",
@@ -736,9 +740,12 @@ dependencies = [
  "codex-file-search",
  "codex-git-utils",
  "codex-login",
+ "codex-mcp",
+ "codex-models-manager",
  "codex-otel",
  "codex-protocol",
  "codex-rmcp-client",
+ "codex-rollout",
  "codex-sandboxing",
  "codex-shell-command",
  "codex-state",
@@ -892,6 +899,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "codex-collaboration-mode-templates"
+version = "0.0.0"
+
+[[package]]
 name = "codex-config"
 version = "0.0.0"
 dependencies = [
@@ -911,6 +922,7 @@ dependencies = [
  "toml 0.9.12+spec-1.1.0",
  "toml_edit 0.24.1+spec-1.1.0",
  "tracing",
+ "wildmatch",
 ]
 
 [[package]]
@@ -933,7 +945,6 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "bm25",
- "chardetng",
  "chrono",
  "clap",
  "codex-analytics",
@@ -948,15 +959,19 @@ dependencies = [
  "codex-exec-server",
  "codex-execpolicy",
  "codex-features",
+ "codex-feedback",
  "codex-git-utils",
  "codex-hooks",
  "codex-instructions",
  "codex-login",
  "codex-mcp",
+ "codex-model-provider-info",
+ "codex-models-manager",
  "codex-network-proxy",
  "codex-otel",
  "codex-plugin",
  "codex-protocol",
+ "codex-response-debug-context",
  "codex-rmcp-client",
  "codex-rollout",
  "codex-sandboxing",
@@ -982,7 +997,6 @@ dependencies = [
  "csv",
  "dirs",
  "dunce",
- "encoding_rs",
  "env-flags",
  "eventsource-stream",
  "futures",
@@ -1013,7 +1027,6 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
- "wildmatch",
 ]
 
 [[package]]
@@ -1164,10 +1177,13 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "chrono",
+ "codex-api",
  "codex-app-server-protocol",
  "codex-client",
  "codex-config",
  "codex-keyring-store",
+ "codex-model-provider-info",
+ "codex-otel",
  "codex-protocol",
  "codex-terminal-detection",
  "codex-utils-template",
@@ -1216,6 +1232,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "codex-model-provider-info"
+version = "0.0.0"
+dependencies = [
+ "codex-api",
+ "codex-app-server-protocol",
+ "codex-protocol",
+ "http",
+ "schemars 0.8.22",
+ "serde",
+]
+
+[[package]]
+name = "codex-models-manager"
+version = "0.0.0"
+dependencies = [
+ "chrono",
+ "codex-api",
+ "codex-app-server-protocol",
+ "codex-collaboration-mode-templates",
+ "codex-feedback",
+ "codex-login",
+ "codex-model-provider-info",
+ "codex-otel",
+ "codex-protocol",
+ "codex-response-debug-context",
+ "codex-utils-output-truncation",
+ "codex-utils-template",
+ "http",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "codex-network-proxy"
 version = "0.0.0"
 dependencies = [
@@ -1246,16 +1297,22 @@ dependencies = [
 name = "codex-protocol"
 version = "0.0.0"
 dependencies = [
+ "chardetng",
+ "chrono",
+ "codex-async-utils",
  "codex-execpolicy",
  "codex-git-utils",
+ "codex-network-proxy",
  "codex-utils-absolute-path",
  "codex-utils-image",
  "codex-utils-string",
  "codex-utils-template",
+ "encoding_rs",
  "icu_decimal",
  "icu_locale_core",
  "icu_provider",
  "quick-xml",
+ "reqwest",
  "schemars 0.8.22",
  "serde",
  "serde_json",
@@ -1263,8 +1320,20 @@ dependencies = [
  "strum 0.27.2",
  "strum_macros 0.28.0",
  "sys-locale",
+ "thiserror 2.0.18",
+ "tokio",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "codex-response-debug-context"
+version = "0.0.0"
+dependencies = [
+ "base64 0.22.1",
+ "codex-api",
+ "http",
+ "serde_json",
 ]
 
 [[package]]
@@ -1429,14 +1498,18 @@ dependencies = [
  "codex-app-server-protocol",
  "codex-arg0",
  "codex-cloud-requirements",
+ "codex-config",
  "codex-core",
  "codex-features",
  "codex-feedback",
  "codex-file-search",
  "codex-git-utils",
  "codex-login",
+ "codex-model-provider-info",
+ "codex-models-manager",
  "codex-otel",
  "codex-protocol",
+ "codex-rollout",
  "codex-shell-command",
  "codex-state",
  "codex-terminal-detection",
@@ -1620,6 +1693,7 @@ name = "codex-utils-sandbox-summary"
 version = "0.0.0"
 dependencies = [
  "codex-core",
+ "codex-model-provider-info",
  "codex-protocol",
 ]
 

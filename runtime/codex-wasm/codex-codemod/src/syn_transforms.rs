@@ -2217,7 +2217,19 @@ impl<T> FileRwLock<T> {
             "TelemetryAuthMode::from(mode)",
             "TelemetryAuthMode::from_display(&mode)",
         );
+        self.string_replace(
+            "models-manager/src/manager.rs",
+            "TelemetryAuthMode::from(mode)",
+            "TelemetryAuthMode::from_display(&mode)",
+        );
         // [stale] tui/src/app.rs TelemetryAuthMode::from removed upstream
+
+        // --- core/src/exec_env.rs: add wasm32 PLATFORM_CORE_VARS fallback ---
+        self.string_replace(
+            "core/src/exec_env.rs",
+            "#[cfg(unix)]\nconst PLATFORM_CORE_VARS: &[&str] = &[\"HOME\", \"LANG\", \"LC_ALL\", \"LC_CTYPE\", \"LOGNAME\", \"USER\"];",
+            "#[cfg(unix)]\nconst PLATFORM_CORE_VARS: &[&str] = &[\"HOME\", \"LANG\", \"LC_ALL\", \"LC_CTYPE\", \"LOGNAME\", \"USER\"];\n\n#[cfg(not(any(unix, target_os = \"windows\")))]\nconst PLATFORM_CORE_VARS: &[&str] = &[\"HOME\"];",
+        );
 
         // [stale] InProcessAppServerClient::start bail in app.rs removed — moved to lib.rs
 

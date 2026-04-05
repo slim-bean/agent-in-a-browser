@@ -59,6 +59,30 @@ impl FeedbackSnapshot {
     }
 }
 
+/// Structured request/auth fields for feedback uploads — no-op in WASM.
+pub struct FeedbackRequestTags<'a> {
+    pub endpoint: &'a str,
+    pub auth_header_attached: bool,
+    pub auth_header_name: Option<&'a str>,
+    pub auth_mode: Option<&'a str>,
+    pub auth_retry_after_unauthorized: Option<bool>,
+    pub auth_recovery_mode: Option<&'a str>,
+    pub auth_recovery_phase: Option<&'a str>,
+    pub auth_connection_reused: Option<bool>,
+    pub auth_request_id: Option<&'a str>,
+    pub auth_cf_ray: Option<&'a str>,
+    pub auth_error: Option<&'a str>,
+    pub auth_error_code: Option<&'a str>,
+    pub auth_recovery_followup_success: Option<bool>,
+    pub auth_recovery_followup_status: Option<u16>,
+}
+
+/// Emit feedback request tags — no-op in WASM.
+pub fn emit_feedback_request_tags_with_auth_env<T>(
+    _tags: &FeedbackRequestTags<'_>,
+    _auth_env: &T,
+) {}
+
 /// Feedback diagnostics module.
 pub mod feedback_diagnostics {
     pub const FEEDBACK_DIAGNOSTICS_ATTACHMENT_FILENAME: &str = "diagnostics.json";

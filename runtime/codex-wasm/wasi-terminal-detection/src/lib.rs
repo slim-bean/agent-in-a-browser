@@ -27,6 +27,12 @@ pub enum Multiplexer {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MultiplexerName { Tmux, Screen, Zellij, Unknown }
 
+impl TerminalInfo {
+    pub fn is_zellij(&self) -> bool {
+        matches!(self.multiplexer, Some(Multiplexer::Zellij { .. }))
+    }
+}
+
 pub fn user_agent() -> String { "codex-wasm/0.0.0".to_string() }
 
 pub fn terminal_info() -> TerminalInfo {

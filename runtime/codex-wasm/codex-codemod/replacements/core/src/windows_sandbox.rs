@@ -3,7 +3,7 @@
 use crate::config::Config;
 use crate::config::ConfigToml;
 use crate::config::profile::ConfigProfile;
-use crate::config::types::WindowsSandboxModeToml;
+use codex_config::types::WindowsSandboxModeToml;
 use codex_protocol::config_types::WindowsSandboxLevel;
 
 pub const ELEVATED_SANDBOX_NUX_ENABLED: bool = false;

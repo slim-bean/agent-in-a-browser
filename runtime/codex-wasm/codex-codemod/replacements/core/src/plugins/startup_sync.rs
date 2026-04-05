@@ -4,7 +4,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::AuthManager;
+use codex_login::AuthManager;
 use crate::config::Config;
 use super::PluginsManager;
 

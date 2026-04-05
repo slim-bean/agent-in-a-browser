@@ -108,7 +108,17 @@ const INJECT_DEPS: &[(&str, &[(&str, &str)])] = &[
             ("console-log", "../../../crates/console-log"),
         ],
     ),
-    ("core", &[("console-log", "../../../crates/console-log")]),
+    (
+        "core",
+        &[
+            ("console-log", "../../../crates/console-log"),
+            ("codex-feedback", "../../../codex-wasm/wasi-codex-feedback"),
+        ],
+    ),
+    (
+        "models-manager",
+        &[("codex-feedback", "../../../codex-wasm/wasi-codex-feedback")],
+    ),
     (
         "app-server",
         &[
