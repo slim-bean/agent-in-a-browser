@@ -5,6 +5,12 @@ use anyhow::{Context, Result};
 use std::path::Path;
 use walkdir::WalkDir;
 
+/// Configuration for the transform engine.
+pub struct TransformConfig {
+    /// Whether to inject diagnostic console_log traces.
+    pub diag_traces: bool,
+}
+
 /// Stats from a transform run.
 #[derive(Default)]
 pub struct TransformStats {
@@ -13,11 +19,20 @@ pub struct TransformStats {
     pub transforms_applied: usize,
     pub transforms_already_applied: usize,
     pub transforms_not_matched: Vec<String>,
+    /// Warnings from syn-level string_replace transforms that didn't match.
+    pub syn_warnings: Vec<String>,
 }
 
 /// Apply all transforms to the source tree under `codex_rs`.
-pub fn apply_transforms(codex_rs: &Path, transforms: &[Transform]) -> Result<TransformStats> {
+pub fn apply_transforms(
+    codex_rs: &Path,
+    transforms: &[Transform],
+    config: &TransformConfig,
+) -> Result<TransformStats> {
     let mut stats = TransformStats::default();
+
+    // Configure syn_transforms before running
+    crate::syn_transforms::set_diag_traces(config.diag_traces);
 
     // Partition transforms by type for efficient processing
     let mut replace_files: Vec<&Transform> = Vec::new();
@@ -98,6 +113,11 @@ pub fn apply_transforms(codex_rs: &Path, transforms: &[Transform]) -> Result<Tra
                 stats.transforms_applied += 1;
             }
         }
+
+        // Collect syn-level warnings from string_replace calls
+        stats
+            .syn_warnings
+            .extend(crate::syn_transforms::drain_syn_warnings());
 
         // Write back if changed
         if modified != content {

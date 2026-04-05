@@ -23,12 +23,45 @@
 //! 12. File-specific use rewrites: std::process → tokio::process, cfg-gated removal
 //! 13. File-specific `mut` additions, `#[cfg]` modifications, expression edits
 
+use std::cell::{Cell, RefCell};
 use std::path;
 use syn::visit::Visit;
 use syn::{
     Attribute, Expr, File, GenericArgument, ItemUse, Path, PathArguments, PathSegment, Type,
     UseTree,
 };
+
+// ---------------------------------------------------------------------------
+// Global configuration (set by engine before transforms run)
+// ---------------------------------------------------------------------------
+
+thread_local! {
+    /// Whether to inject diagnostic traces (--diag-traces flag).
+    static DIAG_TRACES: Cell<bool> = const { Cell::new(false) };
+    /// Collects warnings from string_replace calls that don't match.
+    /// Drained by the engine after each file.
+    static SYN_WARNINGS: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
+}
+
+/// Set the diag_traces flag for this thread.
+pub fn set_diag_traces(enabled: bool) {
+    DIAG_TRACES.with(|c| c.set(enabled));
+}
+
+/// Drain collected syn warnings (call after processing each file).
+pub fn drain_syn_warnings() -> Vec<String> {
+    SYN_WARNINGS.with(|w| w.borrow_mut().drain(..).collect())
+}
+
+fn push_syn_warning(msg: String) {
+    SYN_WARNINGS.with(|w| w.borrow_mut().push(msg));
+}
+
+fn diag_traces_enabled() -> bool {
+    DIAG_TRACES.with(|c| c.get())
+}
+
+// ---------------------------------------------------------------------------
 
 /// Maps proc_macro2 line/column spans to byte offsets in the original source.
 struct SourceMap {
@@ -2002,7 +2035,8 @@ impl<T> FileRwLock<T> {
                 } else {
                     needle
                 };
-                console_log::console_warn!("  [syn-WARN] no match in {file_suffix}: \"{preview}\"");
+                let preview = preview.replace('\n', "\\n");
+                push_syn_warning(format!("no match in {file_suffix}: \"{preview}\""));
             }
             false
         }
@@ -2133,7 +2167,8 @@ impl<T> FileRwLock<T> {
             "    pub fn schedule_frame_in(&self, dur: Duration) {\n        let _ = self.frame_schedule_tx.send(Instant::now() + dur);\n        let _ = self.draw_tx.send(());\n    }",
         );
 
-        // --- tui/src/lib.rs: trace/yield injections ---
+        // --- tui/src/lib.rs: trace/yield injections (gated by --diag-traces) ---
+        if diag_traces_enabled() {
         self.string_replace(
             "tui/src/lib.rs",
             "    let codex_home = match find_codex_home() {",
@@ -2170,6 +2205,7 @@ impl<T> FileRwLock<T> {
             "    let use_alt_screen = determine_alt_screen_mode(no_alt_screen, config.tui_alternate_screen);",
             "    console_log::console_log!(\"[tui-trace] before App::run\");\n    let use_alt_screen = determine_alt_screen_mode(no_alt_screen, config.tui_alternate_screen);",
         );
+        } // end --diag-traces tui-trace section
 
         // --- core/src/rollout/recorder.rs: UTC instead of local time ---
         self.string_replace(
@@ -2186,13 +2222,15 @@ impl<T> FileRwLock<T> {
             ") -> anyhow::Result<FileSearchSession> {\n    #[cfg(target_arch = \"wasm32\")]\n    {\n        let _ = (&search_directories, &options, &reporter, &cancel_flag);\n        anyhow::bail!(\"File search is not available in the browser (requires OS threads)\");\n    }\n    let FileSearchOptions {",
         );
 
-        // --- tui/src/app.rs: trace injections ---
+        // --- tui/src/app.rs: trace injections (gated by --diag-traces) ---
         // [stale] model = thread_manager trace removed — upstream refactored model fetching
+        if diag_traces_enabled() {
         self.string_replace(
             "tui/src/app.rs",
             "        let enhanced_keys_supported = tui.enhanced_keys_supported();",
             "        console_log::console_log!(\"[tui-trace] App::run creating ChatWidget...\");\n        let enhanced_keys_supported = tui.enhanced_keys_supported();",
         );
+        } // end --diag-traces app.rs section
 
         // --- tui/src/tui.rs: skip is_terminal() checks ---
         self.string_replace(
@@ -2413,7 +2451,9 @@ impl<T> FileRwLock<T> {
 
         // =====================================================================
         // DIAGNOSTIC TRACES: Session initialization hang debugging
+        // Gated by --diag-traces flag
         // =====================================================================
+        if diag_traces_enabled() {
 
         // --- core/src/codex.rs: trace before Session::new ---
         self.string_replace(
@@ -2502,15 +2542,9 @@ impl<T> FileRwLock<T> {
             "        console_log::console_log!(\"[diag-trace] agent.rs: spawning op-forwarding loop\");\n        let thread_clone = thread.clone();\n        tokio::spawn(async move {\n            console_log::console_log!(\"[diag-trace] agent.rs: op-forwarding loop STARTED, waiting for ops\");\n            while let Some(op) = codex_op_rx.recv().await {\n                console_log::console_log!(\"[diag-trace] agent.rs: op-forwarding received op, submitting\");\n                let id = thread_clone.submit(op).await;",
         );
 
-        // =====================================================================
-        // DIAGNOSTIC TRACES: Event delivery hang debugging
-        // =====================================================================
+        } // end --diag-traces session initialization section
 
-        // [stale] enqueue_thread_event trace removed — upstream refactored event handling
-
-        // [stale] enqueue should_send trace removed — upstream refactored event buffering
-
-        // [stale] handle_active_thread_event trace removed — signature changed upstream
+        // [stale] event delivery traces removed — upstream refactored event handling
 
         // --- core/src/message_history.rs: stub File::try_lock (unsupported in WASI) ---
         // Single-threaded WASM has no contention, so skip the lock and write directly.

@@ -44,6 +44,16 @@ struct Args {
     /// Only run AST transforms (skip Cargo.toml transforms)
     #[arg(long)]
     ast_only: bool,
+
+    /// Exit with error if any transform doesn't match its target pattern.
+    /// Use in CI to catch upstream changes that break transforms.
+    #[arg(long)]
+    strict: bool,
+
+    /// Inject diagnostic console_log traces into session initialization code.
+    /// Off by default — only enable for debugging startup hangs.
+    #[arg(long)]
+    diag_traces: bool,
 }
 
 fn main() -> Result<()> {
@@ -69,7 +79,10 @@ fn main() -> Result<()> {
     if !args.cargo_only {
         println!("\n=== Phase 2: Source transforms ===");
         let all_transforms = transforms::all_transforms();
-        let stats = engine::apply_transforms(&codex_rs, &all_transforms)?;
+        let config = engine::TransformConfig {
+            diag_traces: args.diag_traces,
+        };
+        let stats = engine::apply_transforms(&codex_rs, &all_transforms, &config)?;
         println!(
             "  {} files transformed, {} stubbed, {} transforms applied ({} already applied)",
             stats.files_transformed,
@@ -78,8 +91,27 @@ fn main() -> Result<()> {
             stats.transforms_already_applied
         );
         if !stats.transforms_not_matched.is_empty() {
+            let count = stats.transforms_not_matched.len();
             for desc in &stats.transforms_not_matched {
                 console_log::console_warn!("  [WARN] not matched: {desc}");
+            }
+            if args.strict {
+                anyhow::bail!(
+                    "{count} transform(s) did not match — upstream may have changed. \
+                     Review warnings above and update the codemod."
+                );
+            }
+        }
+        if !stats.syn_warnings.is_empty() {
+            let count = stats.syn_warnings.len();
+            for warn in &stats.syn_warnings {
+                console_log::console_warn!("  [syn-WARN] {warn}");
+            }
+            if args.strict {
+                anyhow::bail!(
+                    "{count} syn transform(s) did not match — upstream may have changed. \
+                     Review warnings above and update the codemod."
+                );
             }
         }
     }
