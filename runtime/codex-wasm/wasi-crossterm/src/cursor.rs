@@ -1,6 +1,18 @@
 //! Cursor control matching crossterm::cursor.
 
 use std::io;
+use std::sync::OnceLock;
+
+/// Optional host-side cursor position query function. When registered,
+/// `position()` calls this to get the actual cursor coordinates from the
+/// terminal emulator instead of returning (0, 0).
+static POSITION_QUERY: OnceLock<Box<dyn Fn() -> (u16, u16) + Send + Sync>> = OnceLock::new();
+
+/// Register a function that queries the host for the current cursor position.
+/// Called once at startup by the component entry point if the host supports it.
+pub fn set_position_query(f: impl Fn() -> (u16, u16) + Send + Sync + 'static) {
+    let _ = POSITION_QUERY.set(Box::new(f));
+}
 
 #[derive(Debug)]
 pub struct MoveTo(pub u16, pub u16);
@@ -128,7 +140,12 @@ impl super::Command for SetCursorStyle {
     }
 }
 
-/// Get cursor position.
+/// Get cursor position. Queries the host via the registered position query
+/// function if available, otherwise returns (0, 0) as a fallback.
 pub fn position() -> io::Result<(u16, u16)> {
-    Ok((0, 0)) // TODO: Query from WIT
+    if let Some(query) = POSITION_QUERY.get() {
+        Ok(query())
+    } else {
+        Ok((0, 0))
+    }
 }

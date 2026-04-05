@@ -72,6 +72,7 @@ impl From<Bytes> for Body {
 pub struct Client {
     default_headers: HashMap<String, String>,
     timeout: Option<std::time::Duration>,
+    redirect_policy: redirect::Policy,
 }
 
 impl Client {
@@ -79,6 +80,7 @@ impl Client {
         Self {
             default_headers: HashMap::new(),
             timeout: None,
+            redirect_policy: redirect::Policy::default(),
         }
     }
 
@@ -117,6 +119,7 @@ impl Client {
             headers: self.default_headers.clone(),
             body: None,
             timeout: self.timeout,
+            redirect_policy: self.redirect_policy.clone(),
         }
     }
 }
@@ -131,6 +134,7 @@ impl Default for Client {
 pub struct ClientBuilder {
     default_headers: HashMap<String, String>,
     timeout: Option<std::time::Duration>,
+    redirect_policy: redirect::Policy,
 }
 
 impl ClientBuilder {
@@ -138,6 +142,7 @@ impl ClientBuilder {
         Self {
             default_headers: HashMap::new(),
             timeout: None,
+            redirect_policy: redirect::Policy::default(),
         }
     }
 
@@ -179,7 +184,8 @@ impl ClientBuilder {
         self // TLS handled by host
     }
 
-    pub fn redirect(self, _policy: redirect::Policy) -> Self {
+    pub fn redirect(mut self, policy: redirect::Policy) -> Self {
+        self.redirect_policy = policy;
         self
     }
 
@@ -193,6 +199,7 @@ impl ClientBuilder {
         Ok(Client {
             default_headers: self.default_headers,
             timeout: self.timeout,
+            redirect_policy: self.redirect_policy,
         })
     }
 }
@@ -205,6 +212,7 @@ pub struct RequestBuilder {
     headers: HashMap<String, String>,
     body: Option<Vec<u8>>,
     timeout: Option<std::time::Duration>,
+    redirect_policy: redirect::Policy,
 }
 
 impl RequestBuilder {
@@ -297,12 +305,18 @@ impl RequestBuilder {
         let url = self.url.ok_or_else(|| Error::new("missing URL"))?;
         let timeout_duration = self.timeout;
 
+        let redirect = match self.redirect_policy.kind {
+            redirect::PolicyKind::None => backend::RedirectMode::Manual,
+            _ => backend::RedirectMode::Follow,
+        };
+
         let raw_request = backend::RawRequest {
             method: self.method.to_string(),
             url: url.to_string(),
             headers: self.headers.into_iter().collect(),
             body: self.body,
             timeout_ms: timeout_duration.map(|d| d.as_millis() as u64),
+            redirect,
         };
 
         // Execute the request, optionally wrapped in a timeout.
@@ -546,18 +560,44 @@ impl IntoUrlSealed for &String {
     }
 }
 
-/// Redirect policy module (stub).
+/// Redirect policy module.
 pub mod redirect {
     #[derive(Debug, Clone)]
-    pub struct Policy;
+    pub struct Policy {
+        pub(crate) kind: PolicyKind,
+    }
+
+    #[derive(Debug, Clone)]
+    pub(crate) enum PolicyKind {
+        /// Follow redirects (default browser behavior).
+        Follow,
+        /// Do not follow redirects.
+        None,
+        /// Follow up to `max` redirects.
+        Limited(usize),
+    }
 
     impl Policy {
+        /// Never follow redirects.
         pub fn none() -> Self {
-            Policy
+            Policy {
+                kind: PolicyKind::None,
+            }
         }
 
+        /// Follow redirects up to a maximum count.
         pub fn limited(max: usize) -> Self {
-            Policy
+            Policy {
+                kind: PolicyKind::Limited(max),
+            }
+        }
+    }
+
+    impl Default for Policy {
+        fn default() -> Self {
+            Policy {
+                kind: PolicyKind::Follow,
+            }
         }
     }
 }

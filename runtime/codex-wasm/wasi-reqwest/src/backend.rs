@@ -8,6 +8,21 @@ use std::sync::OnceLock;
 
 use crate::{Error, Result};
 
+/// Redirect behavior for the request.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RedirectMode {
+    /// Follow redirects (browser default).
+    Follow,
+    /// Do not follow redirects — return the 3xx response as-is.
+    Manual,
+}
+
+impl Default for RedirectMode {
+    fn default() -> Self {
+        Self::Follow
+    }
+}
+
 /// Raw HTTP request passed to the backend.
 pub struct RawRequest {
     pub method: String,
@@ -17,6 +32,8 @@ pub struct RawRequest {
     /// Request timeout in milliseconds. None means no timeout.
     /// The backend should abort the request if this duration elapses.
     pub timeout_ms: Option<u64>,
+    /// Redirect behavior. Defaults to Follow.
+    pub redirect: RedirectMode,
 }
 
 /// Raw HTTP response from the backend (fully buffered body).
