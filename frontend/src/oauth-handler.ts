@@ -36,7 +36,7 @@ function _generateState(): string {
  * Get the OAuth redirect URI based on current origin
  */
 export function getRedirectUri(): string {
-    return `${window.location.origin}/oauth-callback`;
+    return `${window.location.origin}/auth/callback`;
 }
 
 /**
