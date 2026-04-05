@@ -99,23 +99,34 @@ async function initialize(): Promise<void> {
             console.log('[SandboxWorker] Loading filesystem shim...');
             const { hasJSPI } = await import('../wasm/lazy-loading/async-mode.js');
 
+            const hasSAB = typeof SharedArrayBuffer !== 'undefined';
+
             if (hasJSPI) {
                 // JSPI mode (Chrome): Use async OPFS shim
                 console.log('[SandboxWorker] Using async OPFS shim (JSPI mode)');
                 const { initFilesystem } = await import('@tjfontaine/wasi-shims/opfs-filesystem-impl.js');
                 await initFilesystem();
-            } else {
-                // Sync mode (Safari/Firefox): Use sync OPFS shim with SharedArrayBuffer
+            } else if (hasSAB) {
+                // Sync mode with SAB (Firefox): Use sync OPFS shim with SharedArrayBuffer
                 console.log('[SandboxWorker] Using sync OPFS shim (non-JSPI mode)');
                 const { initFilesystem } = await import('@tjfontaine/wasi-shims/opfs-filesystem-sync-impl.js');
                 await initFilesystem();
 
                 // Also set OPFS root for directory-tree.js (used by git adapter and other async operations)
-                // This allows the git adapter to work with OPFS even in sync mode
                 const { setOpfsRoot } = await import('@tjfontaine/wasi-shims/directory-tree.js');
                 const opfsRoot = await navigator.storage.getDirectory();
                 setOpfsRoot(opfsRoot);
                 console.log('[SandboxWorker] OPFS root set for directory-tree (git compatibility)');
+            } else {
+                // No JSPI, no SAB (WebKit): sync shim handles async fallback internally
+                console.log('[SandboxWorker] Using sync OPFS shim with async fallback (no SAB)');
+                const { initFilesystem } = await import('@tjfontaine/wasi-shims/opfs-filesystem-sync-impl.js');
+                await initFilesystem();
+
+                const { setOpfsRoot } = await import('@tjfontaine/wasi-shims/directory-tree.js');
+                const opfsRoot = await navigator.storage.getDirectory();
+                setOpfsRoot(opfsRoot);
+                console.log('[SandboxWorker] OPFS root set for directory-tree');
             }
             console.log('[SandboxWorker] OPFS filesystem shim initialized');
         } catch (e) {

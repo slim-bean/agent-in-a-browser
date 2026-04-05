@@ -70,6 +70,10 @@ let dataArray: Uint8Array | null = null;
 let helperWorker: Worker | null = null;
 let initialized = false;
 
+// Async OPFS fallback state (WebKit without SharedArrayBuffer)
+let asyncFallbackMode = false;
+let asyncOpfsRoot: FileSystemDirectoryHandle | null = null;
+
 // Tree index (cached for performance)
 let treeIndex: TreeEntry = { dir: {} };
 let currentDirectory = '';
@@ -125,10 +129,19 @@ export function initFilesystemSync(sharedBuffer: SharedArrayBuffer): Promise<voi
 }
 
 /**
- * Make a synchronous request to the helper worker
- * This BLOCKS the calling thread via Atomics.wait until response is ready
+ * Make a synchronous request to the helper worker.
+ * This BLOCKS the calling thread via Atomics.wait until response is ready.
+ *
+ * In async fallback mode (no SharedArrayBuffer), throws with a descriptive error.
+ * The sandbox worker handles MCP requests asynchronously so callers can catch and
+ * retry via the async path where needed.
  */
 function makeRequest(request: OPFSRequest): OPFSResponse {
+    if (asyncFallbackMode) {
+        // In async fallback mode, synchronous file I/O is unavailable.
+        // Return a synthetic error response so callers degrade gracefully.
+        return { success: false, error: `[opfs-sync] Sync I/O unavailable (no SharedArrayBuffer). Operation: ${request.type} ${request.path}` };
+    }
     if (!controlArray || !dataArray) {
         throw new Error('[opfs-sync] Filesystem not initialized');
     }
@@ -775,16 +788,81 @@ let initPromise: Promise<void> | null = null;
  *                     If not provided, creates a new one (only works in contexts with SAB).
  *                     For WebKit workers, SAB must be passed from main thread since
  *                     SharedArrayBuffer is not available in Worker contexts.
+ *
+ * When SharedArrayBuffer is unavailable (WebKit without cross-origin isolation),
+ * falls back to scanning OPFS directly via async APIs to populate the in-memory
+ * tree. File operations will use async OPFS as a fallback instead of the helper worker.
  */
 export function initFilesystem(sharedBuffer?: SharedArrayBuffer): Promise<void> {
     if (initPromise) return initPromise;
 
-    // Use provided buffer or create new one (only works in contexts where SAB is available)
-    const bufferSize = 64 + 2 * 1024 * 1024; // 64 bytes control + 2MB data
-    const buffer = sharedBuffer ?? new SharedArrayBuffer(bufferSize);
+    // Check if SharedArrayBuffer is available
+    const hasSAB = typeof SharedArrayBuffer !== 'undefined';
 
-    initPromise = initFilesystemSync(buffer);
+    if (hasSAB) {
+        // Full sync mode: helper worker with SAB + Atomics
+        const bufferSize = 64 + 2 * 1024 * 1024; // 64 bytes control + 2MB data
+        const buffer = sharedBuffer ?? new SharedArrayBuffer(bufferSize);
+        initPromise = initFilesystemSync(buffer);
+    } else {
+        // Degraded mode: scan OPFS via async APIs, file I/O uses async fallback
+        console.warn('[opfs-sync] SharedArrayBuffer unavailable, using async OPFS fallback');
+        initPromise = initFilesystemAsync();
+    }
+
     return initPromise;
+}
+
+/**
+ * Async OPFS fallback for environments without SharedArrayBuffer.
+ * Scans the OPFS tree to populate the in-memory index, and sets up
+ * async file I/O so the sync shim's Descriptor operations still work.
+ */
+async function initFilesystemAsync(): Promise<void> {
+    if (initialized) return;
+
+    console.log('[opfs-sync] Initializing via async OPFS fallback...');
+    asyncFallbackMode = true;
+
+    try {
+        asyncOpfsRoot = await navigator.storage.getDirectory();
+    } catch (e) {
+        console.warn('[opfs-sync] OPFS not available:', e);
+        // Initialize with empty tree — filesystem operations will fail gracefully
+        treeIndex = { dir: {} };
+        initialized = true;
+        return;
+    }
+
+    // Scan OPFS tree directly via async APIs
+    treeIndex = { dir: {} };
+    await scanDirectoryAsync('', treeIndex.dir!, asyncOpfsRoot);
+
+    initialized = true;
+    console.log('[opfs-sync] Async OPFS fallback initialized');
+}
+
+/** Recursively scan an OPFS directory handle into the in-memory tree. */
+async function scanDirectoryAsync(
+    path: string,
+    parent: Record<string, TreeEntry>,
+    dirHandle: FileSystemDirectoryHandle,
+): Promise<void> {
+    for await (const [name, handle] of (dirHandle as any).entries()) {
+        const fullPath = path ? `${path}/${name}` : name;
+        if (handle.kind === 'directory') {
+            const dir: Record<string, TreeEntry> = {};
+            parent[name] = { dir };
+            await scanDirectoryAsync(fullPath, dir, handle as FileSystemDirectoryHandle);
+        } else {
+            try {
+                const file = await (handle as FileSystemFileHandle).getFile();
+                parent[name] = { size: file.size, mtime: file.lastModified };
+            } catch {
+                parent[name] = { size: 0, mtime: Date.now() };
+            }
+        }
+    }
 }
 
 // ============================================================

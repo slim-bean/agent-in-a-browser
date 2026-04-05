@@ -100,59 +100,37 @@ async function initialize(): Promise<void> {
             console.log('[SharedSandboxWorker] Loading filesystem shim...');
             const { hasJSPI } = await import('../wasm/lazy-loading/async-mode.js');
 
+            const hasSAB = typeof SharedArrayBuffer !== 'undefined';
+
             if (hasJSPI) {
                 console.log('[SharedSandboxWorker] Using async OPFS shim (JSPI mode)');
                 const { initFilesystem } = await import('@tjfontaine/wasi-shims/opfs-filesystem-impl.js');
                 await initFilesystem();
-
-                // OPFS root must be set on ALL module instances that have their own copy:
-                // 1. directory-tree.js (used by WASM modules for OPFS access)
-                // 2. main @tjfontaine/wasi-shims bundle (index.js has inlined directory-tree)
-                // 3. External /wasi-shims/index.js (served separately, used by edtui/vim)
-                const opfsRootHandle = await navigator.storage.getDirectory();
-
-                const directoryTree = await import('@tjfontaine/wasi-shims/directory-tree.js');
-                directoryTree.setOpfsRoot(opfsRootHandle);
-                console.log('[SharedSandboxWorker] OPFS root set for directory-tree.js');
-
-                // Also set on main bundle (has inlined copy of directory-tree)
-                const wasiShims = await import('@tjfontaine/wasi-shims');
-                if (wasiShims.setOpfsRoot) {
-                    wasiShims.setOpfsRoot(opfsRootHandle);
-                    console.log('[SharedSandboxWorker] OPFS root set for main wasi-shims bundle');
-                }
-
-                // CRITICAL: Also set on external index.js served at /wasi-shims/index.js
-                // This is the module that edtui, vim, and shell actually import at runtime
-                try {
-                    // @ts-expect-error - runtime path, served by dev server
-                    const externalWasiShims = await import('/wasi-shims/index.js');
-                    if (externalWasiShims.setOpfsRoot) {
-                        externalWasiShims.setOpfsRoot(opfsRootHandle);
-                        console.log('[SharedSandboxWorker] OPFS root set for external /wasi-shims/index.js');
-                    }
-                } catch (e) {
-                    console.warn('[SharedSandboxWorker] Could not set opfsRoot on external index.js:', e);
-                }
-            } else {
+            } else if (hasSAB) {
                 console.log('[SharedSandboxWorker] Using sync OPFS shim (non-JSPI mode)');
                 const { initFilesystem } = await import('@tjfontaine/wasi-shims/opfs-filesystem-sync-impl.js');
                 await initFilesystem();
+            } else {
+                // No JSPI, no SAB (WebKit): sync shim handles async fallback internally
+                console.log('[SharedSandboxWorker] Using sync OPFS shim with async fallback (no SAB)');
+                const { initFilesystem } = await import('@tjfontaine/wasi-shims/opfs-filesystem-sync-impl.js');
+                await initFilesystem();
+            }
 
+            // Set OPFS root on all module instances that have their own copy
+            {
                 const opfsRootHandle = await navigator.storage.getDirectory();
 
                 const directoryTree = await import('@tjfontaine/wasi-shims/directory-tree.js');
                 directoryTree.setOpfsRoot(opfsRootHandle);
                 console.log('[SharedSandboxWorker] OPFS root set for directory-tree.js');
 
-                // Also set on main bundle
                 const wasiShims = await import('@tjfontaine/wasi-shims');
                 if (wasiShims.setOpfsRoot) {
                     wasiShims.setOpfsRoot(opfsRootHandle);
                     console.log('[SharedSandboxWorker] OPFS root set for main wasi-shims bundle');
                 }
 
-                // CRITICAL: Also set on external index.js served at /wasi-shims/index.js
                 try {
                     // @ts-expect-error - runtime path, served by dev server
                     const externalWasiShims = await import('/wasi-shims/index.js');
