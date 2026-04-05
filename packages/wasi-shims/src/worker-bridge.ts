@@ -483,7 +483,7 @@ export class WorkerBridge {
      * @param args Optional arguments
      * @param options.jspi When true, load the JSPI (async) WASM variant
      */
-    runModule(module: 'tui' | 'mcp' | 'shell', args?: string[], options?: { jspi?: boolean }): void {
+    runModule(module: 'tui' | 'mcp' | 'shell', args?: string[], options?: { jspi?: boolean; cols?: number; rows?: number }): void {
         if (!this.worker || !this.ready) {
             throw new Error('Worker not ready');
         }
@@ -496,6 +496,8 @@ export class WorkerBridge {
             module,
             args,
             jspi: useJspi,
+            cols: options?.cols,
+            rows: options?.rows,
         });
     }
 

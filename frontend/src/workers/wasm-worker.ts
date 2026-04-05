@@ -632,6 +632,12 @@ async function runTuiJspi(msg: WorkerRunMessage): Promise<void> {
     jspiPushStdinData = cliShim.pushStdinData;
     jspiSetTerminalSize = cliShim.setTerminalSize;
 
+    // Apply initial terminal size from the run message before any WASM reads it
+    if (msg.cols && msg.rows) {
+        cliShim.setTerminalSize(msg.cols, msg.rows);
+        console.log(`[WasmWorker JSPI] Initial terminal size set: ${msg.cols}x${msg.rows}`);
+    }
+
     // Set environment variables (same as tui-loader.ts)
     cliShim.setEnvironment([
         ['HOME', '/'],
@@ -825,6 +831,12 @@ async function runShellJspi(msg: WorkerRunMessage): Promise<void> {
     const cliShim = await import('@tjfontaine/wasi-shims/ghostty-cli-shim.js');
     jspiPushStdinData = cliShim.pushStdinData;
     jspiSetTerminalSize = cliShim.setTerminalSize;
+
+    // Apply initial terminal size from the run message before any WASM reads it
+    if (msg.cols && msg.rows) {
+        cliShim.setTerminalSize(msg.cols, msg.rows);
+        console.log(`[WasmWorker Shell] Initial terminal size set: ${msg.cols}x${msg.rows}`);
+    }
 
     cliShim.setEnvironment([
         ['HOME', '/'],

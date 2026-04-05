@@ -28,7 +28,8 @@ import {
     stdout as ghosttyStdout,
     stderr as ghosttyStderr,
     setPipedStreams,
-    clearPipedStreams
+    clearPipedStreams,
+    getTerminalSize,
 } from '@tjfontaine/wasi-shims/ghostty-cli-shim.js';
 
 // BasePollable is imported from wasi-shims/poll-impl.js above - it has the POLLABLE_MARKER symbol
@@ -128,6 +129,12 @@ export function spawnInteractive(
     env: ExecEnv,
     size: TerminalSize,
 ): LazyProcess | Promise<LazyProcess> {
+    // Always use the current terminal size from the CLI shim — the Rust caller
+    // may pass a stale 80x24 default since the shell world doesn't import terminal:info/size.
+    const actualSize = getTerminalSize();
+    if (actualSize.cols > 0 && actualSize.rows > 0) {
+        size = { cols: actualSize.cols, rows: actualSize.rows };
+    }
     console.log(`[ModuleLoader] spawnInteractive: ${command} (module: ${moduleName}, size: ${size.cols}x${size.rows}, hasJSPI: ${hasJSPI})`);
 
     // Set terminal context to true (TTY mode)

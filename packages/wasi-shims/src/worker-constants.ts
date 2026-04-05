@@ -50,6 +50,9 @@ export interface WorkerRunMessage {
     args?: string[];
     /** When true, load the JSPI (async) WASM variant instead of the sync variant */
     jspi?: boolean;
+    /** Initial terminal dimensions — set before WASM starts to avoid 80x24 default race */
+    cols?: number;
+    rows?: number;
 }
 
 export interface WorkerInputMessage {

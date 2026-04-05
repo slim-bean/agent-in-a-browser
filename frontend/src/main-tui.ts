@@ -128,7 +128,8 @@ listenForOpenUrl();
 
         // Run the shell as the default entry point.
         // The `codex` command is available within the shell to launch the Codex TUI.
-        bridge.runModule('shell', undefined, { jspi: hasJSPI });
+        // Include terminal dimensions so the CLI shim has the correct size before WASM starts.
+        bridge.runModule('shell', undefined, { jspi: hasJSPI, cols: terminal.cols, rows: terminal.rows });
 
         // Forward OAuth callbacks from the popup to the worker.
         // When the OAuth redirect lands on /oauth-callback, the popup sends
