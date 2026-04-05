@@ -15,7 +15,6 @@ export default defineConfig({
         '**/llm-async-patterns.test.ts',
         '**/oauth-flow.test.ts',
         '**/opfs-resilience.test.ts',
-        '**/python-pyodide.test.ts',
         '**/wasm-runtime.test.ts',
         '**/webkit-http-api.test.ts',
         '**/webkit-sab-diagnostic.test.ts',

@@ -32,6 +32,8 @@ interface PyodideInterface {
         mkdir(path: string): void;
         stat(path: string): unknown;
         chdir(path: string): void;
+        /** Emscripten FS sync: populate=true reads FROM persistent storage, false writes TO it */
+        syncfs(populate: boolean, callback: (err: unknown) => void): void;
     };
     mountNativeFS(path: string, handle: FileSystemDirectoryHandle): Promise<{ syncfs(): Promise<void> }>;
     globals: {
@@ -99,10 +101,22 @@ async function getPyodide(): Promise<PyodideInterface> {
 }
 
 /**
- * Sync OPFS changes back to Pyodide's view of the filesystem.
- * Call before running scripts that may read files written by the shell.
+ * Sync OPFS → Emscripten FS (pick up files the shell may have written).
+ * Call before running Python so it sees the latest OPFS state.
  */
-async function syncFs(): Promise<void> {
+async function syncFromOpfs(): Promise<void> {
+    if (pyodideInstance) {
+        await new Promise<void>((resolve, reject) => {
+            pyodideInstance!.FS.syncfs(true, (err) => err ? reject(err) : resolve());
+        });
+    }
+}
+
+/**
+ * Sync Emscripten FS → OPFS (flush files Python wrote so the shell can see them).
+ * Call after Python finishes executing.
+ */
+async function syncToOpfs(): Promise<void> {
     if (nativeFsMount) {
         await nativeFsMount.syncfs();
     }
@@ -125,7 +139,7 @@ function runPython(
     const executionPromise = (async () => {
         try {
             const py = await getPyodide();
-            await syncFs();
+            await syncFromOpfs();
 
             // Set up stdout/stderr capture for this invocation
             py.setStdout({
@@ -217,6 +231,9 @@ function runPython(
             stderr.write(encoder.encode(message + '\n'));
             exitCode = 1;
             return 1;
+        } finally {
+            // Flush any files Python wrote back to OPFS so the shell can see them
+            await syncToOpfs();
         }
     })();
 
@@ -241,6 +258,18 @@ function runPip(
     const executionPromise = (async () => {
         try {
             const py = await getPyodide();
+
+            // Capture Python print() output to the command's streams
+            py.setStdout({
+                batched: (text: string) => {
+                    stdout.write(encoder.encode(text + '\n'));
+                },
+            });
+            py.setStderr({
+                batched: (text: string) => {
+                    stderr.write(encoder.encode(text + '\n'));
+                },
+            });
 
             if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
                 stdout.write(encoder.encode(
@@ -310,6 +339,8 @@ else:
             stderr.write(encoder.encode(message + '\n'));
             exitCode = 1;
             return 1;
+        } finally {
+            await syncToOpfs();
         }
     })();
 
