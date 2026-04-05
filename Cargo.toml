@@ -18,7 +18,6 @@ members = [
     "runtime/codex-wasm/wasi-tokio-util",
     "runtime/codex-wasm/wasi-crossterm",
     "runtime/codex-wasm/wasi-codex-otel",
-    # wasi-codex-login removed — upstream codex-login now compiles directly
     "runtime/codex-wasm/codex-codemod",
 ]
 exclude = [

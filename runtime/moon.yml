@@ -90,7 +90,6 @@ tasks:
       - "codex-wasm/wasi-reqwest/src/**"
       - "codex-wasm/wasi-crossterm/src/**"
       - "codex-wasm/wasi-tokio-util/src/**"
-      - "codex-wasm/wasi-codex-login/src/**"
       - "codex-wasm/wasi-codex-otel/src/**"
       - "codex-wasm/wasi-cpal/src/**"
       - "codex-wasm/platform-traits/src/**"
