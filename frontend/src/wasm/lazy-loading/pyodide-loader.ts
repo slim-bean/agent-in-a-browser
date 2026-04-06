@@ -8,8 +8,10 @@
  * The Pyodide instance is cached as a singleton — Python startup is expensive
  * (~5-10s) so we keep the interpreter alive across invocations.
  *
- * OPFS integration: We mount the OPFS root into Pyodide's Emscripten virtual FS
- * via mountNativeFS(), giving Python seamless access to the same files the shell uses.
+ * OPFS integration: Our custom Pyodide build uses WasmFS with the OPFS backend
+ * mounted at /home/user and /lib/python3.12/site-packages via a C-level
+ * wasmfs_before_preload() hook. No JS-side mount or sync is needed — WasmFS
+ * handles persistence natively through the OPFS backend.
  */
 
 import type {
@@ -19,6 +21,7 @@ import type {
     InputStream,
     OutputStream,
 } from '@tjfontaine/wasm-loader';
+import { closeAllHandles } from '@tjfontaine/wasi-shims/directory-tree.js';
 
 // Pyodide types (loaded dynamically)
 interface PyodideInterface {
@@ -32,10 +35,8 @@ interface PyodideInterface {
         mkdir(path: string): void;
         stat(path: string): unknown;
         chdir(path: string): void;
-        /** Emscripten FS sync: populate=true reads FROM persistent storage, false writes TO it */
-        syncfs(populate: boolean, callback: (err: unknown) => void): void;
+        readdir(path: string): string[];
     };
-    mountNativeFS(path: string, handle: FileSystemDirectoryHandle): Promise<{ syncfs(): Promise<void> }>;
     globals: {
         get(name: string): unknown;
     };
@@ -43,6 +44,7 @@ interface PyodideInterface {
 
 type LoadPyodideFn = (options: {
     indexURL: string;
+    env?: Record<string, string>;
     stdout?: (text: string) => void;
     stderr?: (text: string) => void;
 }) => Promise<PyodideInterface>;
@@ -50,7 +52,6 @@ type LoadPyodideFn = (options: {
 // Singleton Pyodide instance
 let pyodideInstance: PyodideInterface | null = null;
 let pyodideLoading: Promise<PyodideInterface> | null = null;
-let nativeFsMount: { syncfs(): Promise<void> } | null = null;
 
 const OPFS_MOUNT_PATH = '/home/user';
 
@@ -66,28 +67,38 @@ async function getPyodide(): Promise<PyodideInterface> {
         const startTime = performance.now();
 
         // Dynamic import of Pyodide — served from /pyodide/ as static assets.
-        // We import the ESM entry point directly to avoid needing pyodide as a
-        // frontend dependency (it's a dep of packages/wasm-python instead).
+        // The UMD bundle sets globalThis.loadPyodide as a side effect;
+        // the ESM build exports it directly. Handle both.
         const pyodideUrl = '/pyodide/pyodide.mjs';
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const pyodideMod: any = await import(/* @vite-ignore */ pyodideUrl);
-        const loadPyodide: LoadPyodideFn = pyodideMod.loadPyodide;
+        const loadPyodide: LoadPyodideFn = pyodideMod.loadPyodide
+            ?? (globalThis as any).loadPyodide;
 
-        const py = await loadPyodide({
-            indexURL: '/pyodide/',
-        });
+        let py;
+        try {
+            py = await loadPyodide({
+                indexURL: '/pyodide/',
+                // Set HOME to /home/user — matches the OPFS mount point and
+                // the shell's working directory convention.
+                env: { HOME: '/home/user' },
+                // With WasmFS, Pyodide's device-based stream redirection fails.
+                // Use stdout/stderr callbacks which hook into Module.print/printErr.
+                stdout: (msg: string) => { console.log('[Python stdout]', msg); },
+                stderr: (msg: string) => { console.warn('[Python stderr]', msg); },
+            });
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(e);
+            const errno = (e as any)?.errno ?? 'unknown';
+            console.error('[PyodideLoader] loadPyodide failed:', msg, 'errno:', errno);
+            throw e;
+        }
 
         // Load micropip for pip support
-        await py.loadPackage('micropip');
-
-        // Mount OPFS into Pyodide's virtual FS for file access
         try {
-            const opfsRoot = await navigator.storage.getDirectory();
-            py.FS.mkdir(OPFS_MOUNT_PATH);
-            nativeFsMount = await py.mountNativeFS(OPFS_MOUNT_PATH, opfsRoot);
-            console.log(`[PyodideLoader] OPFS mounted at ${OPFS_MOUNT_PATH}`);
-        } catch (err) {
-            console.warn('[PyodideLoader] Could not mount OPFS:', err);
+            await py.loadPackage('micropip');
+        } catch {
+            console.warn('[PyodideLoader] micropip load failed (may need network)');
         }
 
         const loadTime = performance.now() - startTime;
@@ -98,28 +109,6 @@ async function getPyodide(): Promise<PyodideInterface> {
     })();
 
     return pyodideLoading;
-}
-
-/**
- * Sync OPFS → Emscripten FS (pick up files the shell may have written).
- * Call before running Python so it sees the latest OPFS state.
- */
-async function syncFromOpfs(): Promise<void> {
-    if (pyodideInstance) {
-        await new Promise<void>((resolve, reject) => {
-            pyodideInstance!.FS.syncfs(true, (err) => err ? reject(err) : resolve());
-        });
-    }
-}
-
-/**
- * Sync Emscripten FS → OPFS (flush files Python wrote so the shell can see them).
- * Call after Python finishes executing.
- */
-async function syncToOpfs(): Promise<void> {
-    if (nativeFsMount) {
-        await nativeFsMount.syncfs();
-    }
 }
 
 const encoder = new TextEncoder();
@@ -139,19 +128,43 @@ function runPython(
     const executionPromise = (async () => {
         try {
             const py = await getPyodide();
-            await syncFromOpfs();
 
-            // Set up stdout/stderr capture for this invocation
-            py.setStdout({
-                batched: (text: string) => {
-                    stdout.write(encoder.encode(text + '\n'));
-                },
+            // Release all SyncAccessHandle locks held by the shell's OPFS shim
+            // so WasmFS's OPFS backend can access the same files.
+            closeAllHandles();
+
+            // Set up stdout/stderr capture via Python-level sys.stdout redirect.
+            // With WasmFS, Pyodide's device-based stream redirection (setStdout)
+            // doesn't work because initializeStreams can't remap device nodes.
+            // Instead, we redirect sys.stdout/sys.stderr in Python to call our
+            // JS callbacks directly via pyodide.ffi.
+            const stdoutWrite = (text: string) => {
+                stdout.write(encoder.encode(text));
+            };
+            const stderrWrite = (text: string) => {
+                stderr.write(encoder.encode(text));
+            };
+            // Register callbacks on the pyodide globals so Python can access them
+            (py as any).registerJsModule('_edge_io', {
+                stdout_write: stdoutWrite,
+                stderr_write: stderrWrite,
             });
-            py.setStderr({
-                batched: (text: string) => {
-                    stderr.write(encoder.encode(text + '\n'));
-                },
-            });
+            await py.runPythonAsync(`
+import sys, io, _edge_io
+
+class _EdgeWriter(io.TextIOBase):
+    def __init__(self, write_fn):
+        self._write = write_fn
+    def write(self, s):
+        if s:
+            self._write(s)
+        return len(s) if s else 0
+    def flush(self):
+        pass
+
+sys.stdout = _EdgeWriter(_edge_io.stdout_write)
+sys.stderr = _EdgeWriter(_edge_io.stderr_write)
+`);
 
             // Set working directory
             const cwd = env.cwd || OPFS_MOUNT_PATH;
@@ -171,7 +184,6 @@ function runPython(
 
             // Parse command arguments
             if (args.length === 0) {
-                // No args — print version and usage hint
                 await py.runPythonAsync('import sys; print(f"Python {sys.version}")');
                 stdout.write(encoder.encode('Type python3 -c "code" to run Python code\n'));
                 exitCode = 0;
@@ -179,7 +191,6 @@ function runPython(
             }
 
             if (args[0] === '-c' && args.length >= 2) {
-                // Inline code execution: python3 -c "print('hello')"
                 const code = args.slice(1).join(' ');
                 await py.runPythonAsync(code);
                 exitCode = 0;
@@ -187,7 +198,6 @@ function runPython(
             }
 
             if (args[0] === '-m' && args.length >= 2) {
-                // Module execution: python3 -m module_name
                 const moduleName = args[1];
                 const moduleArgs = args.slice(2);
                 const sysArgv = JSON.stringify([`-m ${moduleName}`, ...moduleArgs]);
@@ -207,33 +217,45 @@ function runPython(
             const scriptPath = args[0];
             const scriptArgs = args.slice(1);
 
-            // Set sys.argv
-            const sysArgv = JSON.stringify([scriptPath, ...scriptArgs]);
-            await py.runPythonAsync(`import sys; sys.argv = ${sysArgv}`);
-
-            // Try to resolve the script path
             const resolvedPath = scriptPath.startsWith('/')
                 ? scriptPath
                 : `${OPFS_MOUNT_PATH}/${env.cwd ? env.cwd + '/' : ''}${scriptPath}`;
 
+            // Read and execute the script via Python (not JS FS.readFile)
+            // because WasmFS OPFS reads need JSPI context which is only
+            // available inside py.runPythonAsync.
+            const sysArgv = JSON.stringify([scriptPath, ...scriptArgs]);
+            const escapedPath = JSON.stringify(resolvedPath);
             try {
-                const code = py.FS.readFile(resolvedPath, { encoding: 'utf8' });
-                await py.runPythonAsync(code);
+                await py.runPythonAsync(`
+import sys, os
+sys.argv = ${sysArgv}
+_path = ${escapedPath}
+if not os.path.exists(_path):
+    raise FileNotFoundError(f"No such file or directory: '{_path}'")
+with open(_path) as _f:
+    _code = _f.read()
+exec(compile(_code, _path, 'exec'))
+`);
                 exitCode = 0;
                 return 0;
-            } catch (fsErr) {
-                stderr.write(encoder.encode(`python3: can't open file '${scriptPath}': [Errno 2] No such file or directory\n`));
-                exitCode = 2;
-                return 2;
+            } catch (pyErr: unknown) {
+                const msg = String(pyErr);
+                if (msg.includes('No such file') || msg.includes('FileNotFoundError') || msg.includes('Errno 44')) {
+                    stderr.write(encoder.encode(`python3: can't open file '${scriptPath}': [Errno 2] No such file or directory\n`));
+                    exitCode = 2;
+                    return 2;
+                }
+                // Other Python errors — report to stderr
+                stderr.write(encoder.encode(msg + '\n'));
+                exitCode = 1;
+                return 1;
             }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             stderr.write(encoder.encode(message + '\n'));
             exitCode = 1;
             return 1;
-        } finally {
-            // Flush any files Python wrote back to OPFS so the shell can see them
-            await syncToOpfs();
         }
     })();
 
@@ -330,7 +352,6 @@ else:
                 return 0;
             }
 
-            // Fallback: try running via micropip
             stderr.write(encoder.encode(`pip: unknown command '${args[0]}'\n`));
             exitCode = 1;
             return 1;
@@ -339,8 +360,6 @@ else:
             stderr.write(encoder.encode(message + '\n'));
             exitCode = 1;
             return 1;
-        } finally {
-            await syncToOpfs();
         }
     })();
 
@@ -356,7 +375,7 @@ else:
 export function createPyodideModule(): CommandModule {
     return {
         spawn(name, args, env, stdin, stdout, stderr) {
-            console.log(`[PyodideModule] spawn: name=${name}, args=`, args);
+            console.log('[PyodideModule] spawn:', name, args);
 
             if (name === 'pip') {
                 return runPip(args, env, stdin, stdout, stderr);

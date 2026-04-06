@@ -21,16 +21,28 @@ import { createHash } from 'crypto';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 
-// Resolve pyodide package location via Node's module resolution
-// (pnpm hoists packages into .pnpm/, so direct path won't work)
-const require = createRequire(resolve(root, 'packages', 'wasm-python', 'package.json'));
-const pyodideSrc = dirname(require.resolve('pyodide/package.json'));
+// Use our custom WasmFS Pyodide build from the submodule if available,
+// otherwise fall back to the npm package.
+const pyodideForkDist = resolve(root, 'pyodide', 'dist');
+const hasForkBuild = existsSync(resolve(pyodideForkDist, 'pyodide.asm.wasm'));
+
+let pyodideSrc;
+if (hasForkBuild) {
+    pyodideSrc = pyodideForkDist;
+    console.log(`Using custom Pyodide build from submodule: ${pyodideSrc}`);
+} else {
+    // Fall back to npm package
+    const require = createRequire(resolve(root, 'packages', 'wasm-python', 'package.json'));
+    pyodideSrc = dirname(require.resolve('pyodide/package.json'));
+    console.log(`Using Pyodide from npm: ${pyodideSrc}`);
+}
 const pyodideDest = resolve(root, 'frontend', 'public', 'pyodide');
 
 // Essential Pyodide files to copy (skip large optional packages)
 const ESSENTIAL_PATTERNS = [
     'pyodide.asm.wasm',
     'pyodide.asm.js',
+    'pyodide.asm.mjs',
     'pyodide_py.tar',
     'pyodide-lock.json',
     'repodata.json',
