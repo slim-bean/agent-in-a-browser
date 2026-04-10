@@ -15,10 +15,10 @@ import { run } from '../codex-tui/codex-wasm-tui.js';
 import { setTerminal, setTerminalSize, setEnvironment } from '@tjfontaine/wasi-shims/ghostty-cli-shim.js';
 
 // Import transport handler for routing MCP requests
-import { setTransportHandler } from '@tjfontaine/wasi-shims/wasi-http-impl.js';
+import { setTransportHandler, setNetworkApprovalHandler } from '@tjfontaine/wasi-shims/wasi-http-impl.js';
 
 // Import shell exec handler registration for Codex TUI command execution
-import { setExecHandler, type ExecEnv, type ExecResult } from '@tjfontaine/wasi-shims/shell-exec-impl.js';
+import { setExecHandler, setApprovalHandler, type ExecEnv, type ExecResult } from '@tjfontaine/wasi-shims/shell-exec-impl.js';
 
 // Import PTY handler registration for persistent shell sessions
 import {
@@ -429,6 +429,13 @@ export async function launchTui(options: TuiLoaderOptions): Promise<{
     // Register PTY session handler for persistent shell sessions
     setPtyHandler(new PtySessionManager());
     console.log('[TUI Loader] PTY session handler registered');
+
+    // Register policy approval handlers — TUI mode auto-allows everything
+    // to maintain backward compatibility with the existing behavior where
+    // the TUI has its own in-WASM approval overlay (dangerously_bypass_approvals_and_sandbox).
+    setApprovalHandler(async () => 'allow');
+    setNetworkApprovalHandler(async () => 'allow');
+    console.log('[TUI Loader] Policy approval handlers registered (auto-allow)');
 
     // Initialize OPFS filesystem for shell access (touch, mkdir, ls, etc.)
     console.log('[TUI Loader] Initializing OPFS filesystem...');

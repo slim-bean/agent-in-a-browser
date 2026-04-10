@@ -10,6 +10,11 @@
  *   openai-beta.responses-v1
  */
 
+// Phase 2 security: network domain policy (shared singleton with wasi-http-impl)
+import { getNetworkPolicy } from './network-policy.js';
+
+const networkPolicy = getNetworkPolicy();
+
 // ============================================================================
 // Connection Management
 // ============================================================================
@@ -36,6 +41,17 @@ const connections = new Map<number, WSConnection>();
  * Returns a Promise (JSPI-suspending) that resolves to a handle.
  */
 export function connect(url: string, protocols: string[]): Promise<number> {
+    // ============ Network Policy Check (Phase 2 Security) ============
+    const decision = networkPolicy.evaluate(url, 'WEBSOCKET');
+    if (decision === 'deny') {
+        return Promise.reject(`WebSocket connection denied by policy: ${url}`);
+    }
+    if (decision === 'prompt') {
+        // No interactive approval handler for WebSocket yet — most WS connections
+        // go through localhost (MCP servers) which is always allowed.
+        return Promise.reject(`WebSocket connection requires approval: ${url}`);
+    }
+
     const handle = nextHandle++;
 
     return new Promise<number>((resolve, reject) => {

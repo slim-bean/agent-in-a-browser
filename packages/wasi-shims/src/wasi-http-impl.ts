@@ -3,6 +3,8 @@ import { InputStream, OutputStream, ReadyPollable } from './streams';
 // Import JSPI detection for automatic sync mode
 import { hasJSPI } from './execution-mode';
 import { resourceRegistry } from './resource-registry.js';
+// Phase 2 security: network domain policy
+import { getNetworkPolicy, type Decision as NetworkDecision } from './network-policy.js';
 
 // Type for WASM Result-like return values
 type WasmResult<T> = { tag: 'ok'; val: T } | { tag: 'err'; val: unknown };
@@ -264,6 +266,21 @@ export function createSyncStreamingInputStreamFromChunks(
 function shouldIntercept(url: string): boolean {
     // Intercept localhost MCP calls
     return url.includes('localhost') && url.includes('/mcp');
+}
+
+// ============ Network Policy (Phase 2 Security) ============
+
+const networkPolicy = getNetworkPolicy();
+
+export type NetworkApprovalHandler = (
+    url: string,
+    method: string,
+) => Promise<'allow' | 'deny' | 'allow-session'>;
+
+let networkApprovalHandler: NetworkApprovalHandler | null = null;
+
+export function setNetworkApprovalHandler(handler: NetworkApprovalHandler): void {
+    networkApprovalHandler = handler;
 }
 
 // ============ CORS Proxy Configuration ============
@@ -1395,6 +1412,75 @@ export const outgoingHandler = {
         // Get the request body
         const bodyBytes = request.getBodyBytes();
         const body = bodyBytes.length > 0 ? bodyBytes : null;
+
+        // ============ Network Policy Check (Phase 2 Security) ============
+        const policyDecision: NetworkDecision = networkPolicy.evaluate(url, method);
+        if (policyDecision === 'deny') {
+            const denyBody = new TextEncoder().encode(
+                JSON.stringify({ error: 'Request blocked by network policy', url })
+            );
+            return new FutureIncomingResponse({
+                status: 403,
+                headers: [['content-type', new TextEncoder().encode('application/json')]],
+                body: denyBody,
+            });
+        }
+        if (policyDecision === 'prompt') {
+            if (!networkApprovalHandler) {
+                // No handler registered — deny by default (safe default)
+                const denyBody = new TextEncoder().encode(
+                    JSON.stringify({ error: 'Request requires approval but no handler registered', url })
+                );
+                return new FutureIncomingResponse({
+                    status: 403,
+                    headers: [['content-type', new TextEncoder().encode('application/json')]],
+                    body: denyBody,
+                });
+            }
+            // Async approval — returns a FutureIncomingResponse wrapping the approval flow
+            const approvalPromise = (async (): Promise<{
+                status: number;
+                headers: [string, Uint8Array][];
+                body: Uint8Array;
+            }> => {
+                const approval = await networkApprovalHandler!(url, method);
+                if (approval === 'deny') {
+                    return {
+                        status: 403,
+                        headers: [['content-type', new TextEncoder().encode('application/json')]],
+                        body: new TextEncoder().encode(
+                            JSON.stringify({ error: 'Request denied by user', url })
+                        ),
+                    };
+                }
+                if (approval === 'allow-session') {
+                    networkPolicy.approveForSession(url);
+                }
+                // Approved — proceed with the actual request by re-invoking _handleInner.
+                // We temporarily mark the domain as session-approved so the recursive
+                // call will pass the policy check without prompting again.
+                if (approval === 'allow') {
+                    networkPolicy.approveForSession(url);
+                }
+                // Perform the actual fetch inline rather than recursing to avoid
+                // complexity with FutureIncomingResponse nesting.
+                const fetchBody: BodyInit | undefined = body
+                    ? body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer
+                    : undefined;
+                const fetchResponse = await fetch(url, {
+                    method,
+                    headers,
+                    body: fetchBody,
+                });
+                const respHeaders: [string, Uint8Array][] = [];
+                fetchResponse.headers.forEach((value, name) => {
+                    respHeaders.push([name, new TextEncoder().encode(value)]);
+                });
+                const respBody = new Uint8Array(await fetchResponse.arrayBuffer());
+                return { status: fetchResponse.status, headers: respHeaders, body: respBody };
+            })();
+            return new FutureIncomingResponse(approvalPromise);
+        }
 
         // ============ Synchronous Local MCP (wasm://) ============
         // For wasm:// URLs, use synchronous local MCP handler if available

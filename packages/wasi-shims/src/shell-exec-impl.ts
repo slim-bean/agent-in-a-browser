@@ -8,7 +8,13 @@
  * In the browser SharedWorker context, the handler delegates to the
  * MCP shell tool infrastructure. The host registers the handler via
  * `setExecHandler()` before creating any agent sessions.
+ *
+ * Phase 1 security: Commands are evaluated against a CommandPolicy before
+ * execution. Denied commands are blocked, unknown commands require user
+ * approval via an ApprovalHandler.
  */
+
+import { CommandPolicy } from './command-policy.js';
 
 // ============================================================================
 // Types matching the WIT interface
@@ -35,6 +41,29 @@ export type ExecHandler = (
     stdin: Uint8Array | undefined,
     timeoutMs: number | undefined,
 ) => Promise<ExecResult>;
+
+// ============================================================================
+// Approval handler for policy-prompted commands
+// ============================================================================
+
+export type ApprovalDecision = 'allow' | 'deny' | 'allow-session';
+
+export type ApprovalHandler = (
+    program: string,
+    args: string[],
+    env: ExecEnv,
+) => Promise<ApprovalDecision>;
+
+let approvalHandler: ApprovalHandler | null = null;
+const commandPolicy = new CommandPolicy();
+
+export function setApprovalHandler(handler: ApprovalHandler): void {
+    approvalHandler = handler;
+}
+
+export function getCommandPolicy(): CommandPolicy {
+    return commandPolicy;
+}
 
 // ============================================================================
 // Registerable handler
@@ -79,5 +108,41 @@ export async function exec(
         throw new Error('No shell exec handler registered. Call setExecHandler() before creating an agent.');
     }
 
+    // Phase 1 security: evaluate command against policy before execution
+    const decision = commandPolicy.evaluate(program, args);
+
+    if (decision === 'deny') {
+        return {
+            exitCode: 126, // "Command cannot execute"
+            stdout: new Uint8Array(),
+            stderr: new TextEncoder().encode(`Command denied by policy: ${program}`),
+        };
+    }
+
+    if (decision === 'prompt') {
+        if (!approvalHandler) {
+            // No approval handler = deny by default (safe default)
+            return {
+                exitCode: 126,
+                stdout: new Uint8Array(),
+                stderr: new TextEncoder().encode(
+                    `Command requires approval but no handler registered: ${program}`,
+                ),
+            };
+        }
+        const approval = await approvalHandler(program, args, env);
+        if (approval === 'deny') {
+            return {
+                exitCode: 126,
+                stdout: new Uint8Array(),
+                stderr: new TextEncoder().encode(`Command denied by user: ${program}`),
+            };
+        }
+        if (approval === 'allow-session') {
+            commandPolicy.approveForSession(program, args);
+        }
+    }
+
+    // Only reach here if allowed — proceed to execHandler
     return execHandler(program, args, env, stdin, timeoutMs);
 }
