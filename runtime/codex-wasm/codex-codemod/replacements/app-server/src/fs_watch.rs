@@ -26,7 +26,6 @@ impl FsWatchManager {
         params: FsWatchParams,
     ) -> Result<FsWatchResponse, JSONRPCErrorError> {
         Ok(FsWatchResponse {
-            watch_id: "noop".to_string(),
             path: params.path,
         })
     }

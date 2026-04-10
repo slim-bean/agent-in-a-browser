@@ -164,6 +164,12 @@ impl File {
     }
 }
 
+impl std::io::Read for File {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.inner.read(buf)
+    }
+}
+
 impl crate::io::AsyncRead for File {
     fn poll_read(
         mut self: std::pin::Pin<&mut Self>,

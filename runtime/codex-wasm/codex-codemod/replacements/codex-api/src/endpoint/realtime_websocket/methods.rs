@@ -9,7 +9,7 @@ use super::methods_common::{
 };
 use super::protocol::{
     parse_realtime_event, RealtimeAudioFrame, RealtimeEvent, RealtimeEventParser,
-    RealtimeOutboundMessage, RealtimeSessionConfig, RealtimeSessionMode,
+    RealtimeOutboundMessage, RealtimeSessionConfig, RealtimeSessionMode, RealtimeVoice,
 };
 use crate::error::ApiError;
 use crate::provider::Provider;
@@ -110,9 +110,11 @@ impl RealtimeWebsocketWriter {
         &self,
         instructions: String,
         session_mode: RealtimeSessionMode,
+        voice: RealtimeVoice,
     ) -> Result<(), ApiError> {
         let session_mode = normalized_session_mode(self.event_parser, session_mode);
-        let session = session_update_session(self.event_parser, instructions, session_mode);
+        let session =
+            session_update_session(self.event_parser, instructions, session_mode, voice);
         self.send_json(&RealtimeOutboundMessage::SessionUpdate { session })
             .await
     }
@@ -188,6 +190,17 @@ impl RealtimeWebsocketClient {
         Self { provider }
     }
 
+    pub async fn connect_webrtc_sideband(
+        &self,
+        config: RealtimeSessionConfig,
+        _call_id: &str,
+        sideband_headers: HeaderMap,
+        default_headers: HeaderMap,
+    ) -> Result<RealtimeWebsocketConnection, ApiError> {
+        // WebRTC sideband not supported in WASM — fall back to regular WS connect
+        self.connect(config, sideband_headers, default_headers).await
+    }
+
     pub async fn connect(
         &self,
         config: RealtimeSessionConfig,
@@ -237,7 +250,7 @@ impl RealtimeWebsocketClient {
         // Send initial session.update
         connection
             .writer
-            .send_session_update(config.instructions, config.session_mode)
+            .send_session_update(config.instructions, config.session_mode, config.voice)
             .await?;
 
         Ok(connection)

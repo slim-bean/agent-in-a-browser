@@ -56,14 +56,8 @@ pub struct ListToolsWithConnectorIdResult {
     pub tools: Vec<ToolWithConnectorId>,
 }
 
-/// OAuth credential storage mode.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
-pub enum OAuthCredentialsStoreMode {
-    #[default]
-    Auto,
-    File,
-    Keyring,
-}
+/// OAuth credential storage mode — re-exported from codex_config to ensure type identity.
+pub use codex_config::types::OAuthCredentialsStoreMode;
 
 /// Stored OAuth tokens.
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -232,6 +232,10 @@ const STRIP_DEPS: &[&str] = &[
     "tar",
     // fd-lock — OS-specific file locking, doesn't compile for wasm32
     "fd-lock",
+    // whoami — uses unstable std::os::wasi feature, not needed in WASM
+    "whoami",
+    // gethostname — doesn't compile for wasm32-wasip2 (missing platform implementation)
+    "gethostname",
 ];
 
 /// Crates to KEEP in workspace members. Everything else is stripped.
@@ -288,6 +292,7 @@ const KEEP_WORKSPACE_MEMBERS: &[&str] = &[
     "rollout",
     "sandboxing",
     "tools",
+    "account",
     // Phase 2 deps
     "ansi-escape",
     "async-utils",

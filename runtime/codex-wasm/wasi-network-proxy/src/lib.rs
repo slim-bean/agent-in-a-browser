@@ -190,6 +190,7 @@ impl NetworkProxy {
     pub fn allow_local_binding(&self) -> bool { false }
     pub fn allow_unix_sockets(&self) -> &[String] { &[] }
     pub fn dangerously_allow_all_unix_sockets(&self) -> bool { false }
+    pub async fn replace_config_state(&self, _state: ConfigState) -> Result<()> { Ok(()) }
     pub async fn run(&self) -> Result<NetworkProxyHandle> { Ok(NetworkProxyHandle) }
 }
 

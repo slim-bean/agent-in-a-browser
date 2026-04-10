@@ -208,15 +208,92 @@ pub struct FileMetadata { pub is_directory: bool, pub is_file: bool, pub created
 pub struct ReadDirectoryEntry { pub file_name: String, pub is_directory: bool, pub is_file: bool }
 pub type FileSystemResult<T> = io::Result<T>;
 
+/// Stub SandboxPolicy — WASM has no sandbox policy enforcement.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SandboxPolicy;
+
 #[async_trait::async_trait]
 pub trait ExecutorFileSystem: Send + Sync {
     async fn read_file(&self, path: &codex_utils_absolute_path::AbsolutePathBuf) -> FileSystemResult<Vec<u8>>;
+
+    /// Reads a file and decodes it as UTF-8 text.
+    async fn read_file_text(&self, path: &codex_utils_absolute_path::AbsolutePathBuf) -> FileSystemResult<String> {
+        let bytes = self.read_file(path).await?;
+        String::from_utf8(bytes).map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))
+    }
+
+    async fn read_file_with_sandbox_policy(
+        &self,
+        path: &codex_utils_absolute_path::AbsolutePathBuf,
+        _sandbox_policy: Option<&SandboxPolicy>,
+    ) -> FileSystemResult<Vec<u8>> {
+        self.read_file(path).await
+    }
+
     async fn write_file(&self, path: &codex_utils_absolute_path::AbsolutePathBuf, contents: Vec<u8>) -> FileSystemResult<()>;
+
+    async fn write_file_with_sandbox_policy(
+        &self,
+        path: &codex_utils_absolute_path::AbsolutePathBuf,
+        contents: Vec<u8>,
+        _sandbox_policy: Option<&SandboxPolicy>,
+    ) -> FileSystemResult<()> {
+        self.write_file(path, contents).await
+    }
+
     async fn create_directory(&self, path: &codex_utils_absolute_path::AbsolutePathBuf, options: CreateDirectoryOptions) -> FileSystemResult<()>;
+
+    async fn create_directory_with_sandbox_policy(
+        &self,
+        path: &codex_utils_absolute_path::AbsolutePathBuf,
+        create_directory_options: CreateDirectoryOptions,
+        _sandbox_policy: Option<&SandboxPolicy>,
+    ) -> FileSystemResult<()> {
+        self.create_directory(path, create_directory_options).await
+    }
+
     async fn get_metadata(&self, path: &codex_utils_absolute_path::AbsolutePathBuf) -> FileSystemResult<FileMetadata>;
+
+    async fn get_metadata_with_sandbox_policy(
+        &self,
+        path: &codex_utils_absolute_path::AbsolutePathBuf,
+        _sandbox_policy: Option<&SandboxPolicy>,
+    ) -> FileSystemResult<FileMetadata> {
+        self.get_metadata(path).await
+    }
+
     async fn read_directory(&self, path: &codex_utils_absolute_path::AbsolutePathBuf) -> FileSystemResult<Vec<ReadDirectoryEntry>>;
+
+    async fn read_directory_with_sandbox_policy(
+        &self,
+        path: &codex_utils_absolute_path::AbsolutePathBuf,
+        _sandbox_policy: Option<&SandboxPolicy>,
+    ) -> FileSystemResult<Vec<ReadDirectoryEntry>> {
+        self.read_directory(path).await
+    }
+
     async fn remove(&self, path: &codex_utils_absolute_path::AbsolutePathBuf, options: RemoveOptions) -> FileSystemResult<()>;
+
+    async fn remove_with_sandbox_policy(
+        &self,
+        path: &codex_utils_absolute_path::AbsolutePathBuf,
+        remove_options: RemoveOptions,
+        _sandbox_policy: Option<&SandboxPolicy>,
+    ) -> FileSystemResult<()> {
+        self.remove(path, remove_options).await
+    }
+
     async fn copy(&self, source: &codex_utils_absolute_path::AbsolutePathBuf, dest: &codex_utils_absolute_path::AbsolutePathBuf, options: CopyOptions) -> FileSystemResult<()>;
+
+    async fn copy_with_sandbox_policy(
+        &self,
+        source_path: &codex_utils_absolute_path::AbsolutePathBuf,
+        destination_path: &codex_utils_absolute_path::AbsolutePathBuf,
+        copy_options: CopyOptions,
+        _sandbox_policy: Option<&SandboxPolicy>,
+    ) -> FileSystemResult<()> {
+        self.copy(source_path, destination_path, copy_options).await
+    }
 }
 
 /// Global exec backend, set once at component startup via `set_exec_backend()`.
@@ -242,8 +319,15 @@ pub struct EnvironmentManager {
 impl EnvironmentManager {
     pub fn new(exec_server_url: Option<String>) -> Self { Self { exec_server_url } }
     pub fn from_env() -> Self { Self::new(std::env::var("CODEX_EXEC_SERVER_URL").ok()) }
+    pub fn from_environment(environment: Option<&Environment>) -> Self {
+        match environment {
+            Some(env) => Self { exec_server_url: env.exec_server_url().map(str::to_owned) },
+            None => Self { exec_server_url: None },
+        }
+    }
     pub fn exec_server_url(&self) -> Option<&str> { self.exec_server_url.as_deref() }
-    pub async fn current(&self) -> Result<Arc<Environment>, ExecServerError> { Ok(Arc::new(Environment::create(self.exec_server_url.clone()).await?)) }
+    pub fn is_remote(&self) -> bool { self.exec_server_url.is_some() }
+    pub async fn current(&self) -> Result<Option<Arc<Environment>>, ExecServerError> { Ok(Some(Arc::new(Environment::create(self.exec_server_url.clone()).await?))) }
 }
 
 pub struct Environment {
@@ -256,6 +340,7 @@ impl Environment {
         // Always use "wasm-host" sentinel so upstream takes the remote exec path
         Ok(Self { exec_server_url: Some("wasm-host".to_string()) })
     }
+    pub fn is_remote(&self) -> bool { self.exec_server_url.is_some() }
     pub fn exec_server_url(&self) -> Option<&str> { self.exec_server_url.as_deref() }
     pub fn get_exec_backend(&self) -> Arc<dyn ExecBackend> { get_registered_backend() }
     pub fn get_filesystem(&self) -> Arc<dyn ExecutorFileSystem> { Arc::new(wasi_fs::WasiFs) }
@@ -303,6 +388,10 @@ pub const EXEC_WRITE_METHOD: &str = "process/write";
 pub const EXEC_TERMINATE_METHOD: &str = "process/terminate";
 pub const EXEC_OUTPUT_DELTA_METHOD: &str = "process/output";
 pub const EXEC_EXITED_METHOD: &str = "process/exited";
+
+/// Global LOCAL_FS instance used by apply-patch tests and standalone_executable.
+pub static LOCAL_FS: std::sync::LazyLock<Arc<dyn ExecutorFileSystem>> =
+    std::sync::LazyLock::new(|| Arc::new(wasi_fs::WasiFs));
 
 // Re-export FS types that codex-core may need (originally from codex-app-server-protocol)
 // These are defined inline since we stub the re-exports

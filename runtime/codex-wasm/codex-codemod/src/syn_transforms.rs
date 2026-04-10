@@ -1966,8 +1966,8 @@ impl<T> FileRwLock<T> {
         // --- codex-client/src/transport.rs: replace zstd with no-op ---
         self.string_replace(
             "codex-client/src/transport.rs",
-            "                    RequestCompression::Zstd => (\n                        zstd::stream::encode_all(std::io::Cursor::new(json), 3)\n                            .map_err(|err| TransportError::Build(err.to_string()))?,\n                        http::HeaderValue::from_static(\"zstd\"),\n                    ),",
-            "                    RequestCompression::Zstd => (\n                        json,\n                        http::HeaderValue::from_static(\"identity\"),\n                    ),",
+            "                        RequestCompression::Zstd => (\n                            zstd::stream::encode_all(std::io::Cursor::new(json), 3)\n                                .map_err(|err| TransportError::Build(err.to_string()))?,\n                            http::HeaderValue::from_static(\"zstd\"),\n                        ),",
+            "                        RequestCompression::Zstd => (\n                            json,\n                            http::HeaderValue::from_static(\"identity\"),\n                        ),",
         );
 
         // --- core/src/skills/remote.rs: stub zip extraction ---
@@ -2380,8 +2380,8 @@ impl<T> FileRwLock<T> {
         if !self.file_matches("codex-client/src/transport.rs") {
             return;
         }
-        let needle = "RequestCompression::Zstd => (\n                        zstd::stream::encode_all(std::io::Cursor::new(json), 3)\n                            .map_err(|err| TransportError::Build(err.to_string()))?,\n                        http::HeaderValue::from_static(\"zstd\"),\n                    ),";
-        let replacement = "RequestCompression::Zstd => (\n                        json,\n                        http::HeaderValue::from_static(\"identity\"),\n                    ),";
+        let needle = "RequestCompression::Zstd => (\n                            zstd::stream::encode_all(std::io::Cursor::new(json), 3)\n                                .map_err(|err| TransportError::Build(err.to_string()))?,\n                            http::HeaderValue::from_static(\"zstd\"),\n                        ),";
+        let replacement = "RequestCompression::Zstd => (\n                            json,\n                            http::HeaderValue::from_static(\"identity\"),\n                        ),";
         if let Some((start, end)) = self.find_source_range(needle) {
             self.edits.push(Edit {
                 start,

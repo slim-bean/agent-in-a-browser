@@ -559,6 +559,8 @@ pub mod config {
 }
 
 /// Metrics module — no-op stubs.
+/// Re-export all metrics types at crate root (matches upstream `pub use crate::metrics::*;`).
+pub use metrics::*;
 pub mod metrics {
     use std::time::Duration;
 
@@ -636,6 +638,9 @@ pub mod metrics {
     pub fn global() -> Option<MetricsClient> {
         None
     }
+
+    /// Re-export metric name constants at the metrics module level (matches upstream).
+    pub use names::*;
 
     /// Metric name constants.
     pub mod names {

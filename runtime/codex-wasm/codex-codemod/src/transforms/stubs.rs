@@ -20,8 +20,11 @@ pub fn transforms() -> Vec<Transform> {
         Transform::StubModule {
             file_name: "windows_sandbox_tests.rs",
         },
-        Transform::StubModule {
-            file_name: "windows_sandbox_read_grants.rs",
+        Transform::ReplaceFile {
+            path_suffix: "core/src/windows_sandbox_read_grants.rs",
+            content: include_str!(
+                "../../replacements/core/src/windows_sandbox_read_grants.rs"
+            ),
         },
         Transform::StubModule {
             file_name: "windows_sandbox_read_grants_tests.rs",
@@ -74,6 +77,10 @@ pub fn transforms() -> Vec<Transform> {
         Transform::ReplaceFile {
             path_suffix: "core/src/windows_sandbox.rs",
             content: include_str!("../../replacements/core/src/windows_sandbox.rs"),
+        },
+        Transform::ReplaceFile {
+            path_suffix: "core/src/realtime_prompt.rs",
+            content: include_str!("../../replacements/core/src/realtime_prompt.rs"),
         },
         Transform::ReplaceFile {
             path_suffix: "core/src/otel_init.rs",
@@ -143,10 +150,22 @@ pub fn transforms() -> Vec<Transform> {
             path_suffix: "app-server/src/app_server_tracing.rs",
             content: include_str!("../../replacements/app-server/src/app_server_tracing.rs"),
         },
+        // App-server remote_control stub (depends on axum, gethostname, etc.)
+        Transform::ReplaceFile {
+            path_suffix: "app-server/src/transport/remote_control/mod.rs",
+            content: include_str!(
+                "../../replacements/app-server/src/transport/remote_control/mod.rs"
+            ),
+        },
         // App-server-client remote transport stub
         Transform::ReplaceFile {
             path_suffix: "app-server-client/src/remote.rs",
             content: include_str!("../../replacements/app-server-client/src/remote.rs"),
+        },
+        // State migrations.rs — wasi-sqlx Migrator has different fields than real sqlx
+        Transform::ReplaceFile {
+            path_suffix: "state/src/migrations.rs",
+            content: include_str!("../../replacements/state/src/migrations.rs"),
         },
         // Core-skills remote download stub (depends on zip crate)
         Transform::ReplaceFile {

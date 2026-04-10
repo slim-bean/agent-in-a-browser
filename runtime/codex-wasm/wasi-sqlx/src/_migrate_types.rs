@@ -35,6 +35,15 @@ impl Migrator {
         }
     }
 
+    /// Clone a static Migrator. Used by the state crate's `runtime_migrator`
+    /// which upstream constructs by copying fields from a static Migrator.
+    pub fn clone_static(&'static self) -> Self {
+        Self {
+            embedded: self.embedded,
+            dir: self.dir,
+        }
+    }
+
     /// Run all pending migrations against the pool.
     pub async fn run(&self, pool: &SqlitePool) -> Result<(), Error> {
         pool.with_conn(|conn| {

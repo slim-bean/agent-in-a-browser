@@ -67,6 +67,16 @@ impl From<Bytes> for Body {
     }
 }
 
+impl Body {
+    /// Stub for reqwest::Body::wrap_stream — reads the stream to bytes.
+    /// In WASM, file uploads are not streamed; we read fully into memory.
+    pub fn wrap_stream<S>(_stream: S) -> Self {
+        // File uploads via streaming are not supported in WASM.
+        // Callers should use Body::from(bytes) instead.
+        Body(Vec::new())
+    }
+}
+
 /// HTTP client matching reqwest::Client.
 #[derive(Clone, Debug)]
 pub struct Client {

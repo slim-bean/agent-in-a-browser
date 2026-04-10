@@ -14,6 +14,11 @@ impl Migrator {
         Self { dir }
     }
 
+    /// Returns the migration directory path.
+    pub fn dir(&self) -> &'static str {
+        self.dir
+    }
+
     /// Run all pending migrations against the pool.
     pub async fn run(&self, pool: &SqlitePool) -> Result<(), Error> {
         pool.with_conn(|conn| {

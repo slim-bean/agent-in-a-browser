@@ -1,8 +1,8 @@
 //! Stub — Windows sandbox for wasip2.
 #![allow(dead_code, unused_variables, unused_imports)]
 use crate::config::Config;
-use crate::config::ConfigToml;
-use crate::config::profile::ConfigProfile;
+use codex_config::config_toml::ConfigToml;
+use codex_config::profile_toml::ConfigProfile;
 use codex_config::types::WindowsSandboxModeToml;
 use codex_protocol::config_types::WindowsSandboxLevel;
 

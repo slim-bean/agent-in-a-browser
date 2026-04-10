@@ -37,6 +37,7 @@ use codex_arg0::Arg0DispatchPaths;
 use codex_core::config::Config;
 use codex_core::config::ConfigBuilder;
 use codex_core::config_loader::{CloudRequirementsLoader, LoaderOverrides};
+use codex_exec_server::EnvironmentManager;
 use codex_feedback::CodexFeedback;
 use codex_protocol::protocol::SessionSource;
 
@@ -233,6 +234,7 @@ impl Guest for CodexAppServer {
                 loader_overrides: LoaderOverrides::default(),
                 cloud_requirements: CloudRequirementsLoader::default(),
                 feedback,
+                environment_manager: Arc::new(EnvironmentManager::from_env()),
                 config_warnings,
                 session_source: SessionSource::Cli,
                 enable_codex_api_key_env: true,
