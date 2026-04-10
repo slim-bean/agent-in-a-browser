@@ -2001,38 +2001,38 @@ impl<T> FileRwLock<T> {
 
         // --- tui/src/lib.rs: trace/yield injections (gated by --diag-traces) ---
         if diag_traces_enabled() {
-        self.string_replace(
+            self.string_replace(
             "tui/src/lib.rs",
             "    let codex_home = match find_codex_home() {",
             "    console_log::console_log!(\"[tui-trace] before find_codex_home\");\n    tokio::time::sleep(std::time::Duration::from_millis(1)).await;\n    let codex_home = match find_codex_home() {",
         );
-        self.string_replace(
+            self.string_replace(
             "tui/src/lib.rs",
             "    let config_toml = match load_config_as_toml_with_cli_overrides(",
             "    console_log::console_log!(\"[tui-trace] before load_config_toml\");\n    tokio::time::sleep(std::time::Duration::from_millis(1)).await;\n    let config_toml = match load_config_as_toml_with_cli_overrides(",
         );
-        self.string_replace(
+            self.string_replace(
             "tui/src/lib.rs",
             "    color_eyre::install()?;",
             "    console_log::console_log!(\"[tui-trace] before color_eyre::install\");\n    tokio::time::sleep(std::time::Duration::from_millis(1)).await;\n    let _ = color_eyre::install();",
         );
-        self.string_replace(
+            self.string_replace(
             "tui/src/lib.rs",
             "    let mut terminal = tui::init()?;",
             "    console_log::console_log!(\"[tui-trace] before tui::init\");\n    tokio::time::sleep(std::time::Duration::from_millis(1)).await;\n    let mut terminal = tui::init()?;\n    console_log::console_log!(\"[tui-trace] tui::init done\");",
         );
-        self.string_replace(
+            self.string_replace(
             "tui/src/lib.rs",
             "    let mut tui = Tui::new(terminal);",
             "    console_log::console_log!(\"[tui-trace] before Tui::new\");\n    tokio::time::sleep(std::time::Duration::from_millis(1)).await;\n    let mut tui = Tui::new(terminal);\n    console_log::console_log!(\"[tui-trace] Tui::new done\");\n    tokio::time::sleep(std::time::Duration::from_millis(1)).await;",
         );
-        // [stale] auth_manager/login_status traces removed — upstream refactored auth init
-        self.string_replace(
+            // [stale] auth_manager/login_status traces removed — upstream refactored auth init
+            self.string_replace(
             "tui/src/lib.rs",
             "    let should_show_onboarding =\n        should_show_onboarding(login_status, &initial_config, should_show_trust_screen_flag);",
             "    let should_show_onboarding =\n        should_show_onboarding(login_status, &initial_config, should_show_trust_screen_flag);\n    console_log::console_log!(\"[tui-trace] should_show_onboarding: {should_show_onboarding}\");",
         );
-        self.string_replace(
+            self.string_replace(
             "tui/src/lib.rs",
             "    let use_alt_screen = determine_alt_screen_mode(no_alt_screen, config.tui_alternate_screen);",
             "    console_log::console_log!(\"[tui-trace] before App::run\");\n    let use_alt_screen = determine_alt_screen_mode(no_alt_screen, config.tui_alternate_screen);",
@@ -2057,7 +2057,7 @@ impl<T> FileRwLock<T> {
         // --- tui/src/app.rs: trace injections (gated by --diag-traces) ---
         // [stale] model = thread_manager trace removed — upstream refactored model fetching
         if diag_traces_enabled() {
-        self.string_replace(
+            self.string_replace(
             "tui/src/app.rs",
             "        let enhanced_keys_supported = tui.enhanced_keys_supported();",
             "        console_log::console_log!(\"[tui-trace] App::run creating ChatWidget...\");\n        let enhanced_keys_supported = tui.enhanced_keys_supported();",
@@ -2219,94 +2219,92 @@ impl<T> FileRwLock<T> {
         // Gated by --diag-traces flag
         // =====================================================================
         if diag_traces_enabled() {
-
-        // --- core/src/codex.rs: trace before Session::new ---
-        self.string_replace(
+            // --- core/src/codex.rs: trace before Session::new ---
+            self.string_replace(
             "core/src/codex.rs",
             "        let session = Session::new(\n            session_configuration,\n            config.clone(),\n            auth_manager.clone(),\n            models_manager.clone(),",
             "        console_log::console_log!(\"[diag-trace] codex.rs: BEFORE Session::new\");\n        let session = Session::new(\n            session_configuration,\n            config.clone(),\n            auth_manager.clone(),\n            models_manager.clone(),",
         );
 
-        // --- core/src/codex.rs: trace after Session::new, before submission_loop spawn ---
-        self.string_replace(
+            // --- core/src/codex.rs: trace after Session::new, before submission_loop spawn ---
+            self.string_replace(
             "core/src/codex.rs",
             "        let thread_id = session.conversation_id;\n\n        // This task will run until Op::Shutdown is received.\n        let session_for_loop = Arc::clone(&session);\n        let session_loop_handle = tokio::spawn(async move {\n            submission_loop(session_for_loop, config, rx_sub)",
             "        let thread_id = session.conversation_id;\n        console_log::console_log!(\"[diag-trace] codex.rs: Session::new DONE, thread_id={}\", thread_id);\n\n        // This task will run until Op::Shutdown is received.\n        let session_for_loop = Arc::clone(&session);\n        console_log::console_log!(\"[diag-trace] codex.rs: BEFORE spawning submission_loop\");\n        let session_loop_handle = tokio::spawn(async move {\n            console_log::console_log!(\"[diag-trace] codex.rs: submission_loop task STARTED\");\n            submission_loop(session_for_loop, config, rx_sub)",
         );
 
-        // --- core/src/codex.rs: trace at start of submission_loop ---
-        self.string_replace(
+            // --- core/src/codex.rs: trace at start of submission_loop ---
+            self.string_replace(
             "core/src/codex.rs",
             "async fn submission_loop(sess: Arc<Session>, config: Arc<Config>, rx_sub: Receiver<Submission>) {\n    // To break out of this loop, send Op::Shutdown.\n    while let Ok(sub) = rx_sub.recv().await {",
             "async fn submission_loop(sess: Arc<Session>, config: Arc<Config>, rx_sub: Receiver<Submission>) {\n    console_log::console_log!(\"[diag-trace] codex.rs: submission_loop ENTERED, waiting for first Op\");\n    // To break out of this loop, send Op::Shutdown.\n    while let Ok(sub) = rx_sub.recv().await {\n        console_log::console_log!(\"[diag-trace] codex.rs: submission_loop received op: {:?}\", sub.op);",
         );
 
-        // --- core/src/codex.rs: trace SessionConfigured dispatch ---
-        self.string_replace(
+            // --- core/src/codex.rs: trace SessionConfigured dispatch ---
+            self.string_replace(
             "core/src/codex.rs",
             "        // Dispatch the SessionConfiguredEvent first and then report any errors.\n        // If resuming, include converted initial messages in the payload so UIs can render them immediately.\n        let initial_messages = initial_history.get_event_msgs();",
             "        console_log::console_log!(\"[diag-trace] codex.rs: Session::new ABOUT TO dispatch SessionConfigured\");\n        // Dispatch the SessionConfiguredEvent first and then report any errors.\n        // If resuming, include converted initial messages in the payload so UIs can render them immediately.\n        let initial_messages = initial_history.get_event_msgs();",
         );
 
-        // --- core/src/codex.rs: trace after SessionConfigured events sent ---
-        self.string_replace(
+            // --- core/src/codex.rs: trace after SessionConfigured events sent ---
+            self.string_replace(
             "core/src/codex.rs",
             "        // Start the watcher after SessionConfigured so it cannot emit earlier events.\n        sess.start_skills_watcher_listener();",
             "        console_log::console_log!(\"[diag-trace] codex.rs: SessionConfigured events SENT\");\n        // Start the watcher after SessionConfigured so it cannot emit earlier events.\n        sess.start_skills_watcher_listener();",
         );
 
-        // --- core/src/thread_manager.rs: trace spawn_thread_with_source ---
-        self.string_replace(
+            // --- core/src/thread_manager.rs: trace spawn_thread_with_source ---
+            self.string_replace(
             "core/src/thread_manager.rs",
             "    pub(crate) async fn spawn_thread_with_source(\n        &self,\n        config: Config,\n        initial_history: InitialHistory,",
             "    pub(crate) async fn spawn_thread_with_source(\n        &self,\n        config: Config,\n        initial_history: InitialHistory,\n        // diag-trace injected below",
         );
-        self.string_replace(
-            "core/src/thread_manager.rs",
-            "        // diag-trace injected below\n        auth_manager: Arc<AuthManager>,",
-            "        auth_manager: Arc<AuthManager>,",
-        );
-        self.string_replace(
+            self.string_replace(
+                "core/src/thread_manager.rs",
+                "        // diag-trace injected below\n        auth_manager: Arc<AuthManager>,",
+                "        auth_manager: Arc<AuthManager>,",
+            );
+            self.string_replace(
             "core/src/thread_manager.rs",
             "        let watch_registration = self.skills_watcher.register_config(\n            &config,\n            self.skills_manager.as_ref(),\n            self.plugins_manager.as_ref(),\n        );\n        let CodexSpawnOk {",
             "        console_log::console_log!(\"[diag-trace] thread_manager.rs: spawn_thread_with_source ENTERED\");\n        let watch_registration = self.skills_watcher.register_config(\n            &config,\n            self.skills_manager.as_ref(),\n            self.plugins_manager.as_ref(),\n        );\n        let CodexSpawnOk {",
         );
 
-        // --- core/src/thread_manager.rs: trace after Codex::spawn in spawn_thread_with_source ---
-        self.string_replace(
+            // --- core/src/thread_manager.rs: trace after Codex::spawn in spawn_thread_with_source ---
+            self.string_replace(
             "core/src/thread_manager.rs",
             "        .await?;\n        self.finalize_thread_spawn(codex, thread_id, watch_registration)\n            .await\n    }\n\n    async fn finalize_thread_spawn(",
             "        .await?;\n        console_log::console_log!(\"[diag-trace] thread_manager.rs: Codex::spawn DONE, calling finalize_thread_spawn\");\n        self.finalize_thread_spawn(codex, thread_id, watch_registration)\n            .await\n    }\n\n    async fn finalize_thread_spawn(",
         );
 
-        // --- core/src/thread_manager.rs: trace in finalize_thread_spawn ---
-        self.string_replace(
+            // --- core/src/thread_manager.rs: trace in finalize_thread_spawn ---
+            self.string_replace(
             "core/src/thread_manager.rs",
             "        let event = codex.next_event().await?;\n        let session_configured = match event {",
             "        console_log::console_log!(\"[diag-trace] thread_manager.rs: finalize_thread_spawn waiting for next_event (SessionConfigured)\");\n        let event = codex.next_event().await?;\n        console_log::console_log!(\"[diag-trace] thread_manager.rs: finalize_thread_spawn GOT event\");\n        let session_configured = match event {",
         );
 
-        // --- tui/src/chatwidget/agent.rs: trace before start_thread ---
-        self.string_replace(
+            // --- tui/src/chatwidget/agent.rs: trace before start_thread ---
+            self.string_replace(
             "tui/src/chatwidget/agent.rs",
             "        } = match server.start_thread(config).await {",
             "        } = match {\n            console_log::console_log!(\"[diag-trace] agent.rs: BEFORE server.start_thread\");\n            server.start_thread(config).await\n        } {",
         );
 
-        // --- tui/src/chatwidget/agent.rs: trace after start_thread, before SessionConfigured send ---
-        self.string_replace(
+            // --- tui/src/chatwidget/agent.rs: trace after start_thread, before SessionConfigured send ---
+            self.string_replace(
             "tui/src/chatwidget/agent.rs",
             "        initialize_app_server_client_name(thread.as_ref()).await;\n\n        // Forward the captured `SessionConfigured` event so it can be rendered in the UI.\n        let ev = codex_protocol::protocol::Event {\n            // The `id` does not matter for rendering, so we can use a fake value.\n            id: \"\".to_string(),\n            msg: codex_protocol::protocol::EventMsg::SessionConfigured(session_configured),\n        };\n        app_event_tx_clone.send(AppEvent::CodexEvent(ev));",
             "        console_log::console_log!(\"[diag-trace] agent.rs: start_thread DONE, initializing client name\");\n        initialize_app_server_client_name(thread.as_ref()).await;\n        console_log::console_log!(\"[diag-trace] agent.rs: client name set, forwarding SessionConfigured to UI\");\n\n        // Forward the captured `SessionConfigured` event so it can be rendered in the UI.\n        let ev = codex_protocol::protocol::Event {\n            // The `id` does not matter for rendering, so we can use a fake value.\n            id: \"\".to_string(),\n            msg: codex_protocol::protocol::EventMsg::SessionConfigured(session_configured),\n        };\n        app_event_tx_clone.send(AppEvent::CodexEvent(ev));\n        console_log::console_log!(\"[diag-trace] agent.rs: SessionConfigured SENT to UI\");",
         );
 
-        // --- tui/src/chatwidget/agent.rs: trace op forwarding start ---
-        self.string_replace(
+            // --- tui/src/chatwidget/agent.rs: trace op forwarding start ---
+            self.string_replace(
             "tui/src/chatwidget/agent.rs",
             "        let thread_clone = thread.clone();\n        tokio::spawn(async move {\n            while let Some(op) = codex_op_rx.recv().await {\n                let id = thread_clone.submit(op).await;",
             "        console_log::console_log!(\"[diag-trace] agent.rs: spawning op-forwarding loop\");\n        let thread_clone = thread.clone();\n        tokio::spawn(async move {\n            console_log::console_log!(\"[diag-trace] agent.rs: op-forwarding loop STARTED, waiting for ops\");\n            while let Some(op) = codex_op_rx.recv().await {\n                console_log::console_log!(\"[diag-trace] agent.rs: op-forwarding received op, submitting\");\n                let id = thread_clone.submit(op).await;",
         );
-
         } // end --diag-traces session initialization section
 
         // [stale] event delivery traces removed — upstream refactored event handling

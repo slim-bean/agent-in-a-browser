@@ -121,7 +121,9 @@ impl<T, D> FramedRead<T, D> {
     }
 }
 
-impl<T: tokio::io::AsyncRead + Unpin, D: Decoder + Unpin> futures_core::Stream for FramedRead<T, D> {
+impl<T: tokio::io::AsyncRead + Unpin, D: Decoder + Unpin> futures_core::Stream
+    for FramedRead<T, D>
+{
     type Item = Result<D::Item, D::Error>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -258,6 +260,8 @@ impl<T: tokio::io::AsyncWrite + Unpin, Item, E: Encoder<Item> + Unpin> futures_s
                 Poll::Pending => return Poll::Pending,
             }
         }
-        Pin::new(&mut this.inner).poll_shutdown(cx).map_err(Into::into)
+        Pin::new(&mut this.inner)
+            .poll_shutdown(cx)
+            .map_err(Into::into)
     }
 }
