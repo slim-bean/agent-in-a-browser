@@ -23,6 +23,26 @@ tasks:
       - "runtime:build-codex-tui"
       - "mcp-wasm-server:transpile-sync"
 
+  transpile-app-server:
+    command: "node ../scripts/transpile.mjs codex-wasm-app-server"
+    deps:
+      - "runtime:build-codex-app-server"
+    inputs:
+      - "/target/wasm32-wasip2/release/codex_wasm_app_server.wasm"
+      - "/scripts/transpile.mjs"
+    outputs:
+      - "src/wasm/codex-app-server"
+
+  transpile-app-server-sync:
+    command: "node ../scripts/transpile.mjs codex-wasm-app-server --sync"
+    deps:
+      - "runtime:build-codex-app-server"
+    inputs:
+      - "/target/wasm32-wasip2/release/codex_wasm_app_server.wasm"
+      - "/scripts/transpile.mjs"
+    outputs:
+      - "src/wasm/codex-app-server-sync"
+
   copy-pyodide:
     command: "node ../scripts/copy-pyodide.mjs"
     inputs:
@@ -57,6 +77,8 @@ tasks:
       - "wasm-vim:transpile-sync"
       - "wasm-git:transpile"
       - "wasm-git:transpile-sync"
+      - "~:transpile-app-server"
+      - "~:transpile-app-server-sync"
 
   # Copy non-Vite assets into dist/ that the app expects at runtime.
   # stripe.wasm is included here for local dev (`vite dev`) and E2E tests

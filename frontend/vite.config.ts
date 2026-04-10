@@ -132,6 +132,10 @@ export default defineConfig(({ mode }) => ({
             '@tjfontaine/wasi-shims/audio-impl.js',
             // Console logging shim
             '@tjfontaine/wasi-shims/console-logging-impl.js',
+            // Event sink shim (codex-app-server)
+            '@tjfontaine/wasi-shims/event-sink-impl.js',
+            // Credential store shim
+            '@tjfontaine/wasi-shims/credential-store-impl.js',
         ],
     },
     server: {
@@ -326,6 +330,8 @@ export default defineConfig(({ mode }) => ({
                     '@tjfontaine/wasi-shims/clipboard-impl.js': '/wasi-shims/clipboard-impl.js',
                     '@tjfontaine/wasi-shims/audio-impl.js': '/wasi-shims/audio-impl.js',
                     '@tjfontaine/wasi-shims/console-logging-impl.js': '/wasi-shims/console-logging-impl.js',
+                    '@tjfontaine/wasi-shims/event-sink-impl.js': '/wasi-shims/event-sink-impl.js',
+                    '@tjfontaine/wasi-shims/credential-store-impl.js': '/wasi-shims/credential-store-impl.js',
                     '@tjfontaine/wasm-loader': '/wasm-loader/index.js',
                 },
             },
@@ -333,7 +339,12 @@ export default defineConfig(({ mode }) => ({
     },
 
     optimizeDeps: {
-        exclude: ['@wasmer/sdk'],
+        exclude: [
+            '@wasmer/sdk',
+            // Codex app-server WASM modules (transpiled by JCO, loaded at runtime)
+            './src/wasm/codex-app-server',
+            './src/wasm/codex-app-server-sync',
+        ],
         // Include shim packages to ensure single module instance across all imports
         // This prevents Vite from serving separate module instances which would break instanceof checks
         include: [
@@ -353,6 +364,7 @@ export default defineConfig(({ mode }) => ({
             input: {
                 main: 'index.html',
                 'mcp-bridge': 'mcp-bridge.html',
+                'app-server': 'app-server.html',
             },
             // Mark wasi-shims as external to prevent Rollup from inlining
             // This ensures a single shared module instance at runtime,
@@ -415,6 +427,8 @@ export default defineConfig(({ mode }) => ({
                     '@tjfontaine/wasi-shims/clipboard-impl.js': '/wasi-shims/clipboard-impl.js',
                     '@tjfontaine/wasi-shims/audio-impl.js': '/wasi-shims/audio-impl.js',
                     '@tjfontaine/wasi-shims/console-logging-impl.js': '/wasi-shims/console-logging-impl.js',
+                    '@tjfontaine/wasi-shims/event-sink-impl.js': '/wasi-shims/event-sink-impl.js',
+                    '@tjfontaine/wasi-shims/credential-store-impl.js': '/wasi-shims/credential-store-impl.js',
                 },
             },
         },

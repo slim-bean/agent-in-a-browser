@@ -65,6 +65,8 @@ pub fn merge_connectors_with_accessible(
         },
         // [codex-codemod-wasm-time] - Timezone/local_time offset is not supported in WASI Preview 2.
         // Replace now_local() with now_utc() to prevent panics during session creation.
+        // Note: InProcessAppServerRequestHandle already has notify/resolve/reject methods
+        // upstream (added ~2026-04). No codemod needed for these.
         Transform::ReplaceFirst {
             path_suffix: "rollout/src/recorder.rs",
             find: r#"    let timestamp = OffsetDateTime::now_local()

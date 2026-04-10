@@ -1,0 +1,249 @@
+package codex:app-server@0.1.0;
+
+/// Shell execution interface — the host (browser SharedWorker) runs commands
+/// via its MCP shell tool infrastructure and returns captured output.
+interface shell-exec {
+    /// Environment for command execution.
+    record exec-env {
+        /// Working directory.
+        cwd: string,
+        /// Environment variables (key-value pairs).
+        vars: list<tuple<string, string>>,
+    }
+
+    /// Result of a command execution.
+    record exec-result {
+        /// Exit code (0 = success).
+        exit-code: s32,
+        /// Captured stdout bytes.
+        stdout: list<u8>,
+        /// Captured stderr bytes.
+        stderr: list<u8>,
+    }
+
+    /// Execute a command synchronously and return captured output.
+    exec: func(
+        program: string,
+        args: list<string>,
+        env: exec-env,
+        stdin: option<list<u8>>,
+        timeout-ms: option<u32>,
+    ) -> result<exec-result, string>;
+}
+
+/// WebSocket interface — the host (browser) opens native WebSocket connections
+/// and bridges text messages to/from WASM.
+interface websocket {
+    /// Open a WebSocket connection with optional subprotocols.
+    /// Returns a handle on success.
+    connect: func(url: string, protocols: list<string>) -> result<u32, string>;
+
+    /// Send a text message on the WebSocket.
+    send: func(handle: u32, data: string) -> result<_, string>;
+
+    /// Receive the next text message. Returns none when the connection is closed.
+    recv: func(handle: u32) -> result<option<string>, string>;
+
+    /// Close the WebSocket connection.
+    close: func(handle: u32);
+
+    /// Check if the connection is closed.
+    is-closed: func(handle: u32) -> bool;
+}
+
+/// Persistent PTY session interface — the host manages long-lived shell
+/// sessions that persist state (cwd, env vars, etc.) across calls.
+/// Models the ExecProcess trait from codex-exec-server.
+interface shell-pty {
+    /// Parameters to start a new PTY process.
+    record pty-start-params {
+        /// Unique process identifier (string form of the i32 process_id).
+        process-id: string,
+        /// Command argv (program + arguments).
+        argv: list<string>,
+        /// Working directory for the session.
+        cwd: string,
+        /// Environment variables (key-value pairs).
+        env: list<tuple<string, string>>,
+        /// Whether to allocate a TTY.
+        tty: bool,
+    }
+
+    /// Result of starting a PTY process.
+    record pty-start-result {
+        process-id: string,
+    }
+
+    /// Start a new persistent shell session.
+    start: func(params: pty-start-params) -> result<pty-start-result, string>;
+
+    /// A chunk of output with a sequence number.
+    record pty-output-chunk {
+        seq: u64,
+        data: list<u8>,
+    }
+
+    /// Result of reading output from a session.
+    record pty-read-result {
+        /// Output chunks since the requested sequence.
+        chunks: list<pty-output-chunk>,
+        /// Next sequence number to use for incremental reads.
+        next-seq: u64,
+        /// Whether the process has exited.
+        exited: bool,
+        /// Exit code if the process has exited.
+        exit-code: option<s32>,
+        /// Whether the output stream is closed.
+        closed: bool,
+        /// Failure message if the process failed.
+        failure: option<string>,
+    }
+
+    /// Read output from a session. Optionally waits for new output.
+    read: func(
+        process-id: string,
+        after-seq: option<u64>,
+        max-bytes: option<u32>,
+        wait-ms: option<u64>,
+    ) -> result<pty-read-result, string>;
+
+    /// Status of a write operation.
+    enum write-status {
+        accepted,
+        unknown-process,
+        stdin-closed,
+        starting,
+    }
+
+    /// Result of writing to a session.
+    record pty-write-result {
+        status: write-status,
+    }
+
+    /// Write data to a session's stdin.
+    write: func(
+        process-id: string,
+        data: list<u8>,
+    ) -> result<pty-write-result, string>;
+
+    /// Terminate a session.
+    terminate: func(process-id: string) -> result<_, string>;
+
+    /// Poll for new output availability. Returns current wake sequence.
+    /// When this value changes from a previous call, new output is available.
+    poll-wake: func(process-id: string) -> result<u64, string>;
+}
+
+/// Credential storage — the host persists credentials using browser APIs
+/// (PasswordCredential API + OPFS/WebCrypto encrypted fallback).
+interface credential-store {
+    /// Load a credential. Returns the value if found.
+    load: func(service: string, account: string) -> result<option<string>, string>;
+
+    /// Save a credential.
+    save: func(service: string, account: string, value: string) -> result<_, string>;
+
+    /// Delete a credential. Returns true if it existed.
+    delete-credential: func(service: string, account: string) -> result<bool, string>;
+}
+
+/// Host callback for server-to-client events.
+/// WASM calls this import when the app-server emits events (notifications,
+/// approval requests, turn updates, etc.).
+interface event-sink {
+    /// Called by WASM when the app-server emits a server event.
+    /// The JSON contains a tagged event: { "type": "notification"|"request"|"lagged", ... }
+    emit-event: func(json: string);
+}
+
+/// Protocol bridge for client-to-server communication.
+/// All messages are JSON strings matching the app-server-protocol schema.
+interface protocol {
+    /// Send a JSON-encoded ClientRequest to the app-server.
+    /// Returns the JSON-encoded response (result or error).
+    send-request: func(json: string) -> string;
+
+    /// Send a JSON-encoded ClientNotification to the app-server.
+    send-notification: func(json: string);
+
+    /// Respond to a server request (approval flow, elicitation, etc.).
+    respond-to-server-request: func(request-id: string, result-json: string);
+
+    /// Reject a server request with a JSON-encoded error.
+    fail-server-request: func(request-id: string, error-json: string);
+
+    /// Request graceful shutdown of the app-server runtime.
+    shutdown: func();
+}
+
+/// Codex App-Server world — runs the agent backend in WASM.
+/// The frontend renders its own UI and communicates via the protocol bridge.
+world codex-app-server {
+    // WASIP2 base imports
+    import wasi:io/error@0.2.9;
+    import wasi:io/poll@0.2.9;
+    import wasi:io/streams@0.2.9;
+    import wasi:cli/stdin@0.2.9;
+    import wasi:cli/stdout@0.2.9;
+    import wasi:cli/stderr@0.2.9;
+    import wasi:cli/environment@0.2.9;
+    import wasi:cli/exit@0.2.9;
+    import wasi:cli/terminal-input@0.2.9;
+    import wasi:cli/terminal-output@0.2.9;
+    import wasi:cli/terminal-stdin@0.2.9;
+    import wasi:cli/terminal-stdout@0.2.9;
+    import wasi:cli/terminal-stderr@0.2.9;
+    import wasi:clocks/monotonic-clock@0.2.9;
+    import wasi:clocks/wall-clock@0.2.9;
+
+    // HTTP for LLM API calls and MCP communication
+    import wasi:http/types@0.2.9;
+    import wasi:http/outgoing-handler@0.2.9;
+
+    // Filesystem for config, state, and file operations
+    import wasi:filesystem/types@0.2.9;
+    import wasi:filesystem/preopens@0.2.9;
+
+    // Random for session IDs
+    import wasi:random/random@0.2.9;
+    import wasi:random/insecure-seed@0.2.9;
+
+    // Shell execution — routes to host sandbox (one-shot commands)
+    import shell-exec;
+
+    // Persistent PTY sessions — routes to host sandbox for stateful shell execution
+    import shell-pty;
+
+    // WebSocket — routes to browser native WebSocket API
+    import websocket;
+
+    // Browser actions — open URLs in new tabs
+    import host:browser/actions@0.1.0;
+
+    // Browser clipboard — read/write text via navigator.clipboard
+    import host:browser/clipboard@0.1.0;
+
+    // Browser audio — capture and playback via Web Audio API
+    import host:browser/audio@0.1.0;
+
+    // Console logging — route to browser console instead of stderr
+    import host:console/logging@0.1.0;
+
+    // Credential storage — persists API keys and auth tokens in browser
+    import credential-store;
+
+    // Event push channel — WASM calls this to push events to JS
+    import event-sink;
+
+    // Initialize and start the app-server runtime.
+    // Returns 0 on success, non-zero on error.
+    export start: func() -> s32;
+
+    // Protocol bridge for client-to-server communication.
+    export protocol;
+
+    // Push an OAuth callback request into the tiny_http channel so that
+    // the login server's recv() loop can pick it up. Called by the JS host
+    // when the browser receives an OAuth redirect.
+    export push-auth-callback: func(method: string, path: string, headers: list<tuple<string, string>>, body: list<u8>);
+}

@@ -32,10 +32,14 @@
         "./browser-impl.js": "./dist/browser-impl.js",
         "./clipboard-impl.js": "./dist/clipboard-impl.js",
         "./audio-impl.js": "./dist/audio-impl.js",
+        "./command-policy.js": "./dist/command-policy.js",
         "./shell-exec-impl.js": "./dist/shell-exec-impl.js",
         "./shell-pty-impl.js": "./dist/shell-pty-impl.js",
         "./websocket-impl.js": "./dist/websocket-impl.js",
-        "./console-logging-impl.js": "./dist/console-logging-impl.js"
+        "./console-logging-impl.js": "./dist/console-logging-impl.js",
+        "./event-sink-impl.js": "./dist/event-sink-impl.js",
+        "./credential-store-impl.js": "./dist/credential-store-impl.js",
+        "./network-policy.js": "./dist/network-policy.js"
     },
     "types": "./dist/index.d.ts",
     "files": [

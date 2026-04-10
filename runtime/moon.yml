@@ -98,6 +98,23 @@ tasks:
     deps:
       - "~:wit-deps"
 
+  build-codex-app-server:
+    script: |
+      cargo component build --manifest-path codex-wasm/codex-wasm-app-server/Cargo.toml --release --target wasm32-wasip2 -p codex-wasm-app-server &&
+      cargo fmt --manifest-path codex-wasm/codex-wasm-app-server/Cargo.toml &&
+      cp codex-wasm/codex-wasm-app-server/target/wasm32-wasip2/release/codex_wasm_app_server.wasm ../target/wasm32-wasip2/release/codex_wasm_app_server.wasm
+    inputs:
+      - "codex-upstream/codex-rs/**"
+      - "codex-wasm/codex-wasm-app-server/**"
+      - "codex-wasm/wasi-*/**"
+      - "codex-wasm/platform-traits/**"
+      - "codex-wasm/patches/**"
+      - "crates/**"
+    outputs:
+      - "/target/wasm32-wasip2/release/codex_wasm_app_server.wasm"
+    deps:
+      - "~:wit-deps"
+
   verify-wasm:
     command: "wasm-tools component wit ../target/wasm32-wasip2/release/ts_runtime_mcp.wasm"
     deps:
