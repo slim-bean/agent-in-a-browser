@@ -31,10 +31,7 @@ jobs:
             rm -rf ".git/modules/$mod" 2>/dev/null || true
             rm -rf "$mod" 2>/dev/null || true
           done
-          git submodule update --init --force stripe-cli-wasm git-cli-wasm/patches/go-git runtime/codex-upstream tree-sitter-wasm/tree-sitter tree-sitter-wasm/tree-sitter-bash
-          # Deinit pyodide so Moon's VCS hasher doesn't choke on the unresolved object.
-          # copy-pyodide.mjs falls back to the npm package when the submodule isn't built.
-          git submodule deinit --force pyodide 2>/dev/null || true
+          git submodule update --init --force stripe-cli-wasm git-cli-wasm/patches/go-git runtime/codex-upstream tree-sitter-wasm/tree-sitter tree-sitter-wasm/tree-sitter-bash pyodide
 
       - name: Setup Rust
         uses: moonrepo/setup-rust@v1

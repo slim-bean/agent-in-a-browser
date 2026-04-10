@@ -20,5 +20,5 @@
 	branch = wasip2
 [submodule "pyodide"]
 	path = pyodide
-	url = git@github.com:tjfontaine/pyodide.git
+	url = https://github.com/tjfontaine/pyodide.git
 	branch = edge-agent-wasmfs
