@@ -134,6 +134,19 @@ interface shell-pty {
     poll-wake: func(process-id: string) -> result<u64, string>;
 }
 
+/// Credential storage — the host persists credentials using browser APIs
+/// (PasswordCredential API + OPFS/WebCrypto encrypted fallback).
+interface credential-store {
+    /// Load a credential. Returns the value if found.
+    load: func(service: string, account: string) -> result<option<string>, string>;
+
+    /// Save a credential.
+    save: func(service: string, account: string, value: string) -> result<_, string>;
+
+    /// Delete a credential. Returns true if it existed.
+    delete-credential: func(service: string, account: string) -> result<bool, string>;
+}
+
 /// Codex TUI world — runs the full Codex CLI terminal interface in WASM.
 /// Replaces the old ratatui web-agent-tui with the upstream Codex TUI.
 world codex-tui {
@@ -189,6 +202,9 @@ world codex-tui {
 
     // Console logging — route to browser console instead of stderr
     import host:console/logging@0.1.0;
+
+    // Credential storage — persists API keys and auth tokens in browser
+    import credential-store;
 
     // Main entry point — runs the Codex TUI event loop
     export run: func() -> s32;

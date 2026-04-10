@@ -23,6 +23,21 @@ use codex_tui::Cli;
 
 struct CodexTui;
 
+/// Credential backend that delegates to the WIT credential-store import.
+struct WitCredentialBackend;
+
+impl codex_keyring_store::CredentialBackend for WitCredentialBackend {
+    fn load(&self, service: &str, account: &str) -> Result<Option<String>, String> {
+        bindings::codex::tui::credential_store::load(service, account)
+    }
+    fn save(&self, service: &str, account: &str, value: &str) -> Result<(), String> {
+        bindings::codex::tui::credential_store::save(service, account, value)
+    }
+    fn delete(&self, service: &str, account: &str) -> Result<bool, String> {
+        bindings::codex::tui::credential_store::delete_credential(service, account)
+    }
+}
+
 /// Yield to the JS event loop via wasi:clocks monotonic-clock subscribe.
 /// Called by wasi-tokio's block_on when a future returns Pending.
 fn wasm_yield() {
@@ -48,6 +63,7 @@ fn ensure_initialized() {
         // Register the PTY backend so unified_exec uses the WIT shell-pty
         // interface for persistent shell sessions instead of stub errors.
         codex_exec_server::set_exec_backend(std::sync::Arc::new(pty_backend::WitPtyBackend));
+        codex_keyring_store::set_credential_backend(Box::new(WitCredentialBackend));
         tokio::set_yield_fn(wasm_yield);
         // Register terminal size query → WIT terminal:info/size binding
         // This lets crossterm detect resize without stdin-injected escape sequences.
