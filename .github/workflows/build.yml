@@ -31,7 +31,7 @@ jobs:
             rm -rf ".git/modules/$mod" 2>/dev/null || true
             rm -rf "$mod" 2>/dev/null || true
           done
-          git submodule update --init --force stripe-cli-wasm git-cli-wasm/patches/go-git runtime/codex-upstream tree-sitter-wasm/tree-sitter tree-sitter-wasm/tree-sitter-bash
+          git submodule update --init --force stripe-cli-wasm git-cli-wasm/patches/go-git runtime/codex-upstream tree-sitter-wasm/tree-sitter tree-sitter-wasm/tree-sitter-bash pyodide
 
       - name: Setup Rust
         uses: moonrepo/setup-rust@v1
