@@ -321,8 +321,8 @@ function shouldProxyViaCors(url: string): boolean {
  * Rewrite a URL to go through the CORS proxy.
  */
 function getCorsProxyUrl(targetUrl: string): string {
-    // Use same origin as current page
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    // Use same origin — works in both main thread (window) and Worker (self) contexts
+    const origin = typeof self !== 'undefined' && self.location ? self.location.origin : '';
     return `${origin}${CORS_PROXY_PATH}?url=${encodeURIComponent(targetUrl)}`;
 }
 
@@ -1417,6 +1417,11 @@ export const outgoingHandler = {
         const body = bodyBytes.length > 0 ? bodyBytes : null;
 
         // ============ Network Policy Check (Phase 2 Security) ============
+        // Auto-approve requests to CORS-proxied domains — these are our own
+        // allowlisted endpoints and will be routed through the CORS proxy anyway.
+        if (shouldProxyViaCors(url)) {
+            networkPolicy.approveForSession(url);
+        }
         const policyDecision: NetworkDecision = networkPolicy.evaluate(url, method);
         if (policyDecision === 'deny') {
             const denyBody = new TextEncoder().encode(
@@ -1467,10 +1472,12 @@ export const outgoingHandler = {
                 }
                 // Perform the actual fetch inline rather than recursing to avoid
                 // complexity with FutureIncomingResponse nesting.
+                // Route through CORS proxy for allowlisted domains.
+                const fetchUrl = shouldProxyViaCors(url) ? getCorsProxyUrl(url) : url;
                 const fetchBody: BodyInit | undefined = body
                     ? body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer
                     : undefined;
-                const fetchResponse = await fetch(url, {
+                const fetchResponse = await fetch(fetchUrl, {
                     method,
                     headers,
                     body: fetchBody,
@@ -1701,7 +1708,6 @@ export const outgoingHandler = {
             const isProxied = shouldProxyViaCors(url);
             if (isProxied) {
                 fetchUrl = getCorsProxyUrl(url);
-            } else {
             }
 
             // In sync mode (Safari/no JSPI), use streaming transport if available

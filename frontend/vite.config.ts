@@ -2,6 +2,7 @@ import { defineConfig, type Plugin } from 'vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import path from 'path';
 import fs from 'fs';
+import type { IncomingMessage, ServerResponse } from 'http';
 
 // Dev-mode plugin: serve /wasi-shims/* and /wasm-loader/* from package build output
 // and mark them as external so vite's import-analysis doesn't try to resolve them.
@@ -67,10 +68,118 @@ function serveExternalsPlugin(): Plugin {
     };
 }
 
+/**
+ * CORS proxy plugin — handles /cors-proxy requests in both dev and preview servers.
+ * In production, the Cloudflare Worker handles this route.
+ */
+function corsProxyPlugin(): Plugin {
+    async function handleCorsProxy(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
+        if (!req.url?.startsWith('/cors-proxy')) return false;
+
+        const reqUrl = new URL(req.url, 'http://localhost');
+        const targetUrl = reqUrl.searchParams.get('url');
+
+        if (!targetUrl) {
+            res.writeHead(400, { 'Content-Type': 'text/plain' });
+            res.end('Missing url parameter');
+            return true;
+        }
+
+        try {
+            const headers: Record<string, string> = {};
+            for (const [key, value] of Object.entries(req.headers)) {
+                if (key.toLowerCase() !== 'host' &&
+                    key.toLowerCase() !== 'origin' &&
+                    key.toLowerCase() !== 'connection' &&
+                    key.toLowerCase() !== 'content-length' &&
+                    typeof value === 'string') {
+                    headers[key] = value;
+                }
+            }
+
+            if (headers['x-original-user-agent']) {
+                headers['user-agent'] = headers['x-original-user-agent'];
+                delete headers['x-original-user-agent'];
+            }
+
+            const method = req.method || 'GET';
+
+            let body: Uint8Array | undefined;
+            if (method === 'POST' || method === 'PUT' || method === 'PATCH') {
+                const chunks: Buffer[] = [];
+                for await (const chunk of req) {
+                    chunks.push(Buffer.from(chunk as Buffer));
+                }
+                const bodyBuffer = Buffer.concat(chunks);
+                if (bodyBuffer.length > 0) {
+                    body = new Uint8Array(bodyBuffer);
+                }
+            }
+
+            const response = await fetch(targetUrl, {
+                method,
+                headers,
+                body: body as BodyInit | undefined,
+            });
+
+            const responseHeaders: Record<string, string> = {
+                'Access-Control-Allow-Origin': (req.headers.origin as string) || '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': '*',
+                'Access-Control-Expose-Headers': '*',
+            };
+            response.headers.forEach((value, key) => {
+                if (key.toLowerCase() !== 'content-encoding') {
+                    responseHeaders[key] = value;
+                }
+            });
+
+            res.writeHead(response.status, responseHeaders);
+
+            const contentType = response.headers.get('content-type') || '';
+            if ((contentType.includes('text/event-stream') || targetUrl.includes('streamGenerateContent')) && response.body) {
+                const reader = response.body.getReader();
+                const pump = async (): Promise<void> => {
+                    const { done, value } = await reader.read();
+                    if (done) { res.end(); return; }
+                    res.write(Buffer.from(value));
+                    return pump();
+                };
+                await pump();
+            } else {
+                const responseBody = await response.arrayBuffer();
+                res.end(Buffer.from(responseBody));
+            }
+        } catch (err) {
+            res.writeHead(502, { 'Content-Type': 'text/plain' });
+            res.end(`Proxy error: ${err}`);
+        }
+        return true;
+    }
+
+    return {
+        name: 'cors-proxy',
+        configureServer(server) {
+            server.middlewares.use(async (req, res, next) => {
+                const handled = await handleCorsProxy(req, res);
+                if (!handled) next();
+            });
+        },
+        configurePreviewServer(server) {
+            server.middlewares.use(async (req, res, next) => {
+                const handled = await handleCorsProxy(req, res);
+                if (!handled) next();
+            });
+        },
+    };
+}
+
 export default defineConfig(({ mode }) => ({
     // Custom domain: agent.edge-agent.dev (no subpath needed)
     base: '/',
     plugins: [
+        // CORS proxy for external API calls (auth.openai.com, etc.) in dev and preview
+        corsProxyPlugin(),
         // Polyfill Node.js core modules for browser compatibility
         nodePolyfills({
             // Include specific polyfills needed for WASM modules
