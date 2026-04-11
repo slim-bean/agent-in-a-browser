@@ -22,9 +22,7 @@ pub fn transforms() -> Vec<Transform> {
         },
         Transform::ReplaceFile {
             path_suffix: "core/src/windows_sandbox_read_grants.rs",
-            content: include_str!(
-                "../../replacements/core/src/windows_sandbox_read_grants.rs"
-            ),
+            content: include_str!("../../replacements/core/src/windows_sandbox_read_grants.rs"),
         },
         Transform::StubModule {
             file_name: "windows_sandbox_read_grants_tests.rs",

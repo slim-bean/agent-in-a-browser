@@ -1,4 +1,5 @@
 packages:
   - 'packages/*'
   - 'frontend'
+  - 'worker'
   - 'stripe-cli-wasm/wasm/npm'

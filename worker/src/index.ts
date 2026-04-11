@@ -455,7 +455,12 @@ export default {
             }
             // Not found locally — proxy from Pyodide CDN
             const filename = url.pathname.split('/').pop();
-            const cdnUrl = `${PYODIDE_CDN}/v${env.PYODIDE_VERSION}/full/${filename}`;
+            // Dev builds (e.g. "0.30.0.dev0") are published under /pyodide/dev/full/,
+            // while release builds use /pyodide/v{version}/full/.
+            const isDevBuild = env.PYODIDE_VERSION.includes('dev');
+            const cdnUrl = isDevBuild
+                ? `${PYODIDE_CDN}/dev/full/${filename}`
+                : `${PYODIDE_CDN}/v${env.PYODIDE_VERSION}/full/${filename}`;
             const cdnResponse = await fetch(cdnUrl);
             if (!cdnResponse.ok) {
                 return new Response('Package not found', { status: 404 });

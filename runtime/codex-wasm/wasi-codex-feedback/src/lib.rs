@@ -83,6 +83,11 @@ pub fn emit_feedback_request_tags_with_auth_env<T>(
     _auth_env: &T,
 ) {}
 
+// Re-export the symbols that the real codex-feedback crate exports at crate root.
+pub use feedback_diagnostics::{
+    FeedbackDiagnostic, FeedbackDiagnostics, FEEDBACK_DIAGNOSTICS_ATTACHMENT_FILENAME,
+};
+
 /// Feedback diagnostics module.
 pub mod feedback_diagnostics {
     pub const FEEDBACK_DIAGNOSTICS_ATTACHMENT_FILENAME: &str = "diagnostics.json";

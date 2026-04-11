@@ -99,7 +99,12 @@ if (existsSync(lockPath)) {
     const pyodideVersion = lockData.info?.version;
 
     if (pyodideVersion) {
-        const cdnBase = `https://cdn.jsdelivr.net/pyodide/v${pyodideVersion}/full`;
+        // Dev builds (e.g. "0.30.0.dev0") are published under /pyodide/dev/full/,
+        // while release builds use /pyodide/v{version}/full/.
+        const isDevBuild = pyodideVersion.includes('dev') || pyodideVersion.includes('alpha') || pyodideVersion.includes('beta');
+        const cdnBase = isDevBuild
+            ? `https://cdn.jsdelivr.net/pyodide/dev/full`
+            : `https://cdn.jsdelivr.net/pyodide/v${pyodideVersion}/full`;
 
         for (const pkgName of REQUIRED_PACKAGES) {
             const pkgInfo = lockData.packages?.[pkgName];
@@ -143,7 +148,7 @@ if (existsSync(lockPath)) {
                 console.log(`  Downloaded ${pkgInfo.file_name} (${(buffer.length / 1024).toFixed(0)}KB, hash OK)`);
                 copiedCount++;
             } catch (err) {
-                console.warn(`  Failed to download ${pkgInfo.file_name}:`, err.message);
+                console.warn('  Failed to download %s: %s', pkgInfo.file_name, err.message);
             }
         }
     }

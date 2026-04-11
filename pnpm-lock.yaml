@@ -274,6 +274,12 @@ importers:
         specifier: ^3.2.0
         version: 3.2.4(@types/node@25.0.9)(jsdom@27.4.0)(terser@5.46.0)
 
+  worker:
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20250214.0
+        version: 4.20260411.1
+
 packages:
 
   '@acemir/cssom@0.9.31':
@@ -360,6 +366,9 @@ packages:
     resolution: {integrity: sha512-ziWmovyu1jQl9TsKlfC2bwuUZwxVPFHlX4fOqTzxhgS76jITIo45nzODEwPgU+jjmOr8F3YX2V2wAChC5NKujg==}
     engines: {node: '>=16'}
     hasBin: true
+
+  '@cloudflare/workers-types@4.20260411.1':
+    resolution: {integrity: sha512-SsntcTanLz+LmgJC8yB7sGCtpC8HxboVDmwrOH1hp1SHZwuKnhfmhUfeiwy7O/cE3iVN1cxe1E17stxP5DJXDw==}
 
   '@csstools/color-helpers@5.1.0':
     resolution: {integrity: sha512-S11EXWJyy0Mz5SYvRmY8nJYTFFd1LCNV+7cXyAgQtOOuzb4EsgfqDufL+9esx72/eLhsRdGZwaldu/h+E4t4BA==}
@@ -2655,6 +2664,8 @@ snapshots:
       '@bytecodealliance/wizer-linux-s390x': 10.0.0
       '@bytecodealliance/wizer-linux-x64': 10.0.0
       '@bytecodealliance/wizer-win32-x64': 10.0.0
+
+  '@cloudflare/workers-types@4.20260411.1': {}
 
   '@csstools/color-helpers@5.1.0': {}
 

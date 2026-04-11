@@ -4,7 +4,8 @@
 #[doc(hidden)]
 #[allow(non_snake_case)]
 pub unsafe fn _export_start_cabi<T: Guest>() -> i32 {
-    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+    #[cfg(target_arch = "wasm32")]
+    _rt::run_ctors_once();
     let result0 = T::start();
     _rt::as_i32(result0)
 }
@@ -20,7 +21,8 @@ pub unsafe fn _export_push_auth_callback_cabi<T: Guest>(
     arg6: *mut u8,
     arg7: usize,
 ) {
-    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+    #[cfg(target_arch = "wasm32")]
+    _rt::run_ctors_once();
     let len0 = arg1;
     let bytes0 = _rt::Vec::from_raw_parts(arg0.cast(), len0, len0);
     let len1 = arg3;
@@ -32,13 +34,17 @@ pub unsafe fn _export_push_auth_callback_cabi<T: Guest>(
         let base = base8.add(i * (4 * ::core::mem::size_of::<*const u8>()));
         let e8 = {
             let l2 = *base.add(0).cast::<*mut u8>();
-            let l3 = *base.add(::core::mem::size_of::<*const u8>()).cast::<usize>();
+            let l3 = *base
+                .add(::core::mem::size_of::<*const u8>())
+                .cast::<usize>();
             let len4 = l3;
             let bytes4 = _rt::Vec::from_raw_parts(l2.cast(), len4, len4);
             let l5 = *base
                 .add(2 * ::core::mem::size_of::<*const u8>())
                 .cast::<*mut u8>();
-            let l6 = *base.add(3 * ::core::mem::size_of::<*const u8>()).cast::<usize>();
+            let l6 = *base
+                .add(3 * ::core::mem::size_of::<*const u8>())
+                .cast::<usize>();
             let len7 = l6;
             let bytes7 = _rt::Vec::from_raw_parts(l5.cast(), len7, len7);
             (_rt::string_lift(bytes4), _rt::string_lift(bytes7))
@@ -15328,9 +15334,7 @@ macro_rules! __export_codex_app_server_impl {
 #[doc(inline)]
 pub(crate) use __export_codex_app_server_impl as export;
 #[cfg(target_arch = "wasm32")]
-#[unsafe(
-    link_section = "component-type:wit-bindgen:0.41.0:codex:app-server@0.1.0:codex-app-server:encoded world"
-)]
+#[unsafe(link_section = "component-type:wit-bindgen:0.41.0:codex:app-server@0.1.0:codex-app-server:encoded world")]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
 pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 13031] = *b"\

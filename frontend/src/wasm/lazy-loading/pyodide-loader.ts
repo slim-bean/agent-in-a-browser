@@ -91,6 +91,8 @@ async function getPyodide(): Promise<PyodideInterface> {
             const msg = e instanceof Error ? e.message : String(e);
             const errno = (e as any)?.errno ?? 'unknown';
             console.error('[PyodideLoader] loadPyodide failed:', msg, 'errno:', errno);
+            // Clear memoized promise so a subsequent attempt can retry
+            pyodideLoading = null;
             throw e;
         }
 
@@ -281,17 +283,35 @@ function runPip(
         try {
             const py = await getPyodide();
 
-            // Capture Python print() output to the command's streams
-            py.setStdout({
-                batched: (text: string) => {
-                    stdout.write(encoder.encode(text + '\n'));
-                },
+            // Redirect Python print() to the command's streams via the same
+            // _edge_io JS module approach used by runPython. WasmFS breaks
+            // Pyodide's device-based setStdout/setStderr.
+            const stdoutWrite = (text: string) => {
+                stdout.write(encoder.encode(text));
+            };
+            const stderrWrite = (text: string) => {
+                stderr.write(encoder.encode(text));
+            };
+            (py as any).registerJsModule('_edge_io', {
+                stdout_write: stdoutWrite,
+                stderr_write: stderrWrite,
             });
-            py.setStderr({
-                batched: (text: string) => {
-                    stderr.write(encoder.encode(text + '\n'));
-                },
-            });
+            await py.runPythonAsync(`
+import sys, io, _edge_io
+
+class _EdgeWriter(io.TextIOBase):
+    def __init__(self, write_fn):
+        self._write = write_fn
+    def write(self, s):
+        if s:
+            self._write(s)
+        return len(s) if s else 0
+    def flush(self):
+        pass
+
+sys.stdout = _EdgeWriter(_edge_io.stdout_write)
+sys.stderr = _EdgeWriter(_edge_io.stderr_write)
+`);
 
             if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
                 stdout.write(encoder.encode(

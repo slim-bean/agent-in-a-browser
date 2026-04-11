@@ -14,6 +14,7 @@ codex-login = { path = "../../codex-upstream/codex-rs/login" }
 codex-arg0 = { path = "../../codex-upstream/codex-rs/arg0" }
 codex-feedback = { path = "../wasi-codex-feedback" }
 codex-exec-server = { path = "../wasi-exec-server" }
+codex-keyring-store = { path = "../wasi-keyring-store" }
 codex-utils-sleep-inhibitor = { path = "../../codex-upstream/codex-rs/utils/sleep-inhibitor" }
 reqwest = { path = "../wasi-reqwest" }
 async-trait = "0.1"
