@@ -14944,160 +14944,48 @@ pub mod wasi {
 pub mod exports {
     pub mod codex {
         pub mod app_server {
-            /// Protocol bridge for client-to-server communication.
-            /// All messages are JSON strings matching the app-server-protocol schema.
+            /// Inbox for protocol messages from the JS host.
+            /// The JS side pushes messages via push-message, and the WASM event loop
+            /// processes them. Responses come back through the event-sink.
             #[allow(dead_code, async_fn_in_trait, unused_imports, clippy::all)]
-            pub mod protocol {
+            pub mod protocol_inbox {
                 #[used]
                 #[doc(hidden)]
                 static __FORCE_SECTION_REF: fn() = super::super::super::super::__link_custom_section_describing_imports;
                 use super::super::super::super::_rt;
                 #[doc(hidden)]
                 #[allow(non_snake_case)]
-                pub unsafe fn _export_send_request_cabi<T: Guest>(
-                    arg0: *mut u8,
-                    arg1: usize,
-                ) -> *mut u8 {
-                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
-                    let len0 = arg1;
-                    let bytes0 = _rt::Vec::from_raw_parts(arg0.cast(), len0, len0);
-                    let result1 = T::send_request(_rt::string_lift(bytes0));
-                    let ptr2 = (&raw mut _RET_AREA.0).cast::<u8>();
-                    let vec3 = (result1.into_bytes()).into_boxed_slice();
-                    let ptr3 = vec3.as_ptr().cast::<u8>();
-                    let len3 = vec3.len();
-                    ::core::mem::forget(vec3);
-                    *ptr2.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len3;
-                    *ptr2.add(0).cast::<*mut u8>() = ptr3.cast_mut();
-                    ptr2
-                }
-                #[doc(hidden)]
-                #[allow(non_snake_case)]
-                pub unsafe fn __post_return_send_request<T: Guest>(arg0: *mut u8) {
-                    let l0 = *arg0.add(0).cast::<*mut u8>();
-                    let l1 = *arg0
-                        .add(::core::mem::size_of::<*const u8>())
-                        .cast::<usize>();
-                    _rt::cabi_dealloc(l0, l1, 1);
-                }
-                #[doc(hidden)]
-                #[allow(non_snake_case)]
-                pub unsafe fn _export_send_notification_cabi<T: Guest>(
+                pub unsafe fn _export_push_message_cabi<T: Guest>(
                     arg0: *mut u8,
                     arg1: usize,
                 ) {
                     #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
                     let len0 = arg1;
                     let bytes0 = _rt::Vec::from_raw_parts(arg0.cast(), len0, len0);
-                    T::send_notification(_rt::string_lift(bytes0));
-                }
-                #[doc(hidden)]
-                #[allow(non_snake_case)]
-                pub unsafe fn _export_respond_to_server_request_cabi<T: Guest>(
-                    arg0: *mut u8,
-                    arg1: usize,
-                    arg2: *mut u8,
-                    arg3: usize,
-                ) {
-                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
-                    let len0 = arg1;
-                    let bytes0 = _rt::Vec::from_raw_parts(arg0.cast(), len0, len0);
-                    let len1 = arg3;
-                    let bytes1 = _rt::Vec::from_raw_parts(arg2.cast(), len1, len1);
-                    T::respond_to_server_request(
-                        _rt::string_lift(bytes0),
-                        _rt::string_lift(bytes1),
-                    );
-                }
-                #[doc(hidden)]
-                #[allow(non_snake_case)]
-                pub unsafe fn _export_fail_server_request_cabi<T: Guest>(
-                    arg0: *mut u8,
-                    arg1: usize,
-                    arg2: *mut u8,
-                    arg3: usize,
-                ) {
-                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
-                    let len0 = arg1;
-                    let bytes0 = _rt::Vec::from_raw_parts(arg0.cast(), len0, len0);
-                    let len1 = arg3;
-                    let bytes1 = _rt::Vec::from_raw_parts(arg2.cast(), len1, len1);
-                    T::fail_server_request(
-                        _rt::string_lift(bytes0),
-                        _rt::string_lift(bytes1),
-                    );
-                }
-                #[doc(hidden)]
-                #[allow(non_snake_case)]
-                pub unsafe fn _export_shutdown_cabi<T: Guest>() {
-                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
-                    T::shutdown();
+                    T::push_message(_rt::string_lift(bytes0));
                 }
                 pub trait Guest {
-                    /// Send a JSON-encoded ClientRequest to the app-server.
-                    /// Returns the JSON-encoded response (result or error).
-                    fn send_request(json: _rt::String) -> _rt::String;
-                    /// Send a JSON-encoded ClientNotification to the app-server.
-                    fn send_notification(json: _rt::String) -> ();
-                    /// Respond to a server request (approval flow, elicitation, etc.).
-                    fn respond_to_server_request(
-                        request_id: _rt::String,
-                        result_json: _rt::String,
-                    ) -> ();
-                    /// Reject a server request with a JSON-encoded error.
-                    fn fail_server_request(
-                        request_id: _rt::String,
-                        error_json: _rt::String,
-                    ) -> ();
-                    /// Request graceful shutdown of the app-server runtime.
-                    fn shutdown() -> ();
+                    /// Push a JSON protocol message into the WASM inbox.
+                    /// The message is a tagged JSON object:
+                    ///   { "type": "request", "id": "...", "json": "..." }
+                    ///   { "type": "notification", "json": "..." }
+                    ///   { "type": "resolve", "request_id": "...", "result_json": "..." }
+                    ///   { "type": "reject", "request_id": "...", "error_json": "..." }
+                    ///   { "type": "shutdown" }
+                    fn push_message(json: _rt::String) -> ();
                 }
                 #[doc(hidden)]
-                macro_rules! __export_codex_app_server_protocol_0_1_0_cabi {
+                macro_rules! __export_codex_app_server_protocol_inbox_0_1_0_cabi {
                     ($ty:ident with_types_in $($path_to_types:tt)*) => {
                         const _ : () = { #[unsafe (export_name =
-                        "codex:app-server/protocol@0.1.0#send-request")] unsafe extern
-                        "C" fn export_send_request(arg0 : * mut u8, arg1 : usize,) -> *
-                        mut u8 { unsafe { $($path_to_types)*::
-                        _export_send_request_cabi::<$ty > (arg0, arg1) } } #[unsafe
-                        (export_name =
-                        "cabi_post_codex:app-server/protocol@0.1.0#send-request")] unsafe
-                        extern "C" fn _post_return_send_request(arg0 : * mut u8,) {
-                        unsafe { $($path_to_types)*:: __post_return_send_request::<$ty >
-                        (arg0) } } #[unsafe (export_name =
-                        "codex:app-server/protocol@0.1.0#send-notification")] unsafe
-                        extern "C" fn export_send_notification(arg0 : * mut u8, arg1 :
-                        usize,) { unsafe { $($path_to_types)*::
-                        _export_send_notification_cabi::<$ty > (arg0, arg1) } } #[unsafe
-                        (export_name =
-                        "codex:app-server/protocol@0.1.0#respond-to-server-request")]
-                        unsafe extern "C" fn export_respond_to_server_request(arg0 : *
-                        mut u8, arg1 : usize, arg2 : * mut u8, arg3 : usize,) { unsafe {
-                        $($path_to_types)*:: _export_respond_to_server_request_cabi::<$ty
-                        > (arg0, arg1, arg2, arg3) } } #[unsafe (export_name =
-                        "codex:app-server/protocol@0.1.0#fail-server-request")] unsafe
-                        extern "C" fn export_fail_server_request(arg0 : * mut u8, arg1 :
-                        usize, arg2 : * mut u8, arg3 : usize,) { unsafe {
-                        $($path_to_types)*:: _export_fail_server_request_cabi::<$ty >
-                        (arg0, arg1, arg2, arg3) } } #[unsafe (export_name =
-                        "codex:app-server/protocol@0.1.0#shutdown")] unsafe extern "C" fn
-                        export_shutdown() { unsafe { $($path_to_types)*::
-                        _export_shutdown_cabi::<$ty > () } } };
+                        "codex:app-server/protocol-inbox@0.1.0#push-message")] unsafe
+                        extern "C" fn export_push_message(arg0 : * mut u8, arg1 : usize,)
+                        { unsafe { $($path_to_types)*:: _export_push_message_cabi::<$ty >
+                        (arg0, arg1) } } };
                     };
                 }
                 #[doc(hidden)]
-                pub(crate) use __export_codex_app_server_protocol_0_1_0_cabi;
-                #[cfg_attr(target_pointer_width = "64", repr(align(8)))]
-                #[cfg_attr(target_pointer_width = "32", repr(align(4)))]
-                struct _RetArea(
-                    [::core::mem::MaybeUninit<
-                        u8,
-                    >; 2 * ::core::mem::size_of::<*const u8>()],
-                );
-                static mut _RET_AREA: _RetArea = _RetArea(
-                    [::core::mem::MaybeUninit::uninit(); 2
-                        * ::core::mem::size_of::<*const u8>()],
-                );
+                pub(crate) use __export_codex_app_server_protocol_inbox_0_1_0_cabi;
             }
         }
     }
@@ -15327,8 +15215,9 @@ macro_rules! __export_codex_app_server_impl {
     ($ty:ident with_types_in $($path_to_types_root:tt)*) => {
         $($path_to_types_root)*:: __export_world_codex_app_server_cabi!($ty with_types_in
         $($path_to_types_root)*); $($path_to_types_root)*::
-        exports::codex::app_server::protocol::__export_codex_app_server_protocol_0_1_0_cabi!($ty
-        with_types_in $($path_to_types_root)*:: exports::codex::app_server::protocol);
+        exports::codex::app_server::protocol_inbox::__export_codex_app_server_protocol_inbox_0_1_0_cabi!($ty
+        with_types_in $($path_to_types_root)*::
+        exports::codex::app_server::protocol_inbox);
     };
 }
 #[doc(inline)]
@@ -15337,8 +15226,8 @@ pub(crate) use __export_codex_app_server_impl as export;
 #[unsafe(link_section = "component-type:wit-bindgen:0.41.0:codex:app-server@0.1.0:codex-app-server:encoded world")]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 13031] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xe0d\x01A\x02\x01AS\x01\
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 12873] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xc2c\x01A\x02\x01AS\x01\
 B\x04\x04\0\x05error\x03\x01\x01h\0\x01@\x01\x04self\x01\0s\x04\0\x1d[method]err\
 or.to-debug-string\x01\x02\x03\0\x13wasi:io/error@0.2.9\x05\0\x01B\x0a\x04\0\x08\
 pollable\x03\x01\x01h\0\x01@\x01\x04self\x01\0\x7f\x04\0\x16[method]pollable.rea\
@@ -15594,14 +15483,10 @@ elete-credential\x01\x06\x03\0'codex:app-server/credential-store@0.1.0\x05*\x01B
 \x02\x01@\x01\x04jsons\x01\0\x04\0\x0aemit-event\x01\0\x03\0!codex:app-server/ev\
 ent-sink@0.1.0\x05+\x01@\0\0z\x04\0\x05start\x01,\x01o\x02ss\x01p-\x01p}\x01@\x04\
 \x06methods\x04paths\x07headers.\x04body/\x01\0\x04\0\x12push-auth-callback\x010\
-\x01B\x0a\x01@\x01\x04jsons\0s\x04\0\x0csend-request\x01\0\x01@\x01\x04jsons\x01\
-\0\x04\0\x11send-notification\x01\x01\x01@\x02\x0arequest-ids\x0bresult-jsons\x01\
-\0\x04\0\x19respond-to-server-request\x01\x02\x01@\x02\x0arequest-ids\x0aerror-j\
-sons\x01\0\x04\0\x13fail-server-request\x01\x03\x01@\0\x01\0\x04\0\x08shutdown\x01\
-\x04\x04\0\x1fcodex:app-server/protocol@0.1.0\x051\x04\0'codex:app-server/codex-\
-app-server@0.1.0\x04\0\x0b\x16\x01\0\x10codex-app-server\x03\0\0\0G\x09producers\
-\x01\x0cprocessed-by\x02\x0dwit-component\x070.227.1\x10wit-bindgen-rust\x060.41\
-.0";
+\x01B\x02\x01@\x01\x04jsons\x01\0\x04\0\x0cpush-message\x01\0\x04\0%codex:app-se\
+rver/protocol-inbox@0.1.0\x051\x04\0'codex:app-server/codex-app-server@0.1.0\x04\
+\0\x0b\x16\x01\0\x10codex-app-server\x03\0\0\0G\x09producers\x01\x0cprocessed-by\
+\x02\x0dwit-component\x070.227.1\x10wit-bindgen-rust\x060.41.0";
 #[inline(never)]
 #[doc(hidden)]
 pub fn __link_custom_section_describing_imports() {

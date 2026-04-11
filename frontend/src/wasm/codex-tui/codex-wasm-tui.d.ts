@@ -1,9 +1,11 @@
 // world root:component/root
+export type * as CodexTuiCredentialStore010 from './interfaces/codex-tui-credential-store.js'; // import codex:tui/credential-store@0.1.0
 export type * as CodexTuiShellExec010 from './interfaces/codex-tui-shell-exec.js'; // import codex:tui/shell-exec@0.1.0
 export type * as CodexTuiShellPty010 from './interfaces/codex-tui-shell-pty.js'; // import codex:tui/shell-pty@0.1.0
 export type * as CodexTuiWebsocket010 from './interfaces/codex-tui-websocket.js'; // import codex:tui/websocket@0.1.0
 export type * as HostBrowserActions010 from './interfaces/host-browser-actions.js'; // import host:browser/actions@0.1.0
 export type * as HostBrowserAudio010 from './interfaces/host-browser-audio.js'; // import host:browser/audio@0.1.0
+export type * as HostBrowserClipboard010 from './interfaces/host-browser-clipboard.js'; // import host:browser/clipboard@0.1.0
 export type * as HostConsoleLogging010 from './interfaces/host-console-logging.js'; // import host:console/logging@0.1.0
 export type * as TerminalInfoSize010 from './interfaces/terminal-info-size.js'; // import terminal:info/size@0.1.0
 export type * as WasiCliEnvironment029 from './interfaces/wasi-cli-environment.js'; // import wasi:cli/environment@0.2.9
