@@ -1,0 +1,23 @@
+{
+    "name": "@tjfontaine/codex-protocol-types",
+    "version": "0.1.0",
+    "description": "TypeScript types generated from the codex app-server protocol (ts-rs)",
+    "type": "module",
+    "main": "./src/index.ts",
+    "types": "./src/index.ts",
+    "exports": {
+        ".": {
+            "types": "./src/index.ts",
+            "import": "./src/index.ts"
+        },
+        "./v2": {
+            "types": "./src/v2.ts",
+            "import": "./src/v2.ts"
+        }
+    },
+    "files": ["src"],
+    "scripts": {},
+    "devDependencies": {
+        "typescript": "^5.7.0"
+    }
+}

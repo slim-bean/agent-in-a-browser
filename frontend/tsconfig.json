@@ -78,6 +78,12 @@
             ],
             "@tjfontaine/wasm-python/*": [
                 "../packages/wasm-python/src/*"
+            ],
+            "@tjfontaine/codex-protocol-types": [
+                "../packages/codex-protocol-types/src/index.ts"
+            ],
+            "@tjfontaine/codex-protocol-types/*": [
+                "../packages/codex-protocol-types/src/*"
             ]
         }
     },
@@ -116,6 +122,9 @@
         },
         {
             "path": "../packages/wasm-vim"
+        },
+        {
+            "path": "../packages/codex-protocol-types"
         }
     ]
 }

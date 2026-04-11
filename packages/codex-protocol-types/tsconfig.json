@@ -1,0 +1,19 @@
+{
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "composite": true,
+        "declaration": true,
+        "emitDeclarationOnly": true,
+        "rootDir": "../..",
+        "outDir": "./dist"
+    },
+    "include": [
+        "src/**/*",
+        "../../runtime/codex-upstream/codex-rs/app-server-protocol/schema/typescript/**/*"
+    ]
+}
