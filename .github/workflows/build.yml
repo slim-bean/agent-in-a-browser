@@ -91,6 +91,20 @@ jobs:
           path: pyodide/dist
           key: pyodide-dist-v1-${{ runner.os }}-${{ steps.pyodide.outputs.sha }}
 
+      - name: Fetch Pyodide dist from release (on cache miss)
+        if: steps.pyodide-cache.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHORT_SHA=$(echo "${{ steps.pyodide.outputs.sha }}" | cut -c1-8)
+          TAG="pyodide-dist-${SHORT_SHA}"
+          echo "Fetching Pyodide dist from release: $TAG"
+          gh release download "$TAG" --pattern "pyodide-dist.tar.gz" --dir /tmp --clobber
+          rm -rf pyodide/dist
+          tar xzf /tmp/pyodide-dist.tar.gz -C pyodide/
+          echo "Extracted Pyodide dist from release"
+          ls -lh pyodide/dist/
+
       - name: Validate Pyodide dist
         run: |
           REQUIRED_FILES="pyodide.asm.wasm pyodide.asm.mjs pyodide.mjs python_stdlib.zip pyodide-lock.json"
@@ -105,15 +119,15 @@ jobs:
             echo "Pyodide dist validated OK ($(ls pyodide/dist/ | wc -l) files)"
             ls -lh pyodide/dist/
           else
+            SHORT_SHA=$(echo "${{ steps.pyodide.outputs.sha }}" | cut -c1-8)
             echo ""
             echo "::error::Pyodide dist is missing or incomplete."
-            echo "The custom Pyodide fork must be built locally and the cache seeded."
+            echo "Create a release with the pre-built dist for this submodule SHA:"
             echo ""
-            echo "To seed the cache for this submodule SHA (${{ steps.pyodide.outputs.sha }}):"
-            echo "  1. Build Pyodide locally: cd pyodide && make all-but-packages"
-            echo "  2. Push a commit to trigger CI (dist/ is cached by submodule SHA)"
-            echo ""
-            echo "If the submodule was updated, rebuild dist/ before pushing."
+            echo "  tar czf /tmp/pyodide-dist.tar.gz -C pyodide dist/"
+            echo "  gh release create pyodide-dist-${SHORT_SHA} /tmp/pyodide-dist.tar.gz \\"
+            echo "    --title 'Pyodide dist (${SHORT_SHA})' \\"
+            echo "    --notes 'Pre-built Pyodide dist for submodule ${SHORT_SHA}'"
             exit 1
           fi
 
