@@ -24,6 +24,28 @@ export interface AppServerEvent {
     message?: string;
 }
 
+// ==========================================================================
+// Worker Message Types (strongly typed Worker↔Main protocol)
+// ==========================================================================
+
+/** Events emitted by the WASM via emit_event, parsed from JSON. */
+type WasmEvent =
+    | { type: 'response'; id: string; result?: unknown; error?: { code: number; message: string } }
+    | { type: 'started' }
+    | AppServerEvent;
+
+/** Messages from the Worker to the main thread. */
+type WorkerMessage =
+    | { type: 'ready' }
+    | { type: 'started' }
+    | { type: 'start-error'; message: string }
+    | { type: 'event'; json: string }
+    | { type: 'transport-request'; callId: string; method: string; url: string; headers: Record<string, string>; body: ArrayBuffer | null }
+    | { type: 'exec-request'; callId: string; program: string; args: string[]; cwd: string; stdin: ArrayBuffer | null; timeoutMs: number }
+    | { type: 'mcp-request'; callId: string; path: string; method: string; headers: Record<string, string>; body: string }
+    | { type: 'approval-request'; callId: string; program: string; args: string[]; cwd: string }
+    | { type: 'network-approval-request'; callId: string; url: string; method: string };
+
 export interface AppServerHandle {
     sendRequest(json: string): Promise<string>;
     sendNotification(json: string): Promise<void>;
@@ -79,11 +101,11 @@ const pendingCalls = new Map<string, { resolve: (value: unknown) => void; reject
 // Proxy Helpers
 // ==========================================================================
 
-async function handleTransportProxy(worker: Worker, msg: Record<string, unknown>): Promise<void> {
-    const { callId, method, url, headers, body } = msg as {
-        callId: string; method: string; url: string;
-        headers: Record<string, string>; body: ArrayBuffer | null;
-    };
+async function handleTransportProxy(
+    worker: Worker,
+    msg: Extract<WorkerMessage, { type: 'transport-request' }>,
+): Promise<void> {
+    const { callId, method, url, headers, body } = msg;
 
     try {
         const urlObj = new URL(url);
@@ -114,11 +136,11 @@ async function handleTransportProxy(worker: Worker, msg: Record<string, unknown>
     }
 }
 
-async function handleExecProxy(worker: Worker, msg: Record<string, unknown>): Promise<void> {
-    const { callId, program, args, cwd, stdin, timeoutMs } = msg as {
-        callId: string; program: string; args: string[]; cwd: string;
-        stdin: ArrayBuffer | null; timeoutMs: number;
-    };
+async function handleExecProxy(
+    worker: Worker,
+    msg: Extract<WorkerMessage, { type: 'exec-request' }>,
+): Promise<void> {
+    const { callId, program, args, cwd, stdin, timeoutMs } = msg;
     const command = [program, ...args].join(' ');
     const encoder = new TextEncoder();
 
@@ -157,10 +179,11 @@ async function handleExecProxy(worker: Worker, msg: Record<string, unknown>): Pr
     }
 }
 
-async function handleMcpProxy(worker: Worker, msg: Record<string, unknown>): Promise<void> {
-    const { callId, path, method, headers, body } = msg as {
-        callId: string; path: string; method: string; headers: Record<string, string>; body: string;
-    };
+async function handleMcpProxy(
+    worker: Worker,
+    msg: Extract<WorkerMessage, { type: 'mcp-request' }>,
+): Promise<void> {
+    const { callId, path, method, headers, body } = msg;
 
     try {
         const response = await fetchFromSandbox(path, { method, headers, body });
@@ -222,34 +245,34 @@ export async function launchAppServer(options?: { origin?: string }): Promise<Ap
     // ----------------------------------------------------------------
     // 4. Set up persistent message handler for all Worker messages
     // ----------------------------------------------------------------
-    worker.addEventListener('message', (e: MessageEvent) => {
-        const msg = e.data as Record<string, unknown>;
+    worker.addEventListener('message', (e: MessageEvent<WorkerMessage>) => {
+        const msg = e.data;
         switch (msg.type) {
             // Events from WASM (notifications, requests, responses, errors)
             case 'event': {
                 try {
-                    const event = JSON.parse(msg.json as string) as Record<string, unknown>;
+                    const event = JSON.parse(msg.json) as WasmEvent;
 
                     // Protocol responses from inbox — correlate by id
                     if (event.type === 'response') {
-                        const id = event.id as string;
-                        const pending = pendingCalls.get(id);
+                        const pending = pendingCalls.get(event.id);
                         if (pending) {
-                            pendingCalls.delete(id);
+                            pendingCalls.delete(event.id);
                             if (event.error) {
-                                // Wrap error as JSON-RPC error response for protocol-client
                                 pending.resolve(JSON.stringify({ error: event.error }));
                             } else {
-                                // Wrap result as JSON-RPC success response for protocol-client
                                 pending.resolve(JSON.stringify({ result: event.result }));
                             }
                         }
                         break;
                     }
 
+                    // 'started' events are handled by the init listener, not here
+                    if (event.type === 'started') break;
+
                     // All other events → forward to UI event handler
                     if (eventHandler) {
-                        eventHandler(event as unknown as AppServerEvent);
+                        eventHandler(event);
                     }
                 } catch (err) {
                     if (eventHandler) {
@@ -283,14 +306,9 @@ export async function launchAppServer(options?: { origin?: string }): Promise<Ap
             // Command approval: Worker needs UI decision
             case 'approval-request': {
                 if (commandApprovalCallback) {
-                    commandApprovalCallback(
-                        msg.program as string,
-                        msg.args as string[],
-                        msg.cwd as string,
-                        (decision) => {
-                            worker.postMessage({ type: 'approval-decision', callId: msg.callId, decision });
-                        },
-                    );
+                    commandApprovalCallback(msg.program, msg.args, msg.cwd, (decision) => {
+                        worker.postMessage({ type: 'approval-decision', callId: msg.callId, decision });
+                    });
                 } else {
                     worker.postMessage({ type: 'approval-decision', callId: msg.callId, decision: 'deny' });
                 }
@@ -300,13 +318,9 @@ export async function launchAppServer(options?: { origin?: string }): Promise<Ap
             // Network approval: Worker needs UI decision
             case 'network-approval-request': {
                 if (networkApprovalCallback) {
-                    networkApprovalCallback(
-                        msg.url as string,
-                        msg.method as string,
-                        (decision) => {
-                            worker.postMessage({ type: 'network-approval-decision', callId: msg.callId, decision });
-                        },
-                    );
+                    networkApprovalCallback(msg.url, msg.method, (decision) => {
+                        worker.postMessage({ type: 'network-approval-decision', callId: msg.callId, decision });
+                    });
                 } else {
                     worker.postMessage({ type: 'network-approval-decision', callId: msg.callId, decision: 'deny' });
                 }

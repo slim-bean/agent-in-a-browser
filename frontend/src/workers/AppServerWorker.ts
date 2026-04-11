@@ -431,11 +431,34 @@ async function handleInit(origin: string): Promise<void> {
 // Inbox Push Helper
 // ==========================================================================
 
+/** Messages the WASM inbox accepts (must match Rust InboxMessage enum). */
+type InboxMessage =
+    | { type: 'request'; id: string; json: string }
+    | { type: 'notification'; json: string }
+    | { type: 'resolve'; request_id: string; result_json: string }
+    | { type: 'reject'; request_id: string; error_json: string }
+    | { type: 'shutdown' };
+
+/** Messages from the main thread to this Worker. */
+type MainToWorkerMessage =
+    | { type: 'init'; origin: string }
+    | { type: 'send-request'; callId: string; json: string }
+    | { type: 'send-notification'; json: string }
+    | { type: 'respond-to-server-request'; requestId: string; resultJson: string }
+    | { type: 'fail-server-request'; requestId: string; errorJson: string }
+    | { type: 'push-auth-callback'; method: string; path: string; headers: [string, string][]; body: ArrayBuffer }
+    | { type: 'shutdown' }
+    | { type: 'transport-response'; callId: string; status: number; headers: [string, Uint8Array][]; body: Uint8Array }
+    | { type: 'exec-response'; callId: string; exitCode: number; stdout: Uint8Array; stderr: Uint8Array }
+    | { type: 'mcp-response'; callId: string; status: number; body: string }
+    | { type: 'approval-decision'; callId: string; decision: string }
+    | { type: 'network-approval-decision'; callId: string; decision: string };
+
 /**
  * Push a protocol message into the WASM inbox.
  * The WASM event loop picks it up via the mpsc channel.
  */
-function pushToInbox(message: Record<string, unknown>): void {
+function pushToInbox(message: InboxMessage): void {
     try {
         protocolInbox.pushMessage(JSON.stringify(message));
     } catch (err) {
@@ -447,7 +470,7 @@ function pushToInbox(message: Record<string, unknown>): void {
 // Message Handler (Safari-safe addEventListener pattern)
 // ==========================================================================
 
-self.addEventListener('message', (e: MessageEvent) => {
+self.addEventListener('message', (e: MessageEvent<MainToWorkerMessage>) => {
     const msg = e.data;
     switch (msg.type) {
         case 'init':
