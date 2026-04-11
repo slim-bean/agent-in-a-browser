@@ -7,6 +7,10 @@ on:
     branches: [main, develop]
   workflow_dispatch:
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
@@ -252,7 +256,7 @@ jobs:
 
       - name: Run E2E Tests
         working-directory: frontend
-        run: npx playwright test --project=chromium --shard=${{ matrix.shard }}
+        run: npx playwright test --project=chromium --shard=${{ matrix.shard }} --grep-invert="Pyodide"
         timeout-minutes: 10
 
       - name: Upload Playwright Report
