@@ -77,16 +77,6 @@ jobs:
         env:
           GOTOOLCHAIN: auto
 
-      - name: Setup Python (for Pyodide build)
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.14"
-
-      - name: Install Pyodide build prerequisites
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq autoconf automake libtool pkg-config texinfo
-
       - name: Prepare Pyodide fork dist
         id: pyodide
         run: |
@@ -101,27 +91,31 @@ jobs:
           path: pyodide/dist
           key: pyodide-dist-v1-${{ runner.os }}-${{ steps.pyodide.outputs.sha }}
 
-      - name: Build Pyodide dist (on cache miss)
-        if: steps.pyodide-cache.outputs.cache-hit != 'true'
-        run: |
-          python -m pip install -r pyodide/requirements.txt
-          rm -rf pyodide/dist
-          make -C pyodide \
-            dist/pyodide.asm.mjs \
-            dist/pyodide.js \
-            dist/package.json \
-            dist/python_stdlib.zip \
-            dist/pyodide-lock.json
-
       - name: Validate Pyodide dist
         run: |
-          for f in pyodide/dist/pyodide.asm.wasm pyodide/dist/pyodide.asm.mjs pyodide/dist/pyodide.mjs pyodide/dist/python_stdlib.zip pyodide/dist/pyodide-lock.json; do
-            if [ ! -f "$f" ]; then
-              echo "::error::Missing required Pyodide artifact: $f"
-              exit 1
+          REQUIRED_FILES="pyodide.asm.wasm pyodide.asm.mjs pyodide.mjs python_stdlib.zip pyodide-lock.json"
+          ALL_PRESENT=true
+          for f in $REQUIRED_FILES; do
+            if [ ! -f "pyodide/dist/$f" ]; then
+              echo "::error::Missing required Pyodide artifact: pyodide/dist/$f"
+              ALL_PRESENT=false
             fi
           done
-          echo "Pyodide dist validated OK"
+          if [ "$ALL_PRESENT" = "true" ]; then
+            echo "Pyodide dist validated OK ($(ls pyodide/dist/ | wc -l) files)"
+            ls -lh pyodide/dist/
+          else
+            echo ""
+            echo "::error::Pyodide dist is missing or incomplete."
+            echo "The custom Pyodide fork must be built locally and the cache seeded."
+            echo ""
+            echo "To seed the cache for this submodule SHA (${{ steps.pyodide.outputs.sha }}):"
+            echo "  1. Build Pyodide locally: cd pyodide && make all-but-packages"
+            echo "  2. Push a commit to trigger CI (dist/ is cached by submodule SHA)"
+            echo ""
+            echo "If the submodule was updated, rebuild dist/ before pushing."
+            exit 1
+          fi
 
       - name: Install Node dependencies
         run: pnpm install --frozen-lockfile
