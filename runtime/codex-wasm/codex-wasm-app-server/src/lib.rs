@@ -407,10 +407,26 @@ impl Guest for CodexAppServer {
                                     Some(serde_json::Value::Object(ref map))
                                         if map.contains_key("Err") =>
                                     {
-                                        let err_msg =
-                                            serde_json::to_string(&map["Err"]).unwrap_or_else(
-                                                |_| r#""unknown error""#.to_string(),
-                                            );
+                                        // Extract a human-readable message string from the Err variant.
+                                        // The Err value may be a string or an object with a "message" field.
+                                        let err_val = &map["Err"];
+                                        let err_msg = match err_val {
+                                            serde_json::Value::String(s) => {
+                                                serde_json::to_string(s)
+                                                    .unwrap_or_else(|_| r#""unknown error""#.to_string())
+                                            }
+                                            serde_json::Value::Object(obj) => {
+                                                if let Some(serde_json::Value::String(m)) = obj.get("message") {
+                                                    serde_json::to_string(m)
+                                                        .unwrap_or_else(|_| r#""unknown error""#.to_string())
+                                                } else {
+                                                    serde_json::to_string(err_val)
+                                                        .unwrap_or_else(|_| r#""unknown error""#.to_string())
+                                                }
+                                            }
+                                            _ => serde_json::to_string(err_val)
+                                                .unwrap_or_else(|_| r#""unknown error""#.to_string()),
+                                        };
                                         format!(
                                             r#"{{"type":"response","id":{id_json},"error":{{"code":-32603,"message":{err_msg}}}}}"#,
                                         )
