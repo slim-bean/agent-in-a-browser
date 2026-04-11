@@ -699,6 +699,13 @@ export class AppServerClient {
         });
     }
 
+    /** Start device code login flow. Returns loginId, verificationUrl, and userCode. */
+    async loginWithDeviceCode(): Promise<LoginAccountResponse> {
+        return this.sendRequest<LoginAccountResponse>('account/login/start', {
+            type: 'chatgptDeviceCode',
+        });
+    }
+
     /** Cancel an in-progress login. */
     async cancelLogin(loginId: string): Promise<CancelLoginAccountResponse> {
         return this.sendRequest<CancelLoginAccountResponse>('account/login/cancel', {

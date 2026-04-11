@@ -496,6 +496,75 @@ function showLoginStatus(message: string): void {
     if (errorEl) errorEl.classList.remove('login-screen__error--visible');
 }
 
+function showDeviceCode(verificationUrl: string, userCode: string): void {
+    if (!loginScreenEl) return;
+
+    // Hide the form and divider, show device code instructions
+    const form = loginScreenEl.querySelector('.login-screen__form') as HTMLElement | null;
+    const divider = loginScreenEl.querySelector('.login-screen__divider') as HTMLElement | null;
+    const btn = loginScreenEl.querySelector('.login-screen__btn--secondary') as HTMLElement | null;
+    if (form) form.style.display = 'none';
+    if (divider) divider.style.display = 'none';
+    if (btn) btn.style.display = 'none';
+
+    // Remove any previous device code display
+    const prev = loginScreenEl.querySelector('.login-screen__device-code');
+    if (prev) prev.remove();
+
+    const container = el('div', 'login-screen__device-code');
+
+    const instruction = el('div', 'login-screen__subtitle');
+    instruction.textContent = 'Visit the URL below and enter the code to sign in:';
+    container.appendChild(instruction);
+
+    const urlLink = document.createElement('a');
+    urlLink.classList.add('login-screen__device-url');
+    urlLink.href = verificationUrl;
+    urlLink.target = '_blank';
+    urlLink.rel = 'noopener';
+    urlLink.textContent = verificationUrl;
+    container.appendChild(urlLink);
+
+    const codeDisplay = el('div', 'login-screen__user-code');
+    codeDisplay.textContent = userCode;
+    container.appendChild(codeDisplay);
+
+    const copyBtn = document.createElement('button');
+    copyBtn.classList.add('login-screen__btn', 'login-screen__btn--secondary');
+    copyBtn.type = 'button';
+    copyBtn.textContent = 'Copy Code';
+    copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(userCode).then(() => {
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => { copyBtn.textContent = 'Copy Code'; }, 2000);
+        }).catch(() => {});
+    });
+    container.appendChild(copyBtn);
+
+    const waiting = el('div', 'login-screen__status', 'login-screen__status--visible');
+    waiting.innerHTML = 'Waiting for authorization<span class="thinking__dots"><span class="thinking__dot"></span><span class="thinking__dot"></span><span class="thinking__dot"></span></span>';
+    container.appendChild(waiting);
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.classList.add('login-screen__btn', 'login-screen__btn--secondary');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => {
+        if (state.client && pendingLoginId) {
+            state.client.cancelLogin(pendingLoginId).catch(() => {});
+        }
+        pendingLoginId = null;
+        container.remove();
+        if (form) form.style.display = '';
+        if (divider) divider.style.display = '';
+        if (btn) btn.style.display = '';
+        enableLoginButtons();
+    });
+    container.appendChild(cancelBtn);
+
+    loginScreenEl.appendChild(container);
+}
+
 function buildLoginScreen(): HTMLElement {
     const screen = el('div', 'login-screen');
 
@@ -547,27 +616,28 @@ function buildLoginScreen(): HTMLElement {
     divider.textContent = 'or';
     screen.appendChild(divider);
 
-    const oauthBtn = document.createElement('button');
-    oauthBtn.classList.add('login-screen__btn', 'login-screen__btn--secondary');
-    oauthBtn.type = 'button';
-    oauthBtn.textContent = 'Sign in with OpenAI';
-    oauthBtn.addEventListener('click', () => {
+    const deviceCodeBtn = document.createElement('button');
+    deviceCodeBtn.classList.add('login-screen__btn', 'login-screen__btn--secondary');
+    deviceCodeBtn.type = 'button';
+    deviceCodeBtn.textContent = 'Sign in with OpenAI';
+    deviceCodeBtn.addEventListener('click', () => {
         if (!state.client) return;
 
         disableLoginButtons();
-        showLoginStatus('Waiting for authorization...');
+        showLoginStatus('Requesting device code...');
 
-        state.client.loginWithOAuth().then((response: LoginAccountResponse) => {
-            if (response.type === 'chatgpt') {
+        state.client.loginWithDeviceCode().then((response: LoginAccountResponse) => {
+            if (response.type === 'chatgptDeviceCode') {
                 pendingLoginId = response.loginId;
-                window.open(response.authUrl, '_blank');
+                showDeviceCode(response.verificationUrl, response.userCode);
             }
         }).catch((err: unknown) => {
             const msg = err instanceof Error ? err.message : String(err);
+            enableLoginButtons();
             showLoginError(msg);
         });
     });
-    screen.appendChild(oauthBtn);
+    screen.appendChild(deviceCodeBtn);
 
     const errorEl = el('div', 'login-screen__error');
     screen.appendChild(errorEl);

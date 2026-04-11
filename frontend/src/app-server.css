@@ -1233,6 +1233,42 @@ html, body {
     display: flex;
 }
 
+/* Device Code Login */
+.login-screen__device-code {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-md);
+    width: 100%;
+    max-width: 400px;
+    animation: fade-in 200ms ease;
+}
+
+.login-screen__device-url {
+    color: var(--blue);
+    font-size: var(--font-size-base);
+    text-decoration: none;
+    word-break: break-all;
+    text-align: center;
+}
+
+.login-screen__device-url:hover {
+    text-decoration: underline;
+}
+
+.login-screen__user-code {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    color: var(--text);
+    background: var(--surface-raised);
+    padding: var(--space-md) var(--space-xl);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-highlight);
+    user-select: all;
+    cursor: text;
+}
+
 .login-screen__status .thinking__dots {
     display: inline-flex;
 }
