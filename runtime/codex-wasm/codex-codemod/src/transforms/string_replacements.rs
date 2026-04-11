@@ -197,5 +197,19 @@ impl AppServerRequestHandle {
             find: "#[cfg(target_os = \"windows\")]\nconst PLATFORM_CORE_VARS: &[&str] = &[\"PATHEXT\", \"USERNAME\", \"USERPROFILE\"];\n\n#[cfg(unix)]\nconst PLATFORM_CORE_VARS: &[&str] = &[\"HOME\", \"LANG\", \"LC_ALL\", \"LC_CTYPE\", \"LOGNAME\", \"USER\"];",
             replace: "// [codex-codemod] Single unconditional definition for WASM.\nconst PLATFORM_CORE_VARS: &[&str] = &[\"HOME\"];",
         },
+        // [codex-codemod-clipboard-string] — wasi-arboard set_text takes String,
+        // upstream arboard takes &str. Convert at each call site.
+        Transform::ReplaceAll {
+            path_suffix: "tui/src/clipboard_copy.rs",
+            find: ".set_text(text)",
+            replace: ".set_text(text.to_string())",
+        },
+        // [codex-codemod-feedback-span] — type inference fails on detail.clone().into()
+        // because the Vec<Span> context is insufficient. Use explicit Span::from().
+        Transform::ReplaceFirst {
+            path_suffix: "tui/src/bottom_pane/feedback_view.rs",
+            find: "detail.clone().into()]).into());",
+            replace: "Span::from(detail.clone())]).into());",
+        },
     ]
 }
