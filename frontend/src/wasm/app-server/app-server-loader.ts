@@ -225,32 +225,39 @@ export async function launchAppServer(options?: { origin?: string }): Promise<Ap
     worker.addEventListener('message', (e: MessageEvent) => {
         const msg = e.data as Record<string, unknown>;
         switch (msg.type) {
-            // Proxy responses (resolve pending calls from main -> worker)
-            case 'request-result':
-            case 'request-error': {
-                const pending = pendingCalls.get(msg.callId as string);
-                if (pending) {
-                    pendingCalls.delete(msg.callId as string);
-                    if (msg.type === 'request-result') {
-                        pending.resolve(msg.json);
-                    } else {
-                        pending.reject(new Error(msg.message as string));
-                    }
-                }
-                break;
-            }
-
-            // Events from WASM
+            // Events from WASM (notifications, requests, responses, errors)
             case 'event': {
-                if (!eventHandler) break;
                 try {
-                    const event = JSON.parse(msg.json as string) as AppServerEvent;
-                    eventHandler(event);
+                    const event = JSON.parse(msg.json as string) as Record<string, unknown>;
+
+                    // Protocol responses from inbox — correlate by id
+                    if (event.type === 'response') {
+                        const id = event.id as string;
+                        const pending = pendingCalls.get(id);
+                        if (pending) {
+                            pendingCalls.delete(id);
+                            if (event.error) {
+                                const err = event.error as { message?: string };
+                                pending.reject(new Error(err.message ?? 'request failed'));
+                            } else {
+                                // Return the result as a JSON string (matching old sendRequest API)
+                                pending.resolve(JSON.stringify(event.result));
+                            }
+                        }
+                        break;
+                    }
+
+                    // All other events → forward to UI event handler
+                    if (eventHandler) {
+                        eventHandler(event as unknown as AppServerEvent);
+                    }
                 } catch (err) {
-                    eventHandler({
-                        type: 'error',
-                        message: `Failed to parse server event: ${err instanceof Error ? err.message : String(err)}`,
-                    });
+                    if (eventHandler) {
+                        eventHandler({
+                            type: 'error',
+                            message: `Failed to parse server event: ${err instanceof Error ? err.message : String(err)}`,
+                        });
+                    }
                 }
                 break;
             }

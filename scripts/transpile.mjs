@@ -283,11 +283,7 @@ const MODULES = {
             'codex:app-server/credential-store@0.1.0': '@tjfontaine/wasi-shims/credential-store-impl.js',
         },
         exports: ['start', 'push-auth-callback',
-            'codex:app-server/protocol@0.1.0#send-request',
-            'codex:app-server/protocol@0.1.0#send-notification',
-            'codex:app-server/protocol@0.1.0#respond-to-server-request',
-            'codex:app-server/protocol@0.1.0#fail-server-request',
-            'codex:app-server/protocol@0.1.0#shutdown',
+            'codex:app-server/protocol-inbox@0.1.0#push-message',
         ],
         extraAsyncImports: [
             'codex:app-server/shell-exec@0.1.0#exec',

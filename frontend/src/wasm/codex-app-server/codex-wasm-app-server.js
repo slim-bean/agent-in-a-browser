@@ -9970,7 +9970,6 @@ function trampoline106(arg0, arg1) {
 }
 
 let exports3;
-let postReturn0;
 function trampoline10(handle) {
   const handleEntry = rscTableRemove(handleTable9, handle);
   if (handleEntry.own) {
@@ -10229,119 +10228,22 @@ async function pushAuthCallback(arg0, arg1, arg2, arg3) {
     postReturn: false
   });
 }
-let protocol010SendRequest;
+let protocolInbox010PushMessage;
 
-async function sendRequest(arg0) {
+async function pushMessage(arg0) {
   var ptr0 = utf8Encode(arg0, realloc0, memory0);
   var len0 = utf8EncodedLen;
-  _debugLog('[iface="codex:app-server/protocol@0.1.0", function="send-request"][Instruction::CallWasm] enter', {
-    funcName: 'send-request',
-    paramCount: 2,
-    async: false,
-    postReturn: true,
-  });
-  const _wasm_call_currentTaskID = startCurrentTask(0, false, 'protocol010SendRequest');
-  const ret = await protocol010SendRequest(ptr0, len0);
-  endCurrentTask(0);
-  var ptr1 = dataView(memory0).getUint32(ret + 0, true);
-  var len1 = dataView(memory0).getUint32(ret + 4, true);
-  var result1 = utf8Decoder.decode(new Uint8Array(memory0.buffer, ptr1, len1));
-  _debugLog('[iface="codex:app-server/protocol@0.1.0", function="send-request"][Instruction::Return]', {
-    funcName: 'send-request',
-    paramCount: 1,
-    async: false,
-    postReturn: true
-  });
-  const retCopy = result1;
-  
-  let cstate = getOrCreateAsyncState(0);
-  cstate.mayLeave = false;
-  postReturn0(ret);
-  cstate.mayLeave = true;
-  return retCopy;
-  
-}
-let protocol010SendNotification;
-
-async function sendNotification(arg0) {
-  var ptr0 = utf8Encode(arg0, realloc0, memory0);
-  var len0 = utf8EncodedLen;
-  _debugLog('[iface="codex:app-server/protocol@0.1.0", function="send-notification"][Instruction::CallWasm] enter', {
-    funcName: 'send-notification',
+  _debugLog('[iface="codex:app-server/protocol-inbox@0.1.0", function="push-message"][Instruction::CallWasm] enter', {
+    funcName: 'push-message',
     paramCount: 2,
     async: false,
     postReturn: false,
   });
-  const _wasm_call_currentTaskID = startCurrentTask(0, false, 'protocol010SendNotification');
-  await protocol010SendNotification(ptr0, len0);
+  const _wasm_call_currentTaskID = startCurrentTask(0, false, 'protocolInbox010PushMessage');
+  await protocolInbox010PushMessage(ptr0, len0);
   endCurrentTask(0);
-  _debugLog('[iface="codex:app-server/protocol@0.1.0", function="send-notification"][Instruction::Return]', {
-    funcName: 'send-notification',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-}
-let protocol010RespondToServerRequest;
-
-async function respondToServerRequest(arg0, arg1) {
-  var ptr0 = utf8Encode(arg0, realloc0, memory0);
-  var len0 = utf8EncodedLen;
-  var ptr1 = utf8Encode(arg1, realloc0, memory0);
-  var len1 = utf8EncodedLen;
-  _debugLog('[iface="codex:app-server/protocol@0.1.0", function="respond-to-server-request"][Instruction::CallWasm] enter', {
-    funcName: 'respond-to-server-request',
-    paramCount: 4,
-    async: false,
-    postReturn: false,
-  });
-  const _wasm_call_currentTaskID = startCurrentTask(0, false, 'protocol010RespondToServerRequest');
-  await protocol010RespondToServerRequest(ptr0, len0, ptr1, len1);
-  endCurrentTask(0);
-  _debugLog('[iface="codex:app-server/protocol@0.1.0", function="respond-to-server-request"][Instruction::Return]', {
-    funcName: 'respond-to-server-request',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-}
-let protocol010FailServerRequest;
-
-async function failServerRequest(arg0, arg1) {
-  var ptr0 = utf8Encode(arg0, realloc0, memory0);
-  var len0 = utf8EncodedLen;
-  var ptr1 = utf8Encode(arg1, realloc0, memory0);
-  var len1 = utf8EncodedLen;
-  _debugLog('[iface="codex:app-server/protocol@0.1.0", function="fail-server-request"][Instruction::CallWasm] enter', {
-    funcName: 'fail-server-request',
-    paramCount: 4,
-    async: false,
-    postReturn: false,
-  });
-  const _wasm_call_currentTaskID = startCurrentTask(0, false, 'protocol010FailServerRequest');
-  await protocol010FailServerRequest(ptr0, len0, ptr1, len1);
-  endCurrentTask(0);
-  _debugLog('[iface="codex:app-server/protocol@0.1.0", function="fail-server-request"][Instruction::Return]', {
-    funcName: 'fail-server-request',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-}
-let protocol010Shutdown;
-
-async function shutdown() {
-  _debugLog('[iface="codex:app-server/protocol@0.1.0", function="shutdown"][Instruction::CallWasm] enter', {
-    funcName: 'shutdown',
-    paramCount: 0,
-    async: false,
-    postReturn: false,
-  });
-  const _wasm_call_currentTaskID = startCurrentTask(0, false, 'protocol010Shutdown');
-  await protocol010Shutdown();
-  endCurrentTask(0);
-  _debugLog('[iface="codex:app-server/protocol@0.1.0", function="shutdown"][Instruction::Return]', {
-    funcName: 'shutdown',
+  _debugLog('[iface="codex:app-server/protocol-inbox@0.1.0", function="push-message"][Instruction::Return]', {
+    funcName: 'push-message',
     paramCount: 0,
     async: false,
     postReturn: false
@@ -10640,14 +10542,9 @@ const $init = (() => {
         '9': trampoline46,
       },
     }));
-    postReturn0 = exports1['cabi_post_codex:app-server/protocol@0.1.0#send-request'];
     exports1Start = WebAssembly.promising(exports1.start);
     exports1PushAuthCallback = WebAssembly.promising(exports1['push-auth-callback']);
-    protocol010SendRequest = WebAssembly.promising(exports1['codex:app-server/protocol@0.1.0#send-request']);
-    protocol010SendNotification = WebAssembly.promising(exports1['codex:app-server/protocol@0.1.0#send-notification']);
-    protocol010RespondToServerRequest = WebAssembly.promising(exports1['codex:app-server/protocol@0.1.0#respond-to-server-request']);
-    protocol010FailServerRequest = WebAssembly.promising(exports1['codex:app-server/protocol@0.1.0#fail-server-request']);
-    protocol010Shutdown = WebAssembly.promising(exports1['codex:app-server/protocol@0.1.0#shutdown']);
+    protocolInbox010PushMessage = WebAssembly.promising(exports1['codex:app-server/protocol-inbox@0.1.0#push-message']);
   })();
   let promise, resolve, reject;
   function runNext (value) {
@@ -10673,13 +10570,9 @@ const $init = (() => {
 })();
 
 await $init;
-const protocol010 = {
-  failServerRequest: failServerRequest,
-  respondToServerRequest: respondToServerRequest,
-  sendNotification: sendNotification,
-  sendRequest: sendRequest,
-  shutdown: shutdown,
+const protocolInbox010 = {
+  pushMessage: pushMessage,
   
 };
 
-export { protocol010 as protocol, protocol010 as 'codex:app-server/protocol@0.1.0', pushAuthCallback, start$1 as start,  }
+export { protocolInbox010 as protocolInbox, protocolInbox010 as 'codex:app-server/protocol-inbox@0.1.0', pushAuthCallback, start$1 as start,  }

@@ -5,10 +5,10 @@
 //! as a WASM component. Instead of rendering a TUI, it exposes a JSON protocol
 //! bridge via WIT exports so the browser frontend can drive the agent.
 //!
-//! The exported `start()` function initializes the app-server runtime and spawns
-//! an event pump that pushes server events to JS via the `event-sink` import.
-//! The `protocol` interface exports let the frontend send requests, notifications,
-//! and approval responses back to the app-server.
+//! The exported `start()` function initializes the app-server runtime, spawns
+//! an event pump that pushes server events to JS via the `event-sink` import,
+//! and then enters an inbox loop that processes messages pushed by JS via the
+//! `protocol-inbox` export. The inbox loop never returns (until shutdown).
 
 #[allow(warnings)]
 mod bindings;
@@ -17,15 +17,59 @@ mod shell_exec_backend;
 mod wasi_http_backend;
 mod websocket_backend;
 
+mod inbox {
+    use std::sync::mpsc;
+    use std::sync::Mutex;
+    use std::sync::OnceLock;
+
+    type InboxChannel = (Mutex<mpsc::Sender<String>>, Mutex<mpsc::Receiver<String>>);
+
+    static INBOX: OnceLock<InboxChannel> = OnceLock::new();
+
+    fn channel() -> &'static InboxChannel {
+        INBOX.get_or_init(|| {
+            let (tx, rx) = mpsc::channel();
+            (Mutex::new(tx), Mutex::new(rx))
+        })
+    }
+
+    /// Push a message into the inbox (called by WIT export push-message).
+    pub fn push(json: String) {
+        let (tx_lock, _) = channel();
+        if let Ok(tx) = tx_lock.lock() {
+            let _ = tx.send(json);
+        }
+    }
+
+    /// Blocking receive from inbox (called by the event loop in start()).
+    /// Uses try_recv + thread::sleep for JSPI suspension, exactly like tiny_http::recv.
+    pub fn recv() -> String {
+        let (_, rx_lock) = channel();
+        loop {
+            if let Ok(rx) = rx_lock.lock() {
+                match rx.try_recv() {
+                    Ok(msg) => return msg,
+                    Err(mpsc::TryRecvError::Empty) => {
+                        drop(rx);
+                        // JSPI-suspend via WASI clock sleep — lets JS push messages
+                        // and lets tokio background tasks (timers, polling) make progress
+                        std::thread::sleep(std::time::Duration::from_millis(50));
+                    }
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        std::thread::sleep(std::time::Duration::from_millis(100));
+                    }
+                }
+            }
+        }
+    }
+}
+
 use bindings::export;
-use bindings::exports::codex::app_server::protocol::Guest as ProtocolGuest;
 use bindings::Guest;
 
 use std::sync::Arc;
-use std::sync::OnceLock;
 
 use codex_app_server_client::InProcessAppServerClient;
-use codex_app_server_client::InProcessAppServerRequestHandle;
 use codex_app_server_client::InProcessClientStartArgs;
 use codex_app_server_client::InProcessServerEvent;
 use codex_app_server_client::DEFAULT_IN_PROCESS_CHANNEL_CAPACITY;
@@ -41,15 +85,26 @@ use codex_exec_server::EnvironmentManager;
 use codex_feedback::CodexFeedback;
 use codex_protocol::protocol::SessionSource;
 
-/// Global app-server request handle (cloneable, used by protocol exports).
-static REQUEST_HANDLE: OnceLock<InProcessAppServerRequestHandle> = OnceLock::new();
-
-/// Global client for event consumption and shutdown.
-static CLIENT: OnceLock<tokio::sync::Mutex<Option<InProcessAppServerClient>>> = OnceLock::new();
-
-/// Shutdown signal sender — stored by start(), consumed by shutdown().
-static SHUTDOWN_TX: OnceLock<tokio::sync::Mutex<Option<tokio::sync::oneshot::Sender<()>>>> =
-    OnceLock::new();
+#[derive(serde::Deserialize)]
+#[serde(tag = "type")]
+enum InboxMessage {
+    #[serde(rename = "request")]
+    Request { id: String, json: String },
+    #[serde(rename = "notification")]
+    Notification { json: String },
+    #[serde(rename = "resolve")]
+    ResolveServerRequest {
+        request_id: String,
+        result_json: String,
+    },
+    #[serde(rename = "reject")]
+    RejectServerRequest {
+        request_id: String,
+        error_json: String,
+    },
+    #[serde(rename = "shutdown")]
+    Shutdown,
+}
 
 struct CodexAppServer;
 
@@ -246,7 +301,7 @@ impl Guest for CodexAppServer {
             };
 
             console_log::console_log!("[codex-wasm-app-server] starting in-process app-server...");
-            let client = match InProcessAppServerClient::start(args).await {
+            let mut client = match InProcessAppServerClient::start(args).await {
                 Ok(client) => client,
                 Err(e) => {
                     console_log::console_error!(
@@ -258,32 +313,15 @@ impl Guest for CodexAppServer {
 
             console_log::console_log!("[codex-wasm-app-server] app-server started successfully");
 
-            // Store the request handle for use by protocol exports
             let request_handle = client.request_handle();
-            let _ = REQUEST_HANDLE.set(request_handle);
+
+            // Create shutdown channel for the event pump
+            let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
             // Spawn event pump: reads events from the in-process client and
             // pushes them to JS via the event-sink WIT import.
-            // We move the client into the pump task and store it behind a mutex
-            // so shutdown can reclaim it later.
-            let client_mutex = tokio::sync::Mutex::new(Some(client));
-            let _ = CLIENT.set(client_mutex);
-
-            // Create a oneshot channel for signaling graceful shutdown.
-            let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
-            let _ = SHUTDOWN_TX.set(tokio::sync::Mutex::new(Some(shutdown_tx)));
-
             tokio::spawn(async move {
-                let client_lock = CLIENT.get().expect("CLIENT not set");
-                // Take the client out of the mutex for the event loop.
-                let mut client = {
-                    let mut guard = client_lock.lock().await;
-                    guard.take().expect("client already taken")
-                };
-
-                // Pin the shutdown receiver so we can poll it in select!
                 tokio::pin!(shutdown_rx);
-
                 loop {
                     tokio::select! {
                         event = client.next_event() => {
@@ -308,165 +346,166 @@ impl Guest for CodexAppServer {
                 }
             });
 
-            0 // success
+            // Main inbox loop — THIS NEVER RETURNS (until shutdown).
+            // recv() blocks via thread::sleep which JSPI-suspends, allowing:
+            // - JS to push messages via push-message export
+            // - tokio background tasks (device code polling, timers) to progress
+            // Signal JS that initialization is complete and inbox is ready.
+            // This event is emitted before the blocking recv() loop so the
+            // JS Worker can tell the main thread that boot succeeded.
+            bindings::codex::app_server::event_sink::emit_event(r#"{"type":"started"}"#);
+
+            console_log::console_log!("[codex-wasm-app-server] entering inbox loop...");
+            loop {
+                let raw = inbox::recv();
+
+                let msg: InboxMessage = match serde_json::from_str(&raw) {
+                    Ok(m) => m,
+                    Err(e) => {
+                        console_log::console_error!(
+                            "[codex-wasm-app-server] invalid inbox message: {e}"
+                        );
+                        continue;
+                    }
+                };
+
+                match msg {
+                    InboxMessage::Request { id, json } => {
+                        let request: ClientRequest = match serde_json::from_str(&json) {
+                            Ok(r) => r,
+                            Err(e) => {
+                                let error_resp = serde_json::json!({
+                                    "type": "response",
+                                    "id": id,
+                                    "error": {
+                                        "code": -32700,
+                                        "message": format!("invalid request JSON: {e}")
+                                    }
+                                });
+                                bindings::codex::app_server::event_sink::emit_event(
+                                    &error_resp.to_string(),
+                                );
+                                continue;
+                            }
+                        };
+
+                        match request_handle.request(request).await {
+                            Ok(response) => {
+                                let resp_json = serde_json::to_string(&response)
+                                    .unwrap_or_else(|e| format!(r#"{{"error":"serialize: {e}"}}"#));
+                                let envelope = format!(
+                                    r#"{{"type":"response","id":{},"result":{}}}"#,
+                                    serde_json::to_string(&id)
+                                        .unwrap_or_else(|_| "null".to_string()),
+                                    resp_json,
+                                );
+                                bindings::codex::app_server::event_sink::emit_event(&envelope);
+                            }
+                            Err(e) => {
+                                let error_resp = serde_json::json!({
+                                    "type": "response",
+                                    "id": id,
+                                    "error": {
+                                        "code": -32603,
+                                        "message": format!("{e}")
+                                    }
+                                });
+                                bindings::codex::app_server::event_sink::emit_event(
+                                    &error_resp.to_string(),
+                                );
+                            }
+                        }
+                    }
+                    InboxMessage::Notification { json } => {
+                        let notification: ClientNotification = match serde_json::from_str(&json) {
+                            Ok(n) => n,
+                            Err(e) => {
+                                console_log::console_error!(
+                                    "[codex-wasm-app-server] invalid notification JSON: {e}"
+                                );
+                                continue;
+                            }
+                        };
+                        if let Err(e) = request_handle.notify(notification).await {
+                            console_log::console_error!(
+                                "[codex-wasm-app-server] notify error: {e}"
+                            );
+                        }
+                    }
+                    InboxMessage::ResolveServerRequest {
+                        request_id,
+                        result_json,
+                    } => {
+                        let id: RequestId = match serde_json::from_str(&request_id) {
+                            Ok(id) => id,
+                            Err(e) => {
+                                console_log::console_error!(
+                                    "[codex-wasm-app-server] invalid request_id: {e}"
+                                );
+                                continue;
+                            }
+                        };
+                        let result: serde_json::Value = match serde_json::from_str(&result_json) {
+                            Ok(v) => v,
+                            Err(e) => {
+                                console_log::console_error!(
+                                    "[codex-wasm-app-server] invalid result JSON: {e}"
+                                );
+                                continue;
+                            }
+                        };
+                        if let Err(e) = request_handle.resolve_server_request(id, result).await {
+                            console_log::console_error!(
+                                "[codex-wasm-app-server] resolve error: {e}"
+                            );
+                        }
+                    }
+                    InboxMessage::RejectServerRequest {
+                        request_id,
+                        error_json,
+                    } => {
+                        let id: RequestId = match serde_json::from_str(&request_id) {
+                            Ok(id) => id,
+                            Err(e) => {
+                                console_log::console_error!(
+                                    "[codex-wasm-app-server] invalid request_id: {e}"
+                                );
+                                continue;
+                            }
+                        };
+                        let error: JSONRPCErrorError = match serde_json::from_str(&error_json) {
+                            Ok(v) => v,
+                            Err(e) => {
+                                console_log::console_error!(
+                                    "[codex-wasm-app-server] invalid error JSON: {e}"
+                                );
+                                continue;
+                            }
+                        };
+                        if let Err(e) = request_handle.reject_server_request(id, error).await {
+                            console_log::console_error!(
+                                "[codex-wasm-app-server] reject error: {e}"
+                            );
+                        }
+                    }
+                    InboxMessage::Shutdown => {
+                        console_log::console_log!(
+                            "[codex-wasm-app-server] shutdown requested via inbox"
+                        );
+                        let _ = shutdown_tx.send(());
+                        break;
+                    }
+                }
+            }
+
+            0 // exit code
         })
     }
 }
 
-impl ProtocolGuest for CodexAppServer {
-    fn send_request(json: String) -> String {
-        let handle = match REQUEST_HANDLE.get() {
-            Some(h) => h,
-            None => {
-                return r#"{"error":{"code":-32002,"message":"app-server not started"}}"#
-                    .to_string()
-            }
-        };
-
-        tokio::block_on(async {
-            let request: ClientRequest = match serde_json::from_str(&json) {
-                Ok(r) => r,
-                Err(e) => {
-                    return serde_json::to_string(&serde_json::json!({
-                        "error": {
-                            "code": -32700,
-                            "message": format!("invalid request JSON: {e}")
-                        }
-                    }))
-                    .unwrap_or_default();
-                }
-            };
-
-            match handle.request(request).await {
-                Ok(Ok(result)) => {
-                    // Successful result — wrap in JSON-RPC result envelope
-                    serde_json::to_string(&serde_json::json!({ "result": result }))
-                        .unwrap_or_default()
-                }
-                Ok(Err(error)) => {
-                    // App-server returned a JSON-RPC error
-                    serde_json::to_string(&serde_json::json!({ "error": error }))
-                        .unwrap_or_default()
-                }
-                Err(e) => serde_json::to_string(&serde_json::json!({
-                    "error": {
-                        "code": -32603,
-                        "message": format!("transport error: {e}")
-                    }
-                }))
-                .unwrap_or_default(),
-            }
-        })
-    }
-
-    fn send_notification(json: String) {
-        let handle = match REQUEST_HANDLE.get() {
-            Some(h) => h,
-            None => {
-                console_log::console_error!(
-                    "[codex-wasm-app-server] send_notification: not started"
-                );
-                return;
-            }
-        };
-
-        tokio::block_on(async {
-            let notification: ClientNotification = match serde_json::from_str(&json) {
-                Ok(n) => n,
-                Err(e) => {
-                    console_log::console_error!(
-                        "[codex-wasm-app-server] invalid notification JSON: {e}"
-                    );
-                    return;
-                }
-            };
-
-            if let Err(e) = handle.notify(notification).await {
-                console_log::console_error!("[codex-wasm-app-server] notify error: {e}");
-            }
-        });
-    }
-
-    fn respond_to_server_request(request_id: String, result_json: String) {
-        let handle = match REQUEST_HANDLE.get() {
-            Some(h) => h,
-            None => return,
-        };
-
-        tokio::block_on(async {
-            let id: RequestId = match serde_json::from_str(&request_id) {
-                Ok(id) => id,
-                Err(e) => {
-                    console_log::console_error!(
-                        "[codex-wasm-app-server] invalid request_id JSON: {e}"
-                    );
-                    return;
-                }
-            };
-
-            let result: serde_json::Value = match serde_json::from_str(&result_json) {
-                Ok(v) => v,
-                Err(e) => {
-                    console_log::console_error!("[codex-wasm-app-server] invalid result JSON: {e}");
-                    return;
-                }
-            };
-
-            if let Err(e) = handle.resolve_server_request(id, result).await {
-                console_log::console_error!(
-                    "[codex-wasm-app-server] resolve_server_request error: {e}"
-                );
-            }
-        });
-    }
-
-    fn fail_server_request(request_id: String, error_json: String) {
-        let handle = match REQUEST_HANDLE.get() {
-            Some(h) => h,
-            None => return,
-        };
-
-        tokio::block_on(async {
-            let id: RequestId = match serde_json::from_str(&request_id) {
-                Ok(id) => id,
-                Err(e) => {
-                    console_log::console_error!(
-                        "[codex-wasm-app-server] invalid request_id JSON: {e}"
-                    );
-                    return;
-                }
-            };
-
-            let error: JSONRPCErrorError = match serde_json::from_str(&error_json) {
-                Ok(e) => e,
-                Err(e) => {
-                    console_log::console_error!("[codex-wasm-app-server] invalid error JSON: {e}");
-                    return;
-                }
-            };
-
-            if let Err(e) = handle.reject_server_request(id, error).await {
-                console_log::console_error!(
-                    "[codex-wasm-app-server] reject_server_request error: {e}"
-                );
-            }
-        });
-    }
-
-    fn shutdown() {
-        console_log::console_log!("[codex-wasm-app-server] shutdown requested");
-        // Send the shutdown signal to the event pump task, which will call
-        // client.shutdown().await before exiting.
-        if let Some(tx_mutex) = SHUTDOWN_TX.get() {
-            if let Some(tx) = tokio::block_on(async { tx_mutex.lock().await.take() }) {
-                let _ = tx.send(());
-                console_log::console_log!("[codex-wasm-app-server] shutdown signal sent");
-            } else {
-                console_log::console_log!(
-                    "[codex-wasm-app-server] shutdown signal already consumed"
-                );
-            }
-        }
+impl bindings::exports::codex::app_server::protocol_inbox::Guest for CodexAppServer {
+    fn push_message(json: String) {
+        inbox::push(json);
     }
 }
 

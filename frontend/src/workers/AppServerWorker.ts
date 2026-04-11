@@ -10,7 +10,7 @@
 // WASM module imports (transpiled with JCO)
 import {
     start,
-    protocol,
+    protocolInbox,
     pushAuthCallback,
 } from '../wasm/codex-app-server/codex-wasm-app-server.js';
 
@@ -128,6 +128,22 @@ setNetworkApprovalHandler(async (url: string, method: string) => {
 // ==========================================================================
 
 setEventHandler((json: string) => {
+    // Check for special WASM-originated events
+    try {
+        const parsed = JSON.parse(json) as { type?: string };
+        if (parsed.type === 'started') {
+            // WASM init complete — forward as a Worker lifecycle message
+            self.postMessage({ type: 'started' });
+            return;
+        }
+        if (parsed.type === 'response') {
+            // Protocol response — forward directly (main thread correlates by id)
+            self.postMessage({ type: 'event', json });
+            return;
+        }
+    } catch {
+        // Not valid JSON — forward as-is
+    }
     self.postMessage({ type: 'event', json });
 });
 
@@ -398,33 +414,32 @@ async function handleInit(origin: string): Promise<void> {
     // Register PTY handler
     setPtyHandler(new PtySessionManager());
 
-    // Start WASM (no requestAnimationFrame in Workers -- direct await)
-    const exitCode: number = await (start() as unknown as Promise<number>);
-    if (exitCode !== 0) {
-        throw new Error(`App server start() returned exit code: ${exitCode}`);
-    }
-
-    self.postMessage({ type: 'started' });
+    // Start WASM — start() now runs forever (inbox event loop).
+    // It emits a {"type":"started"} event via emit_event when init is done.
+    // The event handler below forwards it to the main thread.
+    // We fire-and-forget since it never resolves.
+    (start() as unknown as Promise<number>).then((exitCode: number) => {
+        if (exitCode !== 0) {
+            self.postMessage({ type: 'start-error', message: `exit code: ${exitCode}` });
+        }
+    }).catch((err: unknown) => {
+        self.postMessage({ type: 'start-error', message: String(err) });
+    });
 }
 
 // ==========================================================================
-// Send Request / Notification Handlers
+// Inbox Push Helper
 // ==========================================================================
 
-async function handleSendRequest(callId: string, json: string): Promise<void> {
+/**
+ * Push a protocol message into the WASM inbox.
+ * The WASM event loop picks it up via the mpsc channel.
+ */
+function pushToInbox(message: Record<string, unknown>): void {
     try {
-        const result: string = await (protocol.sendRequest(json) as unknown as Promise<string>);
-        self.postMessage({ type: 'request-result', callId, json: result });
+        protocolInbox.pushMessage(JSON.stringify(message));
     } catch (err) {
-        self.postMessage({ type: 'request-error', callId, message: String(err) });
-    }
-}
-
-async function handleSendNotification(json: string): Promise<void> {
-    try {
-        await (protocol.sendNotification(json) as unknown as Promise<void>);
-    } catch (err) {
-        console.error('[AppServerWorker] sendNotification error:', err);
+        console.error('[AppServerWorker] pushToInbox error:', err);
     }
 }
 
@@ -441,24 +456,33 @@ self.addEventListener('message', (e: MessageEvent) => {
             });
             break;
         case 'send-request':
-            handleSendRequest(msg.callId, msg.json);
+            // Push request into WASM inbox — response comes back via emit_event
+            pushToInbox({ type: 'request', id: msg.callId, json: msg.json });
             break;
         case 'send-notification':
-            handleSendNotification(msg.json);
+            pushToInbox({ type: 'notification', json: msg.json });
             break;
         case 'respond-to-server-request':
-            protocol.respondToServerRequest(msg.requestId, msg.resultJson);
+            pushToInbox({
+                type: 'resolve',
+                request_id: msg.requestId,
+                result_json: msg.resultJson,
+            });
             break;
         case 'fail-server-request':
-            protocol.failServerRequest(msg.requestId, msg.errorJson);
+            pushToInbox({
+                type: 'reject',
+                request_id: msg.requestId,
+                error_json: msg.errorJson,
+            });
             break;
         case 'push-auth-callback':
             pushAuthCallback(msg.method, msg.path, msg.headers, new Uint8Array(msg.body));
             break;
         case 'shutdown':
-            protocol.shutdown();
+            pushToInbox({ type: 'shutdown' });
             break;
-        // Responses to our requests
+        // Responses to our requests (from main thread proxy)
         case 'transport-response':
         case 'exec-response':
         case 'mcp-response':

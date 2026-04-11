@@ -156,24 +156,18 @@ interface event-sink {
     emit-event: func(json: string);
 }
 
-/// Protocol bridge for client-to-server communication.
-/// All messages are JSON strings matching the app-server-protocol schema.
-interface protocol {
-    /// Send a JSON-encoded ClientRequest to the app-server.
-    /// Returns the JSON-encoded response (result or error).
-    send-request: func(json: string) -> string;
-
-    /// Send a JSON-encoded ClientNotification to the app-server.
-    send-notification: func(json: string);
-
-    /// Respond to a server request (approval flow, elicitation, etc.).
-    respond-to-server-request: func(request-id: string, result-json: string);
-
-    /// Reject a server request with a JSON-encoded error.
-    fail-server-request: func(request-id: string, error-json: string);
-
-    /// Request graceful shutdown of the app-server runtime.
-    shutdown: func();
+/// Inbox for protocol messages from the JS host.
+/// The JS side pushes messages via push-message, and the WASM event loop
+/// processes them. Responses come back through the event-sink.
+interface protocol-inbox {
+    /// Push a JSON protocol message into the WASM inbox.
+    /// The message is a tagged JSON object:
+    ///   { "type": "request", "id": "...", "json": "..." }
+    ///   { "type": "notification", "json": "..." }
+    ///   { "type": "resolve", "request_id": "...", "result_json": "..." }
+    ///   { "type": "reject", "request_id": "...", "error_json": "..." }
+    ///   { "type": "shutdown" }
+    push-message: func(json: string);
 }
 
 /// Codex App-Server world — runs the agent backend in WASM.
@@ -239,8 +233,8 @@ world codex-app-server {
     // Returns 0 on success, non-zero on error.
     export start: func() -> s32;
 
-    // Protocol bridge for client-to-server communication.
-    export protocol;
+    // Inbox for protocol messages from JS host.
+    export protocol-inbox;
 
     // Push an OAuth callback request into the tiny_http channel so that
     // the login server's recv() loop can pick it up. Called by the JS host
