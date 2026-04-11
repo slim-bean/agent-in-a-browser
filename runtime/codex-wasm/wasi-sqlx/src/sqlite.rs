@@ -188,8 +188,26 @@ impl SqlitePoolOptions {
     }
 
     pub async fn connect_with(self, options: SqliteConnectOptions) -> Result<SqlitePool, Error> {
-        let conn = rusqlite::Connection::open(&options.path)?;
-        // Match sqlite-module settings for WASM/OPFS compatibility
+        // Use "unix-none" VFS to disable file locking — WASI doesn't support flock().
+        // Match sqlite-module's approach: NO_MUTEX + MEMORY journal for OPFS compat.
+        let flags = rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE
+            | rusqlite::OpenFlags::SQLITE_OPEN_CREATE
+            | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX;
+        eprintln!("[wasi-sqlx] opening {:?} with unix-none VFS", options.path);
+        let conn = match rusqlite::Connection::open_with_flags_and_vfs(
+            &options.path,
+            flags,
+            "unix-none",
+        ) {
+            Ok(c) => {
+                eprintln!("[wasi-sqlx] opened successfully with unix-none VFS");
+                c
+            }
+            Err(e) => {
+                eprintln!("[wasi-sqlx] unix-none VFS failed: {e}, falling back to default");
+                rusqlite::Connection::open_with_flags(&options.path, flags)?
+            }
+        };
         conn.execute_batch("PRAGMA journal_mode = MEMORY;")?;
         Ok(SqlitePool::new(conn))
     }

@@ -1086,6 +1086,26 @@ class OpfsDescriptor {
     isSameObject(other: Descriptor): boolean { return other === this; }
     metadataHash() { return { upper: BigInt(0), lower: BigInt(0) }; }
     metadataHashAt() { return { upper: BigInt(0), lower: BigInt(0) }; }
+
+    // Advisory file locking — single-threaded WASM but async concurrency is possible.
+    // Tracks exclusive lock state per-descriptor so concurrent async tasks see
+    // correct would-block semantics.
+    private _locked = false;
+    lock(): void {
+        if (this._locked) {
+            throw { tag: 'error-code', val: 'would-block' };
+        }
+        this._locked = true;
+    }
+    tryLock(): void {
+        if (this._locked) {
+            throw { tag: 'error-code', val: 'would-block' };
+        }
+        this._locked = true;
+    }
+    unlock(): void {
+        this._locked = false;
+    }
 }
 
 // Singleton registration via Symbol.for - ensures same class across all module loads

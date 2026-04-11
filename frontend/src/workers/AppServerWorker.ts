@@ -395,7 +395,7 @@ async function handleInit(origin: string): Promise<void> {
         ['HOME', '/'],
         ['CODEX_HOME', '/.codex'],
         ['TERM', 'xterm-256color'],
-        ['RUST_BACKTRACE', '1'],
+        ['RUST_BACKTRACE', 'full'],
         ['CODEX_EXEC_SERVER_URL', 'wasm-host'],
         ['CODEX_ORIGIN', origin],
     ]);

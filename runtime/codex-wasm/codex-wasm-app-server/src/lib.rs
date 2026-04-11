@@ -396,10 +396,10 @@ impl Guest for CodexAppServer {
                                     Some(serde_json::Value::Object(ref map))
                                         if map.contains_key("Ok") =>
                                     {
-                                        let result_json =
-                                            serde_json::to_string(&map["Ok"]).unwrap_or_else(
-                                                |e| format!(r#"{{"error":"serialize: {e}"}}"#),
-                                            );
+                                        let result_json = serde_json::to_string(&map["Ok"])
+                                            .unwrap_or_else(|e| {
+                                                format!(r#"{{"error":"serialize: {e}"}}"#)
+                                            });
                                         format!(
                                             r#"{{"type":"response","id":{id_json},"result":{result_json}}}"#,
                                         )
@@ -407,25 +407,36 @@ impl Guest for CodexAppServer {
                                     Some(serde_json::Value::Object(ref map))
                                         if map.contains_key("Err") =>
                                     {
+                                        console_log::console_error!(
+                                            "[codex-wasm-app-server] request Err: {}",
+                                            serde_json::to_string_pretty(&map["Err"])
+                                                .unwrap_or_else(|_| "?".into())
+                                        );
                                         // Extract a human-readable message string from the Err variant.
                                         // The Err value may be a string or an object with a "message" field.
                                         let err_val = &map["Err"];
                                         let err_msg = match err_val {
                                             serde_json::Value::String(s) => {
-                                                serde_json::to_string(s)
-                                                    .unwrap_or_else(|_| r#""unknown error""#.to_string())
+                                                serde_json::to_string(s).unwrap_or_else(|_| {
+                                                    r#""unknown error""#.to_string()
+                                                })
                                             }
                                             serde_json::Value::Object(obj) => {
-                                                if let Some(serde_json::Value::String(m)) = obj.get("message") {
-                                                    serde_json::to_string(m)
-                                                        .unwrap_or_else(|_| r#""unknown error""#.to_string())
+                                                if let Some(serde_json::Value::String(m)) =
+                                                    obj.get("message")
+                                                {
+                                                    serde_json::to_string(m).unwrap_or_else(|_| {
+                                                        r#""unknown error""#.to_string()
+                                                    })
                                                 } else {
-                                                    serde_json::to_string(err_val)
-                                                        .unwrap_or_else(|_| r#""unknown error""#.to_string())
+                                                    serde_json::to_string(err_val).unwrap_or_else(
+                                                        |_| r#""unknown error""#.to_string(),
+                                                    )
                                                 }
                                             }
-                                            _ => serde_json::to_string(err_val)
-                                                .unwrap_or_else(|_| r#""unknown error""#.to_string()),
+                                            _ => serde_json::to_string(err_val).unwrap_or_else(
+                                                |_| r#""unknown error""#.to_string(),
+                                            ),
                                         };
                                         format!(
                                             r#"{{"type":"response","id":{id_json},"error":{{"code":-32603,"message":{err_msg}}}}}"#,
@@ -449,6 +460,9 @@ impl Guest for CodexAppServer {
                                 bindings::codex::app_server::event_sink::emit_event(&envelope);
                             }
                             Err(e) => {
+                                console_log::console_error!(
+                                    "[codex-wasm-app-server] request transport error: {e:#}"
+                                );
                                 let error_resp = serde_json::json!({
                                     "type": "response",
                                     "id": id,
