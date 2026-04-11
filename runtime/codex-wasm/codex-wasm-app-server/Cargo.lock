@@ -593,16 +593,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e9b18233253483ce2f65329a24072ec414db782531bdbb7d0bbc4bd2ce6b7e21"
 
 [[package]]
-name = "codex-account"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "codex-backend-client",
- "codex-login",
- "thiserror 2.0.18",
-]
-
-[[package]]
 name = "codex-analytics"
 version = "0.0.0"
 dependencies = [
@@ -613,6 +603,7 @@ dependencies = [
  "codex-protocol",
  "os_info",
  "serde",
+ "serde_json",
  "sha1",
  "tokio",
  "tracing",
@@ -886,7 +877,6 @@ dependencies = [
  "bm25",
  "chrono",
  "clap",
- "codex-account",
  "codex-analytics",
  "codex-api",
  "codex-app-server-protocol",
@@ -1428,6 +1418,7 @@ name = "codex-utils-absolute-path"
 version = "0.0.0"
 dependencies = [
  "dirs",
+ "dunce",
  "schemars 0.8.22",
  "serde",
 ]
