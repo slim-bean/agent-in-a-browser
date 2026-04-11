@@ -1,76 +1,17 @@
 /**
  * App Server Loader - Connects frontend to codex-wasm-app-server WASM
  *
- * This module provides the bridge between a custom frontend UI and the
- * Codex app-server running as a WASM component. Unlike the TUI loader,
- * this does NOT create a terminal — it exposes a typed protocol handle
- * for JSON-based client-to-server communication and an event callback
- * for server-to-client push events.
+ * Launches the WASM in a dedicated Worker for native OPFS sync access.
+ * The main thread proxies sandbox (MCP server) communication and handles
+ * UI callbacks (events, approvals).
  */
 
-// Import the Codex App Server WASM module (transpiled with jco)
-import {
-    start,
-    protocol,
-    pushAuthCallback,
-} from '../codex-app-server/codex-wasm-app-server.js';
-
-// Import the CLI shim to set up environment variables
-import { setEnvironment } from '@tjfontaine/wasi-shims/ghostty-cli-shim.js';
-
-// Import transport handler for routing HTTP requests (LLM API calls, etc.)
-import { setTransportHandler, setNetworkApprovalHandler } from '@tjfontaine/wasi-shims/wasi-http-impl.js';
-
-// Import shell exec handler registration for command execution
-import {
-    setExecHandler,
-    setApprovalHandler,
-    type ExecEnv,
-    type ExecResult,
-    type ApprovalDecision,
-} from '@tjfontaine/wasi-shims/shell-exec-impl.js';
-
-// Re-export for consumers of AppServerHandle
+// Type-only import for ApprovalDecision
+import type { ApprovalDecision } from '@tjfontaine/wasi-shims/shell-exec-impl.js';
 export type { ApprovalDecision };
 
-// Import PTY handler registration for persistent shell sessions
-import {
-    setPtyHandler,
-    type PtyHandler,
-    type PtyStartParams,
-    type PtyStartResult,
-    type PtyReadResult,
-    type PtyWriteResult,
-} from '@tjfontaine/wasi-shims/shell-pty-impl.js';
-
-// Import event sink handler registration for server push events
-import { setEventHandler } from '@tjfontaine/wasi-shims/event-sink-impl.js';
-
-// Import sandbox for MCP routing and shell execution
+// Sandbox for MCP routing
 import { fetchFromSandbox, initializeSandbox } from '../../agent/sandbox.js';
-
-// Import OPFS filesystem init for shell access
-import { initFilesystem } from '@tjfontaine/wasi-shims/opfs-filesystem-impl.js';
-
-// ==========================================================================
-// Approval Callback Types
-// ==========================================================================
-
-type CommandApprovalCallback = (
-    program: string,
-    args: string[],
-    cwd: string,
-    respond: (decision: ApprovalDecision) => void,
-) => void;
-
-type NetworkApprovalCallback = (
-    url: string,
-    method: string,
-    respond: (decision: ApprovalDecision) => void,
-) => void;
-
-let commandApprovalCallback: CommandApprovalCallback | null = null;
-let networkApprovalCallback: NetworkApprovalCallback | null = null;
 
 // ==========================================================================
 // Public Types
@@ -107,288 +48,130 @@ export interface AppServerHandle {
 }
 
 // ==========================================================================
-// Sandbox Transport (same as TUI loader)
+// Approval Callback Types and State
 // ==========================================================================
 
-/**
- * Create a transport handler that routes HTTP requests through the sandbox worker
- */
-function createSandboxTransport() {
-    return async (
-        method: string,
-        url: string,
-        headers: Record<string, string>,
-        body: Uint8Array | null
-    ): Promise<{ status: number; headers: [string, Uint8Array][]; body: Uint8Array }> => {
+type CommandApprovalCallback = (
+    program: string,
+    args: string[],
+    cwd: string,
+    respond: (decision: ApprovalDecision) => void,
+) => void;
+
+type NetworkApprovalCallback = (
+    url: string,
+    method: string,
+    respond: (decision: ApprovalDecision) => void,
+) => void;
+
+let commandApprovalCallback: CommandApprovalCallback | null = null;
+let networkApprovalCallback: NetworkApprovalCallback | null = null;
+let eventHandler: ((event: AppServerEvent) => void) | null = null;
+
+// ==========================================================================
+// Call ID Infrastructure
+// ==========================================================================
+
+let callIdCounter = 0;
+const pendingCalls = new Map<string, { resolve: (value: unknown) => void; reject: (reason: unknown) => void }>();
+
+// ==========================================================================
+// Proxy Helpers
+// ==========================================================================
+
+async function handleTransportProxy(worker: Worker, msg: Record<string, unknown>): Promise<void> {
+    const { callId, method, url, headers, body } = msg as {
+        callId: string; method: string; url: string;
+        headers: Record<string, string>; body: ArrayBuffer | null;
+    };
+
+    try {
         const urlObj = new URL(url);
         const path = urlObj.pathname;
-
         console.log('[App Server Transport] Routing to sandbox:', method, path);
 
-        const fetchOptions: RequestInit = {
-            method,
-            headers,
-        };
-
+        const fetchOptions: RequestInit = { method, headers };
         if (body) {
-            fetchOptions.body = new Blob([body as BlobPart]);
+            fetchOptions.body = new Blob([body]);
         }
 
         const response = await fetchFromSandbox(path, fetchOptions);
-
         const responseBody = new Uint8Array(await response.arrayBuffer());
         const responseHeaders: [string, Uint8Array][] = [];
         response.headers.forEach((value, name) => {
             responseHeaders.push([name.toLowerCase(), new TextEncoder().encode(value)]);
         });
 
-        return {
-            status: response.status,
-            headers: responseHeaders,
-            body: responseBody,
-        };
-    };
+        worker.postMessage(
+            { type: 'transport-response', callId, status: response.status, headers: responseHeaders, body: responseBody },
+            [responseBody.buffer],
+        );
+    } catch (err) {
+        worker.postMessage({
+            type: 'transport-response', callId,
+            status: 502, headers: [], body: new TextEncoder().encode(String(err)),
+        });
+    }
 }
 
-// ==========================================================================
-// PTY Session Manager (same as TUI loader)
-// ==========================================================================
+async function handleExecProxy(worker: Worker, msg: Record<string, unknown>): Promise<void> {
+    const { callId, program, args, cwd, stdin, timeoutMs } = msg as {
+        callId: string; program: string; args: string[]; cwd: string;
+        stdin: ArrayBuffer | null; timeoutMs: number;
+    };
+    const command = [program, ...args].join(' ');
+    const encoder = new TextEncoder();
 
-/**
- * PTY Session Manager - routes persistent shell sessions through the MCP server.
- *
- * Each session holds a ShellEnv on the MCP server side (via pty_start/pty_exec/pty_terminate
- * MCP tools). Output is buffered with sequence numbers for incremental reads.
- */
-class PtySessionManager implements PtyHandler {
-    private sessions = new Map<string, {
-        /** Output chunks buffered for read() */
-        chunks: { seq: bigint; data: Uint8Array }[];
-        /** Next sequence number for output chunks */
-        nextSeq: bigint;
-        /** Whether the session has been terminated */
-        exited: boolean;
-        /** Exit code if exited */
-        exitCode: number | undefined;
-        /** Wake counter -- increments when new output is available */
-        wakeSeq: bigint;
-        /** Resolvers waiting for new output (pollWake callers) */
-        wakeResolvers: (() => void)[];
-    }>();
-
-    /** Call MCP tool via the sandbox. */
-    private async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+    try {
         const body = JSON.stringify({
-            jsonrpc: '2.0',
-            id: Date.now(),
+            jsonrpc: '2.0', id: Date.now(),
             method: 'tools/call',
-            params: { name, arguments: args },
+            params: {
+                name: 'run_command',
+                arguments: {
+                    command,
+                    cwd: cwd || '/workspace',
+                    stdin: stdin ? new TextDecoder().decode(stdin) : undefined,
+                    timeout_ms: timeoutMs ?? 30000,
+                },
+            },
         });
+
         const response = await fetchFromSandbox('/mcp/message', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body,
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body,
         });
-        const json: { error?: { message?: string }; result?: unknown } = await response.json();
-        if (json.error) {
-            throw new Error(json.error.message ?? `${name} failed`);
+        const result: { error?: { message?: string }; result?: { content?: { type: string; text: string }[] } } = await response.json();
+
+        if (result.error) {
+            const stderr = encoder.encode(result.error.message ?? 'MCP error');
+            worker.postMessage({ type: 'exec-response', callId, exitCode: 1, stdout: new Uint8Array(0), stderr }, [stderr.buffer]);
+            return;
         }
-        return json.result;
+
+        const text = (result.result?.content ?? []).filter(c => c.type === 'text').map(c => c.text).join('\n');
+        const stdout = encoder.encode(text);
+        worker.postMessage({ type: 'exec-response', callId, exitCode: 0, stdout, stderr: new Uint8Array(0) }, [stdout.buffer]);
+    } catch (err) {
+        const stderr = encoder.encode(`exec failed: ${err instanceof Error ? err.message : String(err)}`);
+        worker.postMessage({ type: 'exec-response', callId, exitCode: 127, stdout: new Uint8Array(0), stderr }, [stderr.buffer]);
     }
+}
 
-    async start(params: PtyStartParams): Promise<PtyStartResult> {
-        console.log('[PTY] start:', params.processId, 'argv:', params.argv, 'cwd:', params.cwd);
+async function handleMcpProxy(worker: Worker, msg: Record<string, unknown>): Promise<void> {
+    const { callId, path, method, headers, body } = msg as {
+        callId: string; path: string; method: string; headers: Record<string, string>; body: string;
+    };
 
-        await this.callTool('pty_start', {
-            process_id: params.processId,
-            cwd: params.cwd || '/workspace',
-            env: params.env.length > 0 ? JSON.stringify(params.env) : undefined,
+    try {
+        const response = await fetchFromSandbox(path, { method, headers, body });
+        const text = await response.text();
+        worker.postMessage({ type: 'mcp-response', callId, status: response.status, body: text });
+    } catch (err) {
+        worker.postMessage({
+            type: 'mcp-response', callId,
+            status: 502,
+            body: JSON.stringify({ error: { message: String(err) } }),
         });
-
-        this.sessions.set(params.processId, {
-            chunks: [],
-            nextSeq: 0n,
-            exited: false,
-            exitCode: undefined,
-            wakeSeq: 0n,
-            wakeResolvers: [],
-        });
-
-        if (params.argv.length > 0) {
-            const command = params.argv.join(' ');
-            await this.executeCommand(params.processId, command);
-        }
-
-        return { processId: params.processId };
-    }
-
-    /**
-     * Execute a command in a session and buffer the output.
-     */
-    private async executeCommand(processId: string, command: string): Promise<void> {
-        const session = this.sessions.get(processId);
-        if (!session) return;
-
-        try {
-            const result = await this.callTool('pty_exec', {
-                process_id: processId,
-                command,
-            }) as { content?: { type: string; text: string }[] } | undefined;
-
-            let output = '';
-            if (result?.content) {
-                output = result.content
-                    .filter((c) => c.type === 'text')
-                    .map((c) => c.text)
-                    .join('\n');
-            }
-
-            const exitMatch = output.match(/\[exit_code:\s*(-?\d+)\]\s*$/);
-            if (exitMatch) {
-                session.exitCode = parseInt(exitMatch[1], 10);
-                output = output.slice(0, exitMatch.index).trimEnd();
-            }
-
-            if (output) {
-                const encoder = new TextEncoder();
-                session.chunks.push({
-                    seq: session.nextSeq,
-                    data: encoder.encode(output),
-                });
-                session.nextSeq++;
-            }
-
-            session.wakeSeq++;
-            for (const resolve of session.wakeResolvers.splice(0)) {
-                resolve();
-            }
-        } catch (err) {
-            const errMsg = err instanceof Error ? err.message : String(err);
-
-            const exitMatch = errMsg.match(/\[exit_code:\s*(-?\d+)\]/);
-            if (exitMatch) {
-                session.exitCode = parseInt(exitMatch[1], 10);
-            }
-
-            const encoder = new TextEncoder();
-            session.chunks.push({
-                seq: session.nextSeq,
-                data: encoder.encode(errMsg.replace(/\[exit_code:\s*-?\d+\]\s*$/, '').trimEnd()),
-            });
-            session.nextSeq++;
-            session.wakeSeq++;
-            for (const resolve of session.wakeResolvers.splice(0)) {
-                resolve();
-            }
-        }
-    }
-
-    async read(
-        processId: string,
-        afterSeq: bigint | undefined,
-        _maxBytes: number | undefined,
-        waitMs: bigint | undefined,
-    ): Promise<PtyReadResult> {
-        const session = this.sessions.get(processId);
-        if (!session) {
-            return {
-                chunks: [],
-                nextSeq: 0n,
-                exited: true,
-                exitCode: undefined,
-                closed: true,
-                failure: 'unknown process',
-            };
-        }
-
-        const minSeq = afterSeq ?? 0n;
-
-        const collectChunks = () => {
-            const newChunks = session.chunks.filter(c => c.seq >= minSeq);
-            if (newChunks.length > 0) {
-                const maxDelivered = newChunks[newChunks.length - 1].seq;
-                session.chunks = session.chunks.filter(c => c.seq > maxDelivered);
-            }
-            return newChunks;
-        };
-
-        let chunks = collectChunks();
-
-        if (chunks.length === 0 && waitMs && waitMs > 0n) {
-            const waitTime = Math.min(Number(waitMs), 500);
-            await new Promise<void>(resolve => {
-                const timer = setTimeout(resolve, waitTime);
-                session.wakeResolvers.push(() => { clearTimeout(timer); resolve(); });
-            });
-            chunks = collectChunks();
-        }
-
-        return {
-            chunks,
-            nextSeq: session.nextSeq,
-            exited: session.exited,
-            exitCode: session.exitCode,
-            closed: session.exited,
-            failure: undefined,
-        };
-    }
-
-    async write(processId: string, data: Uint8Array): Promise<PtyWriteResult> {
-        const session = this.sessions.get(processId);
-        if (!session) {
-            return { status: 'unknown-process' };
-        }
-        if (session.exited) {
-            return { status: 'stdin-closed' };
-        }
-
-        const command = new TextDecoder().decode(data).trim();
-        if (command) {
-            await this.executeCommand(processId, command);
-        }
-
-        return { status: 'accepted' };
-    }
-
-    async terminate(processId: string): Promise<void> {
-        console.log('[PTY] terminate:', processId);
-
-        const session = this.sessions.get(processId);
-        if (session) {
-            session.exited = true;
-            session.exitCode = session.exitCode ?? 0;
-            session.wakeSeq = BigInt('18446744073709551615'); // u64::MAX sentinel
-            for (const resolve of session.wakeResolvers.splice(0)) {
-                resolve();
-            }
-        }
-
-        try {
-            await this.callTool('pty_terminate', { process_id: processId });
-        } catch {
-            // Best-effort cleanup
-        }
-
-        this.sessions.delete(processId);
-    }
-
-    async pollWake(processId: string): Promise<bigint> {
-        const session = this.sessions.get(processId);
-        if (!session) {
-            return BigInt('18446744073709551615'); // u64::MAX = process gone
-        }
-
-        if (session.exited) {
-            return BigInt('18446744073709551615');
-        }
-
-        const currentWake = session.wakeSeq;
-        void currentWake; // suppress unused warning
-        await new Promise<void>(resolve => {
-            const timer = setTimeout(resolve, 200);
-            session.wakeResolvers.push(() => { clearTimeout(timer); resolve(); });
-        });
-        return session.wakeSeq;
     }
 }
 
@@ -397,231 +180,190 @@ class PtySessionManager implements PtyHandler {
 // ==========================================================================
 
 /**
- * Launch the app-server WASM module and return a typed protocol handle.
+ * Launch the app-server WASM module in a dedicated Worker and return a typed
+ * protocol handle.
  *
- * Unlike launchTui(), this does NOT create a terminal. The caller provides
- * its own UI and communicates with the agent via the returned handle.
+ * The Worker runs the WASM component directly (with OPFS sync access).
+ * The main thread proxies sandbox HTTP, shell exec, and MCP requests,
+ * and handles UI callbacks (events, approvals).
  */
 export async function launchAppServer(options?: { origin?: string }): Promise<AppServerHandle> {
     // ----------------------------------------------------------------
-    // 1. Initialize sandbox worker (same as TUI loader)
+    // 1. Initialize sandbox worker
     // ----------------------------------------------------------------
     console.log('[App Server] Initializing sandbox...');
     await initializeSandbox();
     console.log('[App Server] Sandbox ready');
 
     // ----------------------------------------------------------------
-    // 2. Register transport handler (same as TUI loader)
+    // 2. Create dedicated Worker for WASM
     // ----------------------------------------------------------------
-    setTransportHandler(createSandboxTransport());
-    console.log('[App Server] Transport handler configured');
+    console.log('[App Server] Creating WASM worker...');
+    const worker = new Worker(
+        new URL('../../workers/AppServerWorker.ts', import.meta.url),
+        { type: 'module' },
+    );
 
     // ----------------------------------------------------------------
-    // 3. Register exec handler (same as TUI loader)
+    // 3. Wait for Worker ready signal
     // ----------------------------------------------------------------
-    setExecHandler(async (
-        program: string,
-        args: string[],
-        env: ExecEnv,
-        stdin: Uint8Array | undefined,
-        timeoutMs: number | undefined,
-    ): Promise<ExecResult> => {
-        const command = [program, ...args].join(' ');
-        console.log('[App Server] Shell exec:', command, 'cwd:', env.cwd);
-        const encoder = new TextEncoder();
+    await new Promise<void>((resolve, reject) => {
+        const onMessage = (e: MessageEvent) => {
+            if (e.data.type === 'ready') {
+                worker.removeEventListener('message', onMessage);
+                resolve();
+            }
+        };
+        worker.addEventListener('message', onMessage);
+        worker.addEventListener('error', (e) => reject(new Error(`Worker error: ${e.message}`)));
+    });
+    console.log('[App Server] Worker ready');
 
-        try {
-            const body = JSON.stringify({
-                jsonrpc: '2.0',
-                id: Date.now(),
-                method: 'tools/call',
-                params: {
-                    name: 'run_command',
-                    arguments: {
-                        command,
-                        cwd: env.cwd || '/workspace',
-                        stdin: stdin ? new TextDecoder().decode(stdin) : undefined,
-                        timeout_ms: timeoutMs ?? 30000,
-                    },
-                },
-            });
-
-            const response = await fetchFromSandbox('/mcp/message', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body,
-            });
-
-            const result: {
-                error?: { message?: string };
-                result?: { content?: { type: string; text: string }[] };
-            } = await response.json();
-
-            if (result.error) {
-                return {
-                    exitCode: 1,
-                    stdout: new Uint8Array(0),
-                    stderr: encoder.encode(result.error.message ?? 'MCP error'),
-                };
+    // ----------------------------------------------------------------
+    // 4. Set up persistent message handler for all Worker messages
+    // ----------------------------------------------------------------
+    worker.addEventListener('message', (e: MessageEvent) => {
+        const msg = e.data as Record<string, unknown>;
+        switch (msg.type) {
+            // Proxy responses (resolve pending calls from main -> worker)
+            case 'request-result':
+            case 'request-error': {
+                const pending = pendingCalls.get(msg.callId as string);
+                if (pending) {
+                    pendingCalls.delete(msg.callId as string);
+                    if (msg.type === 'request-result') {
+                        pending.resolve(msg.json);
+                    } else {
+                        pending.reject(new Error(msg.message as string));
+                    }
+                }
+                break;
             }
 
-            const content = result.result?.content ?? [];
-            const text = content
-                .filter((c) => c.type === 'text')
-                .map((c) => c.text)
-                .join('\n');
+            // Events from WASM
+            case 'event': {
+                if (!eventHandler) break;
+                try {
+                    const event = JSON.parse(msg.json as string) as AppServerEvent;
+                    eventHandler(event);
+                } catch (err) {
+                    eventHandler({
+                        type: 'error',
+                        message: `Failed to parse server event: ${err instanceof Error ? err.message : String(err)}`,
+                    });
+                }
+                break;
+            }
 
-            return {
-                exitCode: 0,
-                stdout: encoder.encode(text),
-                stderr: new Uint8Array(0),
-            };
-        } catch (err) {
-            console.error('[App Server] Shell exec error:', err);
-            return {
-                exitCode: 127,
-                stdout: new Uint8Array(0),
-                stderr: encoder.encode(`exec failed: ${err instanceof Error ? err.message : String(err)}`),
-            };
+            // Transport proxy: Worker needs HTTP via sandbox
+            case 'transport-request': {
+                handleTransportProxy(worker, msg);
+                break;
+            }
+
+            // Exec proxy: Worker needs shell exec via sandbox
+            case 'exec-request': {
+                handleExecProxy(worker, msg);
+                break;
+            }
+
+            // MCP proxy: Worker needs MCP tool call via sandbox (for PTY)
+            case 'mcp-request': {
+                handleMcpProxy(worker, msg);
+                break;
+            }
+
+            // Command approval: Worker needs UI decision
+            case 'approval-request': {
+                if (commandApprovalCallback) {
+                    commandApprovalCallback(
+                        msg.program as string,
+                        msg.args as string[],
+                        msg.cwd as string,
+                        (decision) => {
+                            worker.postMessage({ type: 'approval-decision', callId: msg.callId, decision });
+                        },
+                    );
+                } else {
+                    worker.postMessage({ type: 'approval-decision', callId: msg.callId, decision: 'deny' });
+                }
+                break;
+            }
+
+            // Network approval: Worker needs UI decision
+            case 'network-approval-request': {
+                if (networkApprovalCallback) {
+                    networkApprovalCallback(
+                        msg.url as string,
+                        msg.method as string,
+                        (decision) => {
+                            worker.postMessage({ type: 'network-approval-decision', callId: msg.callId, decision });
+                        },
+                    );
+                } else {
+                    worker.postMessage({ type: 'network-approval-decision', callId: msg.callId, decision: 'deny' });
+                }
+                break;
+            }
+
+            case 'start-error': {
+                console.error('[App Server] Worker start failed:', msg.message);
+                break;
+            }
         }
     });
-    console.log('[App Server] Shell exec handler registered');
 
     // ----------------------------------------------------------------
-    // 4. Register PTY handler (same as TUI loader)
-    // ----------------------------------------------------------------
-    setPtyHandler(new PtySessionManager());
-    console.log('[App Server] PTY session handler registered');
-
-    // ----------------------------------------------------------------
-    // 5. Initialize OPFS filesystem
-    // ----------------------------------------------------------------
-    console.log('[App Server] Initializing OPFS filesystem...');
-    await initFilesystem();
-    console.log('[App Server] OPFS filesystem ready');
-
-    // ----------------------------------------------------------------
-    // 6. Set environment variables
+    // 5. Send init and wait for started
     // ----------------------------------------------------------------
     const origin = options?.origin ?? globalThis.location?.origin ?? 'https://agent.edge-agent.dev';
 
-    setEnvironment([
-        ['HOME', '/'],
-        ['CODEX_HOME', '/.codex'],
-        ['TERM', 'xterm-256color'],
-        ['RUST_BACKTRACE', '1'],
-        ['CODEX_EXEC_SERVER_URL', 'wasm-host'],
-        ['CODEX_ORIGIN', origin],
-    ]);
-
-    // Pre-create /.codex in OPFS so find_codex_home() succeeds.
-    try {
-        const root = await navigator.storage.getDirectory();
-        await root.getDirectoryHandle('.codex', { create: true });
-        console.log('[App Server] Pre-created /.codex in OPFS');
-    } catch (e) {
-        console.warn('[App Server] Failed to pre-create .codex in OPFS:', e);
-    }
-
-    // ----------------------------------------------------------------
-    // 7. Register policy approval handlers
-    // ----------------------------------------------------------------
-    setApprovalHandler(async (program, args, env) => {
-        return new Promise<ApprovalDecision>((resolve) => {
-            if (commandApprovalCallback) {
-                commandApprovalCallback(program, args, env.cwd, (decision) => {
-                    resolve(decision);
-                });
-            } else {
-                // No UI handler registered = deny by default
-                resolve('deny');
-            }
-        });
-    });
-
-    setNetworkApprovalHandler(async (url, method) => {
-        return new Promise<ApprovalDecision>((resolve) => {
-            if (networkApprovalCallback) {
-                networkApprovalCallback(url, method, (decision) => {
-                    resolve(decision);
-                });
-            } else {
-                // No UI handler registered = deny by default
-                resolve('deny');
-            }
-        });
-    });
-    console.log('[App Server] Policy approval handlers registered');
-
-    // ----------------------------------------------------------------
-    // 8. Register event handler
-    // ----------------------------------------------------------------
-    let eventHandler: ((event: AppServerEvent) => void) | null = null;
-
-    setEventHandler((json: string) => {
-        if (!eventHandler) return;
-        try {
-            const event = JSON.parse(json) as AppServerEvent;
-            eventHandler(event);
-        } catch (err) {
-            console.error('[App Server] Failed to parse event:', err, json);
-            eventHandler({
-                type: 'error',
-                message: `Failed to parse server event: ${err instanceof Error ? err.message : String(err)}`,
-            });
-        }
-    });
-    console.log('[App Server] Event handler registered');
-
-    // ----------------------------------------------------------------
-    // 9. Call start() from WASM
-    // ----------------------------------------------------------------
-    console.log('[App Server] Calling start()...');
-
-    // start() initializes the app-server runtime (async via JSPI).
-    // Use requestAnimationFrame to ensure any pending UI work flushes first.
     await new Promise<void>((resolve, reject) => {
-        requestAnimationFrame(() => {
-            start().then((exitCode: number) => {
-                if (exitCode !== 0) {
-                    reject(new Error(`App server start() returned exit code: ${exitCode}`));
-                } else {
-                    resolve();
-                }
-            }).catch((err: unknown) => {
-                reject(err);
-            });
-        });
+        const onStarted = (e: MessageEvent) => {
+            if (e.data.type === 'started') {
+                worker.removeEventListener('message', onStarted);
+                resolve();
+            } else if (e.data.type === 'start-error') {
+                worker.removeEventListener('message', onStarted);
+                reject(new Error(e.data.message as string));
+            }
+        };
+        worker.addEventListener('message', onStarted);
+        worker.postMessage({ type: 'init', origin });
     });
 
     console.log('[App Server] WASM runtime started');
 
     // ----------------------------------------------------------------
-    // 10. Return AppServerHandle wrapping protocol exports
+    // 6. Return AppServerHandle wrapping Worker communication
     // ----------------------------------------------------------------
     const handle: AppServerHandle = {
         async sendRequest(json: string): Promise<string> {
-            // protocol.sendRequest returns string synchronously per .d.ts,
-            // but JSPI wraps it as Promise<string> at runtime. Use await
-            // to handle both cases correctly.
-            return await (protocol.sendRequest(json) as unknown as Promise<string>);
+            const callId = `req-${++callIdCounter}`;
+            return new Promise<string>((resolve, reject) => {
+                pendingCalls.set(callId, {
+                    resolve: resolve as (v: unknown) => void,
+                    reject,
+                });
+                worker.postMessage({ type: 'send-request', callId, json });
+            });
         },
 
         async sendNotification(json: string): Promise<void> {
-            await (protocol.sendNotification(json) as unknown as Promise<void>);
+            worker.postMessage({ type: 'send-notification', json });
         },
 
         async respondToServerRequest(requestId: string, resultJson: string): Promise<void> {
-            await (protocol.respondToServerRequest(requestId, resultJson) as unknown as Promise<void>);
+            worker.postMessage({ type: 'respond-to-server-request', requestId, resultJson });
         },
 
         async failServerRequest(requestId: string, errorJson: string): Promise<void> {
-            await (protocol.failServerRequest(requestId, errorJson) as unknown as Promise<void>);
+            worker.postMessage({ type: 'fail-server-request', requestId, errorJson });
         },
 
         async shutdown(): Promise<void> {
-            await (protocol.shutdown() as unknown as Promise<void>);
-            setTransportHandler(null); // Clean up transport handler
+            worker.postMessage({ type: 'shutdown' });
+            worker.terminate();
         },
 
         async pushAuthCallback(
@@ -630,7 +372,11 @@ export async function launchAppServer(options?: { origin?: string }): Promise<Ap
             headers: [string, string][],
             body: Uint8Array,
         ): Promise<void> {
-            await pushAuthCallback(method, path, headers, body);
+            const buffer = body.buffer;
+            worker.postMessage(
+                { type: 'push-auth-callback', method, path, headers, body: buffer },
+                [buffer],
+            );
         },
 
         onEvent(handler: (event: AppServerEvent) => void): void {
