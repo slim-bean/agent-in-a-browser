@@ -4,15 +4,18 @@
  * Copy Pyodide static assets to frontend/public/pyodide/
  *
  * Pyodide needs its WASM binary, stdlib packages, and lock file served
- * from a known URL prefix. We copy the essential files from node_modules
- * so Vite serves them as static assets at /pyodide/.
+ * from a known URL prefix. We copy the essential files so Vite serves
+ * them as static assets at /pyodide/.
  *
- * Additionally, we download micropip and its dependency (packaging) from
- * the Pyodide CDN so that `loadPackage('micropip')` works offline without
- * needing a runtime fetch to cdn.jsdelivr.net.
+ * Source priority:
+ *   1. Custom WasmFS Pyodide build from pyodide/ submodule (pyodide/dist/)
+ *   2. npm fallback (local dev only — warns about missing OPFS behavior)
+ *
+ * In CI (detected via CI env var or REQUIRE_CUSTOM_PYODIDE=1), the script
+ * refuses to fall back to npm and exits with an actionable error.
  */
 
-import { cpSync, mkdirSync, readdirSync, statSync, readFileSync, writeFileSync, existsSync } from 'fs';
+import { cpSync, mkdirSync, rmSync, readdirSync, statSync, readFileSync, writeFileSync, existsSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
@@ -21,24 +24,18 @@ import { createHash } from 'crypto';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 
-// Use our custom WasmFS Pyodide build from the submodule if available,
-// otherwise fall back to the npm package.
-const pyodideForkDist = resolve(root, 'pyodide', 'dist');
-const hasForkBuild = existsSync(resolve(pyodideForkDist, 'pyodide.asm.wasm'));
+const isCI = !!(process.env.CI || process.env.REQUIRE_CUSTOM_PYODIDE);
 
-let pyodideSrc;
-if (hasForkBuild) {
-    pyodideSrc = pyodideForkDist;
-    console.log(`Using custom Pyodide build from submodule: ${pyodideSrc}`);
-} else {
-    // Fall back to npm package
-    const require = createRequire(resolve(root, 'packages', 'wasm-python', 'package.json'));
-    pyodideSrc = dirname(require.resolve('pyodide/package.json'));
-    console.log(`Using Pyodide from npm: ${pyodideSrc}`);
-}
-const pyodideDest = resolve(root, 'frontend', 'public', 'pyodide');
+// Required files that must exist in the custom build for it to be valid.
+const REQUIRED_FORK_FILES = [
+    'pyodide.asm.wasm',
+    'pyodide.asm.mjs',
+    'pyodide.mjs',
+    'python_stdlib.zip',
+    'pyodide-lock.json',
+];
 
-// Essential Pyodide files to copy (skip large optional packages)
+// All files to copy from the source.
 const ESSENTIAL_PATTERNS = [
     'pyodide.asm.wasm',
     'pyodide.asm.js',
@@ -53,15 +50,67 @@ const ESSENTIAL_PATTERNS = [
 ];
 
 // Packages to download from the Pyodide CDN so they're available locally.
-// Without these, loadPackage('micropip') fails in worker/sandboxed contexts
-// where the runtime CDN fetch is blocked.
 const REQUIRED_PACKAGES = ['micropip', 'packaging'];
 
+// ==========================================================================
+// Resolve Pyodide source
+// ==========================================================================
+
+const pyodideForkDist = resolve(root, 'pyodide', 'dist');
+
+function validateForkBuild() {
+    const missing = REQUIRED_FORK_FILES.filter(
+        (f) => !existsSync(resolve(pyodideForkDist, f))
+    );
+    return missing;
+}
+
+let pyodideSrc;
+const forkMissing = validateForkBuild();
+
+if (forkMissing.length === 0) {
+    pyodideSrc = pyodideForkDist;
+    console.log(`Using custom Pyodide build from submodule: ${pyodideSrc}`);
+} else if (isCI) {
+    console.error('\n' + '='.repeat(70));
+    console.error('ERROR: Custom Pyodide build is required in CI but is missing or incomplete.');
+    console.error('Missing files in pyodide/dist/:');
+    for (const f of forkMissing) {
+        console.error(`  - ${f}`);
+    }
+    console.error('\nEnsure the "Build Pyodide dist" CI step ran successfully.');
+    console.error('If the self-hosted runner lacks build prerequisites (emscripten, cmake),');
+    console.error('fix the runner image rather than falling back to npm.');
+    console.error('='.repeat(70) + '\n');
+    process.exit(1);
+} else {
+    // Local dev fallback to npm — warn about behavior difference
+    const require = createRequire(resolve(root, 'packages', 'wasm-python', 'package.json'));
+    pyodideSrc = dirname(require.resolve('pyodide/package.json'));
+    console.warn('\n⚠ WARNING: Using Pyodide from npm (custom fork build not found).');
+    console.warn('  OPFS file-sharing behavior will NOT work with the npm build.');
+    console.warn('  To use the custom fork: git submodule update --init pyodide && build pyodide/dist\n');
+    console.log(`Using Pyodide from npm: ${pyodideSrc}`);
+}
+
+const pyodideDest = resolve(root, 'frontend', 'public', 'pyodide');
+
+// ==========================================================================
+// Clear stale artifacts before copying
+// ==========================================================================
+
+if (existsSync(pyodideDest)) {
+    rmSync(pyodideDest, { recursive: true, force: true });
+    console.log('Cleared stale frontend/public/pyodide/ directory');
+}
 mkdirSync(pyodideDest, { recursive: true });
+
+// ==========================================================================
+// Copy essential files
+// ==========================================================================
 
 let copiedCount = 0;
 
-// Copy essential files
 for (const pattern of ESSENTIAL_PATTERNS) {
     const src = join(pyodideSrc, pattern);
     try {
@@ -92,11 +141,26 @@ try {
     // Fine if no extra packages
 }
 
-// Download required wheel packages from Pyodide CDN
+// ==========================================================================
+// Log version info from lock file
+// ==========================================================================
+
 const lockPath = join(pyodideDest, 'pyodide-lock.json');
 if (existsSync(lockPath)) {
     const lockData = JSON.parse(readFileSync(lockPath, 'utf8'));
     const pyodideVersion = lockData.info?.version;
+    const pythonVersion = lockData.info?.python;
+
+    if (pyodideVersion) {
+        console.log(`\nPyodide lock version: ${pyodideVersion}`);
+    }
+    if (pythonVersion) {
+        console.log(`Python version: ${pythonVersion}`);
+    }
+
+    // ======================================================================
+    // Download required wheel packages from Pyodide CDN
+    // ======================================================================
 
     if (pyodideVersion) {
         // Dev builds (e.g. "0.30.0.dev0") are published under /pyodide/dev/full/,

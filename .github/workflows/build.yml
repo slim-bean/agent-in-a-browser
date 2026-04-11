@@ -77,6 +77,47 @@ jobs:
         env:
           GOTOOLCHAIN: auto
 
+      - name: Setup Python (for Pyodide build)
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13.2"
+
+      - name: Prepare Pyodide fork dist
+        id: pyodide
+        run: |
+          PYODIDE_SHA=$(git -C pyodide rev-parse HEAD)
+          echo "sha=$PYODIDE_SHA" >> $GITHUB_OUTPUT
+          echo "Pyodide submodule SHA: $PYODIDE_SHA"
+
+      - name: Cache Pyodide dist
+        id: pyodide-cache
+        uses: actions/cache@v5
+        with:
+          path: pyodide/dist
+          key: pyodide-dist-v1-${{ runner.os }}-${{ steps.pyodide.outputs.sha }}
+
+      - name: Build Pyodide dist (on cache miss)
+        if: steps.pyodide-cache.outputs.cache-hit != 'true'
+        run: |
+          python -m pip install -r pyodide/requirements.txt
+          rm -rf pyodide/dist
+          make -C pyodide \
+            dist/pyodide.asm.mjs \
+            dist/pyodide.js \
+            dist/package.json \
+            dist/python_stdlib.zip \
+            dist/pyodide-lock.json
+
+      - name: Validate Pyodide dist
+        run: |
+          for f in pyodide/dist/pyodide.asm.wasm pyodide/dist/pyodide.asm.mjs pyodide/dist/pyodide.mjs pyodide/dist/python_stdlib.zip pyodide/dist/pyodide-lock.json; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Missing required Pyodide artifact: $f"
+              exit 1
+            fi
+          done
+          echo "Pyodide dist validated OK"
+
       - name: Install Node dependencies
         run: pnpm install --frozen-lockfile
 

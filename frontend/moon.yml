@@ -48,6 +48,7 @@ tasks:
     inputs:
       - "/scripts/copy-pyodide.mjs"
       - "/packages/wasm-python/package.json"
+      - "/pyodide/dist/**"
     outputs:
       - "public/pyodide"
 

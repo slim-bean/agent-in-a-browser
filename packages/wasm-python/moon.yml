@@ -9,5 +9,7 @@ tasks:
     command: "node ../../scripts/copy-pyodide.mjs"
     inputs:
       - "/scripts/copy-pyodide.mjs"
+      - "/packages/wasm-python/package.json"
+      - "/pyodide/dist/**"
     outputs:
       - "/frontend/public/pyodide"
