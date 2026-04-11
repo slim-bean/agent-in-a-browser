@@ -391,8 +391,32 @@ impl Guest for CodexAppServer {
 
                         match request_handle.request(request).await {
                             Ok(response) => {
-                                let resp_json = serde_json::to_string(&response)
-                                    .unwrap_or_else(|e| format!(r#"{{"error":"serialize: {e}"}}"#));
+                                // The response type serializes as {"Ok": ...} or {"Err": ...}
+                                // because it's a Rust Result. Unwrap the Ok variant for JS.
+                                let value = serde_json::to_value(&response).ok();
+                                let resp_json = match value {
+                                    Some(serde_json::Value::Object(ref map))
+                                        if map.contains_key("Ok") =>
+                                    {
+                                        serde_json::to_string(&map["Ok"]).unwrap_or_else(|e| {
+                                            format!(r#"{{"error":"serialize: {e}"}}"#)
+                                        })
+                                    }
+                                    Some(serde_json::Value::Object(ref map))
+                                        if map.contains_key("Err") =>
+                                    {
+                                        format!(
+                                            r#"{{"error":{{"code":-32603,"message":{}}}}}"#,
+                                            serde_json::to_string(&map["Err"]).unwrap_or_else(
+                                                |_| r#""unknown error""#.to_string()
+                                            )
+                                        )
+                                    }
+                                    Some(v) => serde_json::to_string(&v).unwrap_or_else(|e| {
+                                        format!(r#"{{"error":"serialize: {e}"}}"#)
+                                    }),
+                                    None => r#"{"error":"serialize failed"}"#.to_string(),
+                                };
                                 let envelope = format!(
                                     r#"{{"type":"response","id":{},"result":{}}}"#,
                                     serde_json::to_string(&id)

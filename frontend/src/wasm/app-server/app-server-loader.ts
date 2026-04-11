@@ -237,11 +237,11 @@ export async function launchAppServer(options?: { origin?: string }): Promise<Ap
                         if (pending) {
                             pendingCalls.delete(id);
                             if (event.error) {
-                                const err = event.error as { message?: string };
-                                pending.reject(new Error(err.message ?? 'request failed'));
+                                // Wrap error as JSON-RPC error response for protocol-client
+                                pending.resolve(JSON.stringify({ error: event.error }));
                             } else {
-                                // Return the result as a JSON string (matching old sendRequest API)
-                                pending.resolve(JSON.stringify(event.result));
+                                // Wrap result as JSON-RPC success response for protocol-client
+                                pending.resolve(JSON.stringify({ result: event.result }));
                             }
                         }
                         break;
