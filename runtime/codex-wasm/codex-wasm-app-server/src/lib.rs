@@ -390,35 +390,46 @@ impl Guest for CodexAppServer {
                                 // The response type serializes as {"Ok": ...} or {"Err": ...}
                                 // because it's a Rust Result. Unwrap the Ok variant for JS.
                                 let value = serde_json::to_value(&response).ok();
-                                let resp_json = match value {
+                                let id_json = serde_json::to_string(&id)
+                                    .unwrap_or_else(|_| "null".to_string());
+                                let envelope = match value {
                                     Some(serde_json::Value::Object(ref map))
                                         if map.contains_key("Ok") =>
                                     {
-                                        serde_json::to_string(&map["Ok"]).unwrap_or_else(|e| {
-                                            format!(r#"{{"error":"serialize: {e}"}}"#)
-                                        })
+                                        let result_json =
+                                            serde_json::to_string(&map["Ok"]).unwrap_or_else(
+                                                |e| format!(r#"{{"error":"serialize: {e}"}}"#),
+                                            );
+                                        format!(
+                                            r#"{{"type":"response","id":{id_json},"result":{result_json}}}"#,
+                                        )
                                     }
                                     Some(serde_json::Value::Object(ref map))
                                         if map.contains_key("Err") =>
                                     {
-                                        format!(
-                                            r#"{{"error":{{"code":-32603,"message":{}}}}}"#,
+                                        let err_msg =
                                             serde_json::to_string(&map["Err"]).unwrap_or_else(
-                                                |_| r#""unknown error""#.to_string()
-                                            )
+                                                |_| r#""unknown error""#.to_string(),
+                                            );
+                                        format!(
+                                            r#"{{"type":"response","id":{id_json},"error":{{"code":-32603,"message":{err_msg}}}}}"#,
                                         )
                                     }
-                                    Some(v) => serde_json::to_string(&v).unwrap_or_else(|e| {
-                                        format!(r#"{{"error":"serialize: {e}"}}"#)
-                                    }),
-                                    None => r#"{"error":"serialize failed"}"#.to_string(),
+                                    Some(v) => {
+                                        let result_json =
+                                            serde_json::to_string(&v).unwrap_or_else(|e| {
+                                                format!(r#"{{"error":"serialize: {e}"}}"#)
+                                            });
+                                        format!(
+                                            r#"{{"type":"response","id":{id_json},"result":{result_json}}}"#,
+                                        )
+                                    }
+                                    None => {
+                                        format!(
+                                            r#"{{"type":"response","id":{id_json},"error":{{"code":-32603,"message":"serialize failed"}}}}"#,
+                                        )
+                                    }
                                 };
-                                let envelope = format!(
-                                    r#"{{"type":"response","id":{},"result":{}}}"#,
-                                    serde_json::to_string(&id)
-                                        .unwrap_or_else(|_| "null".to_string()),
-                                    resp_json,
-                                );
                                 bindings::codex::app_server::event_sink::emit_event(&envelope);
                             }
                             Err(e) => {
