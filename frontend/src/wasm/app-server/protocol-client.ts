@@ -90,6 +90,15 @@ import type {
     AccountRateLimitsUpdatedNotification,
     McpServerStatusUpdatedNotification,
     CommandExecOutputDeltaNotification,
+    AccountLoginCompletedNotification,
+    AccountUpdatedNotification,
+    LoginAccountParams,
+    LoginAccountResponse,
+    CancelLoginAccountParams,
+    CancelLoginAccountResponse,
+    Account,
+    GetAccountParams,
+    GetAccountResponse,
 
     // Server request types
     CommandExecutionRequestApprovalParams,
@@ -107,6 +116,8 @@ import type {
     FuzzyFileSearchParams,
     FuzzyFileSearchResponse,
     ApplyPatchApprovalParams,
+    AuthMode,
+    PlanType,
 } from '@tjfontaine/codex-protocol-types';
 
 // ==========================================================================
@@ -186,6 +197,15 @@ export type {
     AccountRateLimitsUpdatedNotification,
     McpServerStatusUpdatedNotification,
     CommandExecOutputDeltaNotification,
+    AccountLoginCompletedNotification,
+    AccountUpdatedNotification,
+    LoginAccountParams,
+    LoginAccountResponse,
+    CancelLoginAccountParams,
+    CancelLoginAccountResponse,
+    Account,
+    GetAccountParams,
+    GetAccountResponse,
 
     // Server request types
     CommandExecutionRequestApprovalParams,
@@ -201,6 +221,8 @@ export type {
     FuzzyFileSearchParams,
     FuzzyFileSearchResponse,
     ApplyPatchApprovalParams,
+    AuthMode,
+    PlanType,
 };
 
 // ==========================================================================
@@ -283,6 +305,8 @@ export interface NotificationMap {
     'account/rateLimits/updated': AccountRateLimitsUpdatedNotification;
     'mcpServer/startupStatus/updated': McpServerStatusUpdatedNotification;
     'command/exec/outputDelta': CommandExecOutputDeltaNotification;
+    'account/login/completed': AccountLoginCompletedNotification;
+    'account/updated': AccountUpdatedNotification;
 }
 
 /** Maps server request method strings to their payload types. */
@@ -654,18 +678,45 @@ export class AppServerClient {
     }
 
     /** Read current account information. */
-    async readAccount(): Promise<unknown> {
-        return this.sendRequest<unknown>('account/read');
+    async readAccount(options?: { refreshToken?: boolean }): Promise<GetAccountResponse> {
+        return this.sendRequest<GetAccountResponse>('account/read', {
+            refreshToken: options?.refreshToken ?? false,
+        });
     }
 
-    /** Initiate login flow. */
-    async startLogin(): Promise<void> {
-        await this.sendRequest<unknown>('auth/login');
+    /** Login with an API key. */
+    async loginWithApiKey(apiKey: string): Promise<LoginAccountResponse> {
+        return this.sendRequest<LoginAccountResponse>('account/login/start', {
+            type: 'apiKey',
+            apiKey,
+        });
+    }
+
+    /** Start OAuth login flow. Returns loginId and authUrl for browser redirect. */
+    async loginWithOAuth(): Promise<LoginAccountResponse> {
+        return this.sendRequest<LoginAccountResponse>('account/login/start', {
+            type: 'chatgpt',
+        });
+    }
+
+    /** Cancel an in-progress login. */
+    async cancelLogin(loginId: string): Promise<CancelLoginAccountResponse> {
+        return this.sendRequest<CancelLoginAccountResponse>('account/login/cancel', {
+            loginId,
+        });
+    }
+
+    /** Logout and clear credentials. */
+    async logout(): Promise<void> {
+        await this.sendRequest<unknown>('account/logout');
     }
 
     /** Check authentication status. */
     async getAuthStatus(): Promise<GetAuthStatusResponse> {
-        return this.sendRequest<GetAuthStatusResponse>('auth/status');
+        return this.sendRequest<GetAuthStatusResponse>('getAuthStatus', {
+            includeToken: false,
+            refreshToken: false,
+        });
     }
 
     // ------------------------------------------------------------------

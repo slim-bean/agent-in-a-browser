@@ -44,6 +44,11 @@ import {
     type HookCompletedNotification,
     type GuardianReviewStartedNotification,
     type GuardianReviewCompletedNotification,
+    type LoginAccountResponse,
+    type AccountLoginCompletedNotification,
+    type AccountUpdatedNotification,
+    type Account,
+    type GetAccountResponse,
 } from './wasm/app-server/protocol-client.js';
 import './app-server.css';
 
@@ -202,10 +207,19 @@ let statusRight: HTMLElement;
 let messagesContainer: HTMLElement;
 let thinkingIndicator: HTMLElement;
 let scrollAnchor: HTMLElement;
+let inputArea: HTMLElement;
 let inputTextarea: HTMLTextAreaElement;
 let inputForm: HTMLFormElement;
 let sendButton: HTMLButtonElement;
 let inputHint: HTMLElement;
+let statusAccount: HTMLElement;
+let statusTokens: HTMLElement;
+
+// Auth state
+let authenticated = false;
+let currentAccount: Account | null = null;
+let loginScreenEl: HTMLElement | null = null;
+let pendingLoginId: string | null = null;
 
 // Tracks current streaming assistant message
 let currentAssistantContent: HTMLElement | null = null;
@@ -316,7 +330,7 @@ function updateTokenUsage(usage: TokenUsage): void {
     if (usage.total.cachedInputTokens > 0) {
         parts.push(`Cached: ${formatTokens(usage.total.cachedInputTokens)}`);
     }
-    statusRight.textContent = parts.join(' | ');
+    statusTokens.textContent = parts.join(' | ');
 }
 
 function updateThreadInfo(): void {
@@ -364,6 +378,11 @@ function buildUI(): void {
     statusCenter = el('div', 'status-bar__section');
     statusRight = el('div', 'status-bar__section');
 
+    statusAccount = el('div', 'status-bar__account');
+    statusTokens = el('div', 'status-bar__item');
+    statusRight.appendChild(statusAccount);
+    statusRight.appendChild(statusTokens);
+
     statusBarEl.appendChild(leftSection);
     statusBarEl.appendChild(statusCenter);
     statusBarEl.appendChild(statusRight);
@@ -395,7 +414,7 @@ function buildUI(): void {
     app.appendChild(scrollAnchor);
 
     // --- Input Area ---
-    const inputArea = el('div', 'input-area');
+    inputArea = el('div', 'input-area');
 
     inputForm = document.createElement('form');
     inputForm.classList.add('input-area__form');
@@ -428,6 +447,189 @@ function buildUI(): void {
     inputForm.appendChild(actions);
     inputArea.appendChild(inputForm);
     app.appendChild(inputArea);
+}
+
+// ==========================================================================
+// Login Screen
+// ==========================================================================
+
+function enableLoginButtons(): void {
+    if (!loginScreenEl) return;
+    const buttons = loginScreenEl.querySelectorAll('button');
+    for (const btn of buttons) {
+        (btn as HTMLButtonElement).disabled = false;
+    }
+    const input = loginScreenEl.querySelector('.login-screen__input') as HTMLInputElement | null;
+    if (input) input.disabled = false;
+    const statusEl = loginScreenEl.querySelector('.login-screen__status') as HTMLElement | null;
+    if (statusEl) statusEl.classList.remove('login-screen__status--visible');
+}
+
+function disableLoginButtons(): void {
+    if (!loginScreenEl) return;
+    const buttons = loginScreenEl.querySelectorAll('button');
+    for (const btn of buttons) {
+        (btn as HTMLButtonElement).disabled = true;
+    }
+    const input = loginScreenEl.querySelector('.login-screen__input') as HTMLInputElement | null;
+    if (input) input.disabled = true;
+}
+
+function showLoginError(message: string): void {
+    if (!loginScreenEl) return;
+    const errorEl = loginScreenEl.querySelector('.login-screen__error') as HTMLElement | null;
+    if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.classList.add('login-screen__error--visible');
+    }
+    enableLoginButtons();
+}
+
+function showLoginStatus(message: string): void {
+    if (!loginScreenEl) return;
+    const statusEl = loginScreenEl.querySelector('.login-screen__status') as HTMLElement | null;
+    if (statusEl) {
+        statusEl.textContent = message;
+        statusEl.classList.add('login-screen__status--visible');
+    }
+    const errorEl = loginScreenEl.querySelector('.login-screen__error') as HTMLElement | null;
+    if (errorEl) errorEl.classList.remove('login-screen__error--visible');
+}
+
+function buildLoginScreen(): HTMLElement {
+    const screen = el('div', 'login-screen');
+
+    const title = el('div', 'login-screen__title');
+    title.textContent = 'Edge Agent';
+    screen.appendChild(title);
+
+    const subtitle = el('div', 'login-screen__subtitle');
+    subtitle.textContent = 'Sign in to start using the AI coding agent';
+    screen.appendChild(subtitle);
+
+    const form = document.createElement('form');
+    form.classList.add('login-screen__form');
+
+    const input = document.createElement('input');
+    input.classList.add('login-screen__input');
+    input.type = 'password';
+    input.placeholder = 'OpenAI API Key (sk-...)';
+    input.setAttribute('aria-label', 'OpenAI API Key');
+    form.appendChild(input);
+
+    const apiKeyBtn = document.createElement('button');
+    apiKeyBtn.classList.add('login-screen__btn', 'login-screen__btn--primary');
+    apiKeyBtn.type = 'submit';
+    apiKeyBtn.textContent = 'Sign in with API Key';
+    form.appendChild(apiKeyBtn);
+
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const apiKey = input.value.trim();
+        if (!apiKey || !state.client) return;
+
+        disableLoginButtons();
+        showLoginStatus('Signing in...');
+
+        state.client.loginWithApiKey(apiKey).then((response: LoginAccountResponse) => {
+            if (response.type === 'apiKey') {
+                // Wait for account/login/completed notification
+            }
+        }).catch((err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            showLoginError(msg);
+        });
+    });
+
+    screen.appendChild(form);
+
+    const divider = el('div', 'login-screen__divider');
+    divider.textContent = 'or';
+    screen.appendChild(divider);
+
+    const oauthBtn = document.createElement('button');
+    oauthBtn.classList.add('login-screen__btn', 'login-screen__btn--secondary');
+    oauthBtn.type = 'button';
+    oauthBtn.textContent = 'Sign in with OpenAI';
+    oauthBtn.addEventListener('click', () => {
+        if (!state.client) return;
+
+        disableLoginButtons();
+        showLoginStatus('Waiting for authorization...');
+
+        state.client.loginWithOAuth().then((response: LoginAccountResponse) => {
+            if (response.type === 'chatgpt') {
+                pendingLoginId = response.loginId;
+                window.open(response.authUrl, '_blank');
+            }
+        }).catch((err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            showLoginError(msg);
+        });
+    });
+    screen.appendChild(oauthBtn);
+
+    const errorEl = el('div', 'login-screen__error');
+    screen.appendChild(errorEl);
+
+    const statusEl = el('div', 'login-screen__status');
+    screen.appendChild(statusEl);
+
+    return screen;
+}
+
+function showLoginScreen(): void {
+    if (!loginScreenEl) {
+        loginScreenEl = buildLoginScreen();
+        const app = document.getElementById('app');
+        if (app) {
+            // Insert login screen before the input area
+            app.insertBefore(loginScreenEl, inputArea);
+        }
+    }
+
+    messagesContainer.classList.add('messages--hidden');
+    inputArea.classList.add('input-area--hidden');
+    thinkingIndicator.classList.add('thinking--hidden');
+    loginScreenEl.classList.remove('login-screen--hidden');
+}
+
+function showChatUI(): void {
+    if (loginScreenEl) {
+        loginScreenEl.classList.add('login-screen--hidden');
+    }
+
+    messagesContainer.classList.remove('messages--hidden');
+    inputArea.classList.remove('input-area--hidden');
+    setInputEnabled(true);
+    setStatus('connected');
+}
+
+function updateAccountDisplay(): void {
+    statusAccount.innerHTML = '';
+
+    if (!currentAccount) {
+        const loginBtn = document.createElement('button');
+        loginBtn.classList.add('status-bar__login-btn');
+        loginBtn.textContent = 'Sign in';
+        loginBtn.addEventListener('click', () => showLoginScreen());
+        statusAccount.appendChild(loginBtn);
+        return;
+    }
+
+    if (currentAccount.type === 'chatgpt') {
+        const email = el('span', 'status-bar__account-email');
+        email.textContent = currentAccount.email;
+        statusAccount.appendChild(email);
+
+        const plan = el('span', 'status-bar__account-plan');
+        plan.textContent = currentAccount.planType;
+        statusAccount.appendChild(plan);
+    } else {
+        const label = el('span', 'status-bar__account-email');
+        label.textContent = 'API Key';
+        statusAccount.appendChild(label);
+    }
 }
 
 // ==========================================================================
@@ -1607,6 +1809,47 @@ function wireEvents(client: AppServerClient): void {
         void event; // Status tracking for future use
     });
 
+    // --- Account / Login ---
+
+    client.on('account/login/completed', (event: AccountLoginCompletedNotification) => {
+        if (event.success) {
+            pendingLoginId = null;
+            authenticated = true;
+            // Fetch account details
+            client.readAccount().then((resp: GetAccountResponse) => {
+                currentAccount = resp.account;
+                updateAccountDisplay();
+                showChatUI();
+            }).catch(() => {
+                showChatUI(); // Still show chat even if account fetch fails
+            });
+        } else {
+            // Show error on login screen
+            const errorEl = loginScreenEl?.querySelector('.login-screen__error') as HTMLElement | null;
+            if (errorEl) {
+                errorEl.textContent = event.error ?? 'Login failed';
+                errorEl.classList.add('login-screen__error--visible');
+            }
+            // Re-enable login buttons
+            enableLoginButtons();
+        }
+    });
+
+    client.on('account/updated', (event: AccountUpdatedNotification) => {
+        // Refresh account display when auth state changes
+        if (event.authMode) {
+            authenticated = true;
+            client.readAccount().then((resp: GetAccountResponse) => {
+                currentAccount = resp.account;
+                updateAccountDisplay();
+            }).catch(() => { /* ignore */ });
+        } else {
+            authenticated = false;
+            currentAccount = null;
+            updateAccountDisplay();
+        }
+    });
+
     // --- Errors ---
 
     client.on('error', (event: ErrorNotification) => {
@@ -1831,8 +2074,23 @@ async function boot(): Promise<void> {
         state.client = new AppServerClient(handle);
         wireEvents(state.client);
 
-        setStatus('connected');
-        setInputEnabled(true);
+        // Check auth status before showing chat
+        try {
+            const authStatus = await state.client.getAuthStatus();
+            if (authStatus.authMethod) {
+                authenticated = true;
+                // Load account info
+                const accountResponse = await state.client.readAccount();
+                currentAccount = accountResponse.account;
+                updateAccountDisplay();
+                showChatUI();
+            } else {
+                showLoginScreen();
+            }
+        } catch {
+            // Auth check failed, show login screen
+            showLoginScreen();
+        }
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         setStatus('error', `Boot failed: ${msg}`);
