@@ -41,25 +41,13 @@ mod inbox {
         }
     }
 
-    /// Blocking receive from inbox (called by the event loop in start()).
-    /// Uses try_recv + thread::sleep for JSPI suspension, exactly like tiny_http::recv.
-    pub fn recv() -> String {
+    /// Non-blocking attempt to receive from inbox.
+    pub fn try_recv() -> Option<String> {
         let (_, rx_lock) = channel();
-        loop {
-            if let Ok(rx) = rx_lock.lock() {
-                match rx.try_recv() {
-                    Ok(msg) => return msg,
-                    Err(mpsc::TryRecvError::Empty) => {
-                        drop(rx);
-                        // JSPI-suspend via WASI clock sleep — lets JS push messages
-                        // and lets tokio background tasks (timers, polling) make progress
-                        std::thread::sleep(std::time::Duration::from_millis(50));
-                    }
-                    Err(mpsc::TryRecvError::Disconnected) => {
-                        std::thread::sleep(std::time::Duration::from_millis(100));
-                    }
-                }
-            }
+        if let Ok(rx) = rx_lock.lock() {
+            rx.try_recv().ok()
+        } else {
+            None
         }
     }
 }
@@ -357,7 +345,15 @@ impl Guest for CodexAppServer {
 
             console_log::console_log!("[codex-wasm-app-server] entering inbox loop...");
             loop {
-                let raw = inbox::recv();
+                // Use try_recv + async sleep so the main future yields Pending
+                // back to block_on, allowing spawned tasks (device code polling,
+                // timers, etc.) to make progress between inbox checks.
+                let raw = loop {
+                    if let Some(msg) = inbox::try_recv() {
+                        break msg;
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                };
 
                 let msg: InboxMessage = match serde_json::from_str(&raw) {
                     Ok(m) => m,
