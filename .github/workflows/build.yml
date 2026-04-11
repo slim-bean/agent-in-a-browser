@@ -82,6 +82,11 @@ jobs:
         with:
           python-version: "3.14"
 
+      - name: Install Pyodide build prerequisites
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq autoconf automake libtool pkg-config texinfo
+
       - name: Prepare Pyodide fork dist
         id: pyodide
         run: |
