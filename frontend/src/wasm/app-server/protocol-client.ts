@@ -800,8 +800,13 @@ export class AppServerClient {
                 break;
             case 'error':
                 console.error(`[AppServerClient] Server error: ${event.message ?? 'unknown'}`);
-                // Also dispatch as an error notification for any listeners
-                this.emitNotification('error', { message: event.message ?? 'unknown' });
+                // Dispatch as an ErrorNotification-shaped object for typed listeners
+                this.emitNotification('error', {
+                    error: { message: event.message ?? 'unknown', codexErrorInfo: null, additionalDetails: null },
+                    willRetry: false,
+                    threadId: '',
+                    turnId: '',
+                });
                 break;
         }
     }
@@ -813,11 +818,16 @@ export class AppServerClient {
         const params = notification.params as Record<string, unknown> | undefined;
         if (!params) return;
 
-        this.emitNotification(notification.method, params);
+        this.dispatchToHandlers(notification.method, params);
     }
 
-    /** Emit a notification to all registered handlers for the given method. */
-    private emitNotification(method: string, params: unknown): void {
+    /** Emit a notification to all registered handlers (typed — catches shape mismatches at compile time). */
+    private emitNotification<K extends keyof NotificationMap>(method: K, params: NotificationMap[K]): void {
+        this.dispatchToHandlers(method, params);
+    }
+
+    /** Dispatch raw wire data to notification handlers (untyped — data comes from JSON). */
+    private dispatchToHandlers(method: string, params: unknown): void {
         const handlers = this.notificationHandlers.get(method);
         if (handlers) {
             for (const handler of handlers) {

@@ -1923,7 +1923,8 @@ function wireEvents(client: AppServerClient): void {
     // --- Errors ---
 
     client.on('error', (event: ErrorNotification) => {
-        appendSystemMessage(`Error: ${event.error.message}`);
+        console.error('[App Server Error]', event);
+        appendSystemMessage(`Error: ${event.error?.message ?? 'unknown error'}`);
     });
 
     // --- Server requests (approval flows) ---
