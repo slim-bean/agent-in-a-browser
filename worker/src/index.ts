@@ -35,6 +35,9 @@ const CORS_PROXY_ALLOWLIST = [
     'api.githubcopilot.com',
     'github.com',
     'generativelanguage.googleapis.com',
+    'auth.openai.com',
+    'chatgpt.com',
+    'api.openai.com',
 ];
 
 const ALLOWED_ORIGINS = [
