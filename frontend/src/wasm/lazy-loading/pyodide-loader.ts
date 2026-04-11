@@ -8,10 +8,9 @@
  * The Pyodide instance is cached as a singleton — Python startup is expensive
  * (~5-10s) so we keep the interpreter alive across invocations.
  *
- * OPFS integration: Our custom Pyodide build uses WasmFS with the OPFS backend
- * mounted at /home/user and /lib/python3.12/site-packages via a C-level
- * wasmfs_before_preload() hook. No JS-side mount or sync is needed — WasmFS
- * handles persistence natively through the OPFS backend.
+ * OPFS integration: our custom Pyodide build uses WasmFS with the OPFS backend
+ * mounted at /. Shell paths map directly to Python paths — no translation needed.
+ * The stdlib is written into the OPFS-backed root after mounting.
  */
 
 import type {
@@ -53,7 +52,25 @@ type LoadPyodideFn = (options: {
 let pyodideInstance: PyodideInterface | null = null;
 let pyodideLoading: Promise<PyodideInterface> | null = null;
 
-const OPFS_MOUNT_PATH = '/home/user';
+/**
+ * Resolve a shell path to an absolute Pyodide filesystem path.
+ *
+ * With OPFS mounted at /, shell paths and Python paths share the same namespace.
+ * Absolute paths pass through unchanged; relative paths resolve against cwd.
+ */
+export function mapShellPathToPyodide(path: string, cwd = '/'): string {
+    // Normalize slashes
+    const normalized = path.replace(/\/+/g, '/').replace(/\/$/, '') || '/';
+
+    if (normalized.startsWith('/')) {
+        return normalized;
+    }
+
+    // Relative path — resolve against cwd
+    const base = cwd.replace(/\/+/g, '/').replace(/\/$/, '') || '/';
+    const combined = base === '/' ? `/${normalized}` : `${base}/${normalized}`;
+    return combined.replace(/\/+/g, '/');
+}
 
 /**
  * Initialize or return the cached Pyodide instance.
@@ -79,9 +96,8 @@ async function getPyodide(): Promise<PyodideInterface> {
         try {
             py = await loadPyodide({
                 indexURL: '/pyodide/',
-                // Set HOME to /home/user — matches the OPFS mount point and
-                // the shell's working directory convention.
-                env: { HOME: '/home/user' },
+                // HOME=/ matches the OPFS root mount and the shell's cwd convention.
+                env: { HOME: '/' },
                 // With WasmFS, Pyodide's device-based stream redirection fails.
                 // Use stdout/stderr callbacks which hook into Module.print/printErr.
                 stdout: (msg: string) => { console.log('[Python stdout]', msg); },
@@ -169,11 +185,11 @@ sys.stderr = _EdgeWriter(_edge_io.stderr_write)
 `);
 
             // Set working directory
-            const cwd = env.cwd || OPFS_MOUNT_PATH;
+            const cwd = mapShellPathToPyodide(env.cwd || '/');
             try {
-                py.FS.chdir(cwd.startsWith('/') ? cwd : `${OPFS_MOUNT_PATH}/${cwd}`);
+                py.FS.chdir(cwd);
             } catch {
-                py.FS.chdir(OPFS_MOUNT_PATH);
+                py.FS.chdir('/');
             }
 
             // Set environment variables
@@ -219,9 +235,7 @@ sys.stderr = _EdgeWriter(_edge_io.stderr_write)
             const scriptPath = args[0];
             const scriptArgs = args.slice(1);
 
-            const resolvedPath = scriptPath.startsWith('/')
-                ? scriptPath
-                : `${OPFS_MOUNT_PATH}/${env.cwd ? env.cwd + '/' : ''}${scriptPath}`;
+            const resolvedPath = mapShellPathToPyodide(scriptPath, env.cwd || '/');
 
             // Read and execute the script via Python (not JS FS.readFile)
             // because WasmFS OPFS reads need JSPI context which is only
@@ -272,7 +286,7 @@ exec(compile(_code, _path, 'exec'))
  */
 function runPip(
     args: string[],
-    _env: ExecEnv,
+    env: ExecEnv,
     _stdin: InputStream,
     stdout: OutputStream,
     stderr: OutputStream,
@@ -282,6 +296,14 @@ function runPip(
     const executionPromise = (async () => {
         try {
             const py = await getPyodide();
+            closeAllHandles();
+
+            const cwd = mapShellPathToPyodide(env.cwd || '/');
+            try {
+                py.FS.chdir(cwd);
+            } catch {
+                py.FS.chdir('/');
+            }
 
             // Redirect Python print() to the command's streams via the same
             // _edge_io JS module approach used by runPython. WasmFS breaks

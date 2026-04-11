@@ -5,8 +5,8 @@
  * Pyodide is lazy-loaded on first use (~5-10s), so the first test
  * uses test.slow() to extend the timeout.
  *
- * OPFS is mounted into Pyodide's Emscripten FS at /home/user,
- * so a shell file at /foo.txt is /home/user/foo.txt in Python.
+ * OPFS is mounted at / in Pyodide's WasmFS, so shell paths and Python paths
+ * share the same namespace — no translation needed.
  */
 
 import { test, expect } from './webkit-persistent-fixture';
@@ -157,10 +157,10 @@ test.describe('Python (Pyodide) – file interactions', () => {
         // Create a file using echo (shell writes to OPFS root /)
         await runAndWaitForPrompt(page, 'echo "apple banana cherry" > /fruits.txt');
 
-        // Python reads it (OPFS root mounted at /home/user in Pyodide's WasmFS)
+        // OPFS is at / — Python's cwd is / so relative 'fruits.txt' = /fruits.txt.
         const screen = await run(
             page,
-            "python3 -c \"print(open('/home/user/fruits.txt').read().strip())\"",
+            "python3 -c \"print(open('fruits.txt').read().strip())\"",
             'apple banana cherry',
         );
         expect(screen).toContain('apple banana cherry');
@@ -169,10 +169,10 @@ test.describe('Python (Pyodide) – file interactions', () => {
     test('python3 writes a file readable by shell cat', async ({ page }) => {
         test.slow();
 
-        // Python writes a file — syncToOpfs() flushes it to OPFS after execution
+        // Python writes to its cwd (/) — same OPFS namespace as the shell.
         await runAndWaitForPrompt(
             page,
-            "python3 -c \"open('/home/user/from_py.txt','w').write('written by pyodide')\"",
+            "python3 -c \"open('from_py.txt','w').write('written by pyodide')\"",
             60000,
         );
 
@@ -193,7 +193,7 @@ test.describe('Python (Pyodide) – file interactions', () => {
         // Run it with arguments
         const screen = await run(
             page,
-            'python3 /home/user/show_args.py foo bar',
+            'python3 /show_args.py foo bar',
             'received:',
         );
         expect(screen).toContain('received: 2 args');

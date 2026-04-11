@@ -74,7 +74,7 @@ test.describe('Pyodide WasmFS Debug', () => {
         await page.evaluate(() => { (window as any).tuiTerminal?.focus(); });
         await page.waitForTimeout(100);
 
-        const cmd = "python3 -c \"import os; print('root:', os.listdir('/')); print('home_user:', os.listdir('/home/user')); print('cwd:', os.getcwd())\"";
+        const cmd = "python3 -c \"import os; print('root:', os.listdir('/')); print('cwd:', os.getcwd())\"";
         await page.keyboard.type(cmd, { delay: 10 });
         await page.keyboard.press('Enter');
 
@@ -102,7 +102,7 @@ test.describe('Pyodide WasmFS Debug', () => {
                 const output = allLines.slice(cmdIdx + 1).join('\n').trim();
                 // Check for real output (not just blank lines)
                 if (output.length > 0 && (
-                    output.includes('root:') || output.includes('/opfs') ||
+                    output.includes('root:') || output.includes('cwd:') ||
                     output.includes('Traceback') || output.includes('Error') ||
                     output.includes('Aborted') || output.includes('Python') ||
                     promptRe.test(output)
@@ -147,8 +147,8 @@ test.describe('Pyodide WasmFS Debug', () => {
         console.log('\n=== OUTPUT AFTER COMMAND ===');
         console.log(outputLines || '(no output yet)');
 
-        // The test passes if Python produced output with 'root:' or '/opfs'
-        // If it fails, the console logs above show what went wrong
-        expect(outputLines).toContain('home_user:');
+        // The test passes if Python produced root listing output from the OPFS-backed /.
+        // If it fails, the console logs above show what went wrong.
+        expect(outputLines).toContain('root:');
     });
 });
