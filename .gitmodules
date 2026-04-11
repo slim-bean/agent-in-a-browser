@@ -5,7 +5,7 @@
 [submodule "runtime/codex-upstream"]
 	path = runtime/codex-upstream
 	url = https://github.com/tjfontaine/codex.git
-	branch = wasm32-wasip2
+	branch = edge-agent
 [submodule "stripe-cli-wasm"]
 	path = stripe-cli-wasm
 	url = https://github.com/tjfontaine/stripe-cli.git
@@ -21,4 +21,4 @@
 [submodule "pyodide"]
 	path = pyodide
 	url = https://github.com/tjfontaine/pyodide.git
-	branch = edge-agent-wasmfs
+	branch = edge-agent-wasmfs-030
