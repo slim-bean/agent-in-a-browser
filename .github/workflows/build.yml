@@ -99,11 +99,7 @@ jobs:
           SHORT_SHA=$(echo "${{ steps.pyodide.outputs.sha }}" | cut -c1-8)
           TAG="pyodide-dist-${SHORT_SHA}"
           echo "Fetching Pyodide dist from release: $TAG"
-          # Try the pyodide fork first (built by rebuild-js-dist.yml),
-          # fall back to this repo for legacy releases.
           gh release download "$TAG" --repo tjfontaine/pyodide \
-            --pattern "pyodide-dist.tar.gz" --dir /tmp --clobber 2>/dev/null \
-          || gh release download "$TAG" \
             --pattern "pyodide-dist.tar.gz" --dir /tmp --clobber
           rm -rf pyodide/dist
           tar xzf /tmp/pyodide-dist.tar.gz -C pyodide/
