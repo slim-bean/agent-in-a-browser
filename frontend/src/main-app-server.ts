@@ -740,6 +740,7 @@ function handleTextareaKeydown(e: KeyboardEvent): void {
 
 async function handleSubmit(e: Event): Promise<void> {
     e.preventDefault();
+    console.warn('[App Server] handleSubmit called', { disabled: inputTextarea.disabled, value: inputTextarea.value });
     if (!state.client || inputTextarea.disabled) return;
 
     const userText = inputTextarea.value.trim();
@@ -1650,6 +1651,8 @@ function wireEvents(client: AppServerClient): void {
     // --- Turn lifecycle ---
 
     client.on('turn/started', (event: TurnStartedEvent) => {
+        console.warn('[App Server] turn/started received', event);
+        console.trace('[App Server] turn/started stack');
         state.turnId = event.turn.id;
         state.turnActive = true;
         currentAssistantContent = null;
