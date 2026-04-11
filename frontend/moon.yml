@@ -43,6 +43,15 @@ tasks:
     outputs:
       - "src/wasm/codex-app-server-sync"
 
+  generate-protocol-map:
+    command: "node ../scripts/generate-protocol-map.mjs"
+    inputs:
+      - "/runtime/codex-upstream/codex-rs/app-server-protocol/src/protocol/common.rs"
+      - "/runtime/codex-upstream/codex-rs/app-server-protocol/schema/typescript/**"
+      - "/scripts/generate-protocol-map.mjs"
+    outputs:
+      - "src/wasm/app-server/protocol-map.generated.ts"
+
   copy-pyodide:
     command: "node ../scripts/copy-pyodide.mjs"
     inputs:
@@ -80,6 +89,7 @@ tasks:
       - "wasm-git:transpile-sync"
       - "~:transpile-app-server"
       - "~:transpile-app-server-sync"
+      - "~:generate-protocol-map"
 
   # Copy non-Vite assets into dist/ that the app expects at runtime.
   # stripe.wasm is included here for local dev (`vite dev`) and E2E tests

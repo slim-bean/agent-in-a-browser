@@ -34,3 +34,5 @@ export type { GitDiffToRemoteParams } from '../../../runtime/codex-upstream/code
 export type { GitDiffToRemoteResponse } from '../../../runtime/codex-upstream/codex-rs/app-server-protocol/schema/typescript/GitDiffToRemoteResponse';
 export type { AuthMode } from '../../../runtime/codex-upstream/codex-rs/app-server-protocol/schema/typescript/AuthMode';
 export type { PlanType } from '../../../runtime/codex-upstream/codex-rs/app-server-protocol/schema/typescript/PlanType';
+export type { FuzzyFileSearchSessionCompletedNotification } from '../../../runtime/codex-upstream/codex-rs/app-server-protocol/schema/typescript/FuzzyFileSearchSessionCompletedNotification';
+export type { FuzzyFileSearchSessionUpdatedNotification } from '../../../runtime/codex-upstream/codex-rs/app-server-protocol/schema/typescript/FuzzyFileSearchSessionUpdatedNotification';

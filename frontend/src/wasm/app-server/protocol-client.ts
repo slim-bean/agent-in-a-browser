@@ -14,6 +14,17 @@
 import type { AppServerHandle, AppServerEvent } from './app-server-loader.js';
 
 // ==========================================================================
+// Generated protocol maps (method → params/response type mappings)
+// ==========================================================================
+
+import type {
+    ClientRequestMap,
+    ClientMethod,
+    ServerNotificationMap,
+    ServerRequestMap as GeneratedServerRequestMap,
+} from './protocol-map.generated.js';
+
+// ==========================================================================
 // Canonical type imports from generated schema
 // ==========================================================================
 
@@ -273,51 +284,18 @@ export type McpElicitationRequest = McpServerElicitationRequestParams;
 export type TokenUsage = ThreadTokenUsage;
 
 // ==========================================================================
-// Notification & Server Request Maps
+// Protocol Maps (generated from Rust protocol definitions)
 // ==========================================================================
 
-/** Maps notification method strings to their payload types. */
-export interface NotificationMap {
-    'turn/started': TurnStartedNotification;
-    'turn/completed': TurnCompletedNotification;
-    'item/agentMessage/delta': AgentMessageDeltaNotification;
-    'item/started': ItemStartedNotification;
-    'item/completed': ItemCompletedNotification;
-    'item/plan/delta': PlanDeltaNotification;
-    'item/reasoning/textDelta': ReasoningTextDeltaNotification;
-    'item/reasoning/summaryTextDelta': ReasoningSummaryTextDeltaNotification;
-    'item/commandExecution/outputDelta': CommandExecutionOutputDeltaNotification;
-    'item/fileChange/outputDelta': FileChangeOutputDeltaNotification;
-    'item/mcpToolCall/progress': McpToolCallProgressNotification;
-    'item/autoApprovalReview/started': ItemGuardianApprovalReviewStartedNotification;
-    'item/autoApprovalReview/completed': ItemGuardianApprovalReviewCompletedNotification;
-    'hook/started': HookStartedNotification;
-    'hook/completed': HookCompletedNotification;
-    'turn/diff/updated': TurnDiffUpdatedNotification;
-    'turn/plan/updated': TurnPlanUpdatedNotification;
-    'thread/started': ThreadStartedNotification;
-    'thread/status/changed': ThreadStatusChangedNotification;
-    'thread/closed': ThreadClosedNotification;
-    'thread/name/updated': ThreadNameUpdatedNotification;
-    'thread/tokenUsage/updated': ThreadTokenUsageUpdatedNotification;
-    'thread/compacted': ContextCompactedNotification;
-    'error': ErrorNotification;
-    'account/rateLimits/updated': AccountRateLimitsUpdatedNotification;
-    'mcpServer/startupStatus/updated': McpServerStatusUpdatedNotification;
-    'command/exec/outputDelta': CommandExecOutputDeltaNotification;
-    'account/login/completed': AccountLoginCompletedNotification;
-    'account/updated': AccountUpdatedNotification;
-}
+/** Maps notification method strings to their payload types (from codegen). */
+export type NotificationMap = ServerNotificationMap;
 
-/** Maps server request method strings to their payload types. */
-export interface ServerRequestMap {
-    'item/commandExecution/requestApproval': CommandExecutionRequestApprovalParams;
-    'item/fileChange/requestApproval': FileChangeRequestApprovalParams;
-    'item/permissions/requestApproval': PermissionsRequestApprovalParams;
-    'item/tool/requestUserInput': ToolRequestUserInputParams;
-    'applyPatchApproval': ApplyPatchApprovalParams;
-    'mcpServer/elicitation/request': McpServerElicitationRequestParams;
-}
+/** Maps server request method strings to their params types (from codegen). */
+export type ServerRequestMap = {
+    [K in keyof GeneratedServerRequestMap]: GeneratedServerRequestMap[K]['params'];
+};
+
+export type { ClientRequestMap, ClientMethod };
 
 // ==========================================================================
 // JSON-RPC Envelope Types (internal)
@@ -537,14 +515,15 @@ export class AppServerClient {
 
     /**
      * Send a typed JSON-RPC request and return the parsed result.
+     * Method names are validated against the generated ClientRequestMap.
      * Throws AppServerError on error responses.
      */
-    private async sendRequest<T>(method: string, params?: Record<string, unknown>): Promise<T> {
+    private async sendRequest<M extends ClientMethod>(
+        method: M,
+        params?: Record<string, unknown>,
+    ): Promise<ClientRequestMap[M]['response']> {
         const id = String(++this.requestId);
-        const envelope: JsonRpcRequest = { id, method };
-        if (params !== undefined) {
-            envelope.params = params;
-        }
+        const envelope: JsonRpcRequest = { id, method, params: params ?? {} };
 
         const rawResponse = await this.handle.sendRequest(JSON.stringify(envelope));
         const response: JsonRpcResponse = JSON.parse(rawResponse) as JsonRpcResponse;
@@ -557,7 +536,7 @@ export class AppServerClient {
             );
         }
 
-        return response.result as T;
+        return response.result as ClientRequestMap[M]['response'];
     }
 
     /**
@@ -582,7 +561,7 @@ export class AppServerClient {
 
     /** Start a new agent thread. */
     async startThread(params?: ThreadStartParams): Promise<ThreadStartResponse> {
-        return this.sendRequest<ThreadStartResponse>(
+        return this.sendRequest(
             'thread/start',
             params as Record<string, unknown> | undefined,
         );
@@ -590,7 +569,7 @@ export class AppServerClient {
 
     /** List existing threads. */
     async listThreads(params?: ThreadListParams): Promise<ThreadListResponse> {
-        return this.sendRequest<ThreadListResponse>(
+        return this.sendRequest(
             'thread/list',
             params as Record<string, unknown> | undefined,
         );
@@ -598,7 +577,7 @@ export class AppServerClient {
 
     /** Read a thread by ID. */
     async readThread(threadId: string, options?: { includeTurns?: boolean }): Promise<ThreadReadResponse> {
-        return this.sendRequest<ThreadReadResponse>(
+        return this.sendRequest(
             'thread/read',
             AppServerClient.buildParams({
                 threadId,
@@ -609,7 +588,7 @@ export class AppServerClient {
 
     /** Resume an existing thread. */
     async resumeThread(threadId: string, options?: { model?: string }): Promise<ThreadResumeResponse> {
-        return this.sendRequest<ThreadResumeResponse>(
+        return this.sendRequest(
             'thread/resume',
             AppServerClient.buildParams({
                 threadId,
@@ -620,17 +599,17 @@ export class AppServerClient {
 
     /** Archive a thread. */
     async archiveThread(threadId: string): Promise<void> {
-        await this.sendRequest<unknown>('thread/archive', { threadId });
+        await this.sendRequest('thread/archive', { threadId });
     }
 
     /** Set a thread's display name. */
     async setThreadName(threadId: string, name: string): Promise<void> {
-        await this.sendRequest<unknown>('thread/setName', { threadId, name });
+        await this.sendRequest('thread/name/set', { threadId, name });
     }
 
     /** Rollback a thread to a specific turn. */
     async rollbackThread(threadId: string, turnId: string): Promise<void> {
-        await this.sendRequest<unknown>('thread/rollback', { threadId, turnId });
+        await this.sendRequest('thread/rollback', { threadId, turnId });
     }
 
     // ------------------------------------------------------------------
@@ -640,7 +619,7 @@ export class AppServerClient {
     /** Start a new turn (send user input) within a thread. */
     async startTurn(threadId: string, text: string): Promise<TurnStartResponse> {
         const input: UserInput[] = [{ type: 'text', text, text_elements: [] }];
-        return this.sendRequest<TurnStartResponse>('turn/start', {
+        return this.sendRequest('turn/start', {
             threadId,
             input,
         });
@@ -648,12 +627,12 @@ export class AppServerClient {
 
     /** Steer an in-progress turn with additional guidance. */
     async steerTurn(threadId: string, turnId: string, text: string): Promise<void> {
-        await this.sendRequest<unknown>('turn/steer', { threadId, turnId, text });
+        await this.sendRequest('turn/steer', { threadId, turnId, text });
     }
 
     /** Interrupt a running turn. */
     async interruptTurn(threadId: string, turnId: string): Promise<void> {
-        await this.sendRequest<unknown>('turn/interrupt', { threadId, turnId });
+        await this.sendRequest('turn/interrupt', { threadId, turnId });
     }
 
     // ------------------------------------------------------------------
@@ -662,7 +641,7 @@ export class AppServerClient {
 
     /** Read current configuration. */
     async readConfig(params?: ConfigReadParams): Promise<ConfigReadResponse> {
-        return this.sendRequest<ConfigReadResponse>(
+        return this.sendRequest(
             'config/read',
             params as Record<string, unknown> | undefined,
         );
@@ -674,19 +653,19 @@ export class AppServerClient {
 
     /** List available models. */
     async listModels(): Promise<ModelListResponse> {
-        return this.sendRequest<ModelListResponse>('model/list');
+        return this.sendRequest('model/list');
     }
 
     /** Read current account information. */
     async readAccount(options?: { refreshToken?: boolean }): Promise<GetAccountResponse> {
-        return this.sendRequest<GetAccountResponse>('account/read', {
+        return this.sendRequest('account/read', {
             refreshToken: options?.refreshToken ?? false,
         });
     }
 
     /** Login with an API key. */
     async loginWithApiKey(apiKey: string): Promise<LoginAccountResponse> {
-        return this.sendRequest<LoginAccountResponse>('account/login/start', {
+        return this.sendRequest('account/login/start', {
             type: 'apiKey',
             apiKey,
         });
@@ -694,33 +673,33 @@ export class AppServerClient {
 
     /** Start OAuth login flow. Returns loginId and authUrl for browser redirect. */
     async loginWithOAuth(): Promise<LoginAccountResponse> {
-        return this.sendRequest<LoginAccountResponse>('account/login/start', {
+        return this.sendRequest('account/login/start', {
             type: 'chatgpt',
         });
     }
 
     /** Start device code login flow. Returns loginId, verificationUrl, and userCode. */
     async loginWithDeviceCode(): Promise<LoginAccountResponse> {
-        return this.sendRequest<LoginAccountResponse>('account/login/start', {
+        return this.sendRequest('account/login/start', {
             type: 'chatgptDeviceCode',
         });
     }
 
     /** Cancel an in-progress login. */
     async cancelLogin(loginId: string): Promise<CancelLoginAccountResponse> {
-        return this.sendRequest<CancelLoginAccountResponse>('account/login/cancel', {
+        return this.sendRequest('account/login/cancel', {
             loginId,
         });
     }
 
     /** Logout and clear credentials. */
     async logout(): Promise<void> {
-        await this.sendRequest<unknown>('account/logout');
+        await this.sendRequest('account/logout');
     }
 
     /** Check authentication status. */
     async getAuthStatus(): Promise<GetAuthStatusResponse> {
-        return this.sendRequest<GetAuthStatusResponse>('getAuthStatus', {
+        return this.sendRequest('getAuthStatus', {
             includeToken: false,
             refreshToken: false,
         });
@@ -732,12 +711,12 @@ export class AppServerClient {
 
     /** List available skills. */
     async listSkills(): Promise<SkillsListResponse> {
-        return this.sendRequest<SkillsListResponse>('skills/list');
+        return this.sendRequest('skills/list');
     }
 
     /** List MCP server statuses. */
     async listMcpServerStatus(): Promise<ListMcpServerStatusResponse> {
-        return this.sendRequest<ListMcpServerStatusResponse>('mcpServer/status/list');
+        return this.sendRequest('mcpServerStatus/list');
     }
 
     // ------------------------------------------------------------------
@@ -746,13 +725,13 @@ export class AppServerClient {
 
     /** Get a summary of the conversation in a thread. */
     async getConversationSummary(threadId: string): Promise<GetConversationSummaryResponse> {
-        return this.sendRequest<GetConversationSummaryResponse>('conversation/summary', { threadId });
+        return this.sendRequest('getConversationSummary', { threadId });
     }
 
     /** Fuzzy file search in the working directory. */
     async fuzzyFileSearch(query: string, cwd?: string): Promise<FuzzyFileSearchResponse> {
-        return this.sendRequest<FuzzyFileSearchResponse>(
-            'file/fuzzySearch',
+        return this.sendRequest(
+            'fuzzyFileSearch',
             AppServerClient.buildParams({ query, cwd }),
         );
     }
