@@ -2,6 +2,7 @@
 
 use crate::transform::{Transform, TransformResult};
 use anyhow::{Context, Result};
+use std::collections::HashSet;
 use std::path::Path;
 use walkdir::WalkDir;
 
@@ -9,6 +10,8 @@ use walkdir::WalkDir;
 pub struct TransformConfig {
     /// Whether to inject diagnostic console_log traces.
     pub diag_traces: bool,
+    /// Whether missing/unsupported semantic matches should fail the run.
+    pub strict: bool,
 }
 
 /// Stats from a transform run.
@@ -19,8 +22,8 @@ pub struct TransformStats {
     pub transforms_applied: usize,
     pub transforms_already_applied: usize,
     pub transforms_not_matched: Vec<String>,
-    /// Warnings from syn-level string_replace transforms that didn't match.
-    pub syn_warnings: Vec<String>,
+    /// Diagnostics from the semantic pass.
+    pub semantic_warnings: Vec<String>,
 }
 
 /// Apply all transforms to the source tree under `codex_rs`.
@@ -30,21 +33,17 @@ pub fn apply_transforms(
     config: &TransformConfig,
 ) -> Result<TransformStats> {
     let mut stats = TransformStats::default();
-
-    // Configure syn_transforms before running
-    crate::syn_transforms::set_diag_traces(config.diag_traces);
+    let mut skipped_files = HashSet::new();
 
     // Partition transforms by type for efficient processing
     let mut replace_files: Vec<&Transform> = Vec::new();
     let mut stub_modules: Vec<&Transform> = Vec::new();
     let mut per_file: Vec<&Transform> = Vec::new();
-    let mut globals: Vec<&Transform> = Vec::new();
 
     for t in transforms {
         match t {
             Transform::ReplaceFile { .. } => replace_files.push(t),
             Transform::StubModule { .. } => stub_modules.push(t),
-            Transform::Global { .. } => globals.push(t),
             _ => per_file.push(t),
         }
     }
@@ -63,6 +62,7 @@ pub fn apply_transforms(
             std::fs::write(path, content)
                 .with_context(|| format!("replacing {}", path.display()))?;
             stats.files_stubbed += 1;
+            skipped_files.insert(path.to_path_buf());
             println!("  [replace] {}", path.display());
             continue;
         }
@@ -73,11 +73,12 @@ pub fn apply_transforms(
             std::fs::write(path, content)
                 .with_context(|| format!("stubbing {}", path.display()))?;
             stats.files_stubbed += 1;
+            skipped_files.insert(path.to_path_buf());
             println!("  [stub] {}", path.display());
             continue;
         }
 
-        // Phase 2: Read file, apply per-file and global transforms
+        // Phase 2: Read file, apply simple per-file transforms
         let content =
             std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
         let mut modified = content.clone();
@@ -105,26 +106,35 @@ pub fn apply_transforms(
             }
         }
 
-        // Apply global transforms (with file path context)
-        for t in &globals {
-            let (new_content, result) = t.apply_with_path(&modified, Some(path));
-            if result == TransformResult::Applied {
-                modified = new_content;
-                stats.transforms_applied += 1;
-            }
-        }
-
-        // Collect syn-level warnings from string_replace calls
-        stats
-            .syn_warnings
-            .extend(crate::syn_transforms::drain_syn_warnings());
-
         // Write back if changed
         if modified != content {
             std::fs::write(path, &modified)
                 .with_context(|| format!("writing {}", path.display()))?;
             stats.files_transformed += 1;
-            println!("  [ast] {}", path.display());
+            println!("  [text] {}", path.display());
+        }
+    }
+
+    // Phase 3: semantic workspace pass.
+    let semantic_stats = crate::semantic::apply(
+        codex_rs,
+        &skipped_files,
+        &crate::semantic::rules::RuleConfig {
+            diag_traces: config.diag_traces,
+            strict: config.strict,
+        },
+    )?;
+    stats.files_transformed += semantic_stats.files_changed;
+    for (rule, report) in semantic_stats.diagnostics.rules {
+        for site in report.unsupported_sites {
+            stats
+                .semantic_warnings
+                .push(format!("{rule}: unsupported site: {site}"));
+        }
+        for site in report.missing_expected {
+            stats
+                .semantic_warnings
+                .push(format!("{rule}: expected site missing: {site}"));
         }
     }
 

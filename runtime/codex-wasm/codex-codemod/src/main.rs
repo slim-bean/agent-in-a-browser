@@ -5,15 +5,18 @@
 //! the upstream sync workflow:
 //!
 //! 1. cd runtime/codex-upstream
-//! 2. git fetch upstream && git checkout upstream/main
+//! 2. git fetch upstream origin && git checkout upstream/main
 //! 3. cd ../.. && cargo run -p codex-codemod -- runtime/codex-upstream/
 //! 4. cargo component check --manifest-path runtime/codex-wasm/codex-wasm-tui/Cargo.toml --target wasm32-wasip2
-//! 5. cd runtime/codex-upstream && git add -A && git commit -m "feat: apply wasip2 codemod"
-//! 6. git push origin HEAD:wasm32-wasip2 --force-with-lease
-//! 7. cd ../.. && git add runtime/codex-upstream && git commit -m "sync: update codex fork"
+//! 5. cd runtime/codex-upstream && git add -A && git commit -m "codemod: apply wasip2 transforms"
+//! 6. git rev-list --count upstream/main..HEAD   # must print 1
+//! 7. git push origin HEAD:edge-agent --force-with-lease
+//! 8. cd ../.. && git add runtime/codex-upstream && git commit -m "sync: update codex fork"
 
 mod cargo_toml;
 pub mod engine;
+mod git_policy;
+pub mod semantic;
 pub mod syn_transforms;
 pub mod transform;
 mod transforms;
@@ -67,6 +70,28 @@ fn main() -> Result<()> {
         );
     }
 
+    if let Some(status) = git_policy::verify_single_carry_commit(&args.upstream_dir)? {
+        let mode = if status.ahead == 0 {
+            "ready to regenerate carrying commit"
+        } else {
+            "single carrying commit preserved"
+        };
+        let head_kind = if status.detached {
+            "detached"
+        } else {
+            "branch"
+        };
+        println!(
+            "codex-codemod: git policy OK ({mode}; {head_kind} HEAD at {})",
+            status.head_short
+        );
+    } else {
+        println!(
+            "codex-codemod: git policy skipped ({} is not a git worktree)",
+            args.upstream_dir.display()
+        );
+    }
+
     println!("codex-codemod: transforming {}", codex_rs.display());
 
     // Phase 1: Cargo.toml transforms
@@ -75,12 +100,13 @@ fn main() -> Result<()> {
         cargo_toml::transform_workspace(&codex_rs, args.dry_run)?;
     }
 
-    // Phase 2: Source transforms via engine + syn
+    // Phase 2+: Source transforms via engine + semantic workspace pass
     if !args.cargo_only {
         println!("\n=== Phase 2: Source transforms ===");
         let all_transforms = transforms::all_transforms();
         let config = engine::TransformConfig {
             diag_traces: args.diag_traces,
+            strict: args.strict,
         };
         let stats = engine::apply_transforms(&codex_rs, &all_transforms, &config)?;
         println!(
@@ -102,14 +128,14 @@ fn main() -> Result<()> {
                 );
             }
         }
-        if !stats.syn_warnings.is_empty() {
-            let count = stats.syn_warnings.len();
-            for warn in &stats.syn_warnings {
-                console_log::console_warn!("  [syn-WARN] {warn}");
+        if !stats.semantic_warnings.is_empty() {
+            let count = stats.semantic_warnings.len();
+            for warn in &stats.semantic_warnings {
+                console_log::console_warn!("  [semantic-WARN] {warn}");
             }
             if args.strict {
                 anyhow::bail!(
-                    "{count} syn transform(s) did not match — upstream may have changed. \
+                    "{count} semantic transform(s) reported unsupported or missing sites — upstream may have changed. \
                      Review warnings above and update the codemod."
                 );
             }

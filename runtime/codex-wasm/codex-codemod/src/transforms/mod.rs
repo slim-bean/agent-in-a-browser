@@ -1,11 +1,12 @@
-//! All codemod transforms, organized by category.
+//! All nonsemantic codemod transforms, organized by category.
 //!
-//! This module replaces the monolithic `ast_transforms.rs` with a structured
-//! system that routes through `engine.rs` + `transform.rs`.
+//! Workspace-aware AST edits now run through the semantic subsystem directly
+//! from the transform engine rather than pretending to be ordinary per-file
+//! `Transform::Global` entries.
 
-mod globals;
 mod string_replacements;
 mod stubs;
+mod text_patches;
 
 use crate::transform::Transform;
 
@@ -13,7 +14,7 @@ use crate::transform::Transform;
 pub fn all_transforms() -> Vec<Transform> {
     let mut t = Vec::new();
     t.extend(stubs::transforms());
+    t.extend(text_patches::transforms());
     t.extend(string_replacements::transforms());
-    t.extend(globals::transforms());
     t
 }

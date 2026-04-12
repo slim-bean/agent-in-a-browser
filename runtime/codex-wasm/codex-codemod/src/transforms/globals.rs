@@ -1,15 +1,10 @@
-//! Global transforms applied to every .rs file.
+//! Legacy placeholder for global transforms.
 //!
-//! These wrap syn_transforms which provides AST-aware span-based editing.
+//! Workspace-aware AST edits have moved to the semantic subsystem and are
+//! invoked directly by the transform engine.
 
 use crate::transform::Transform;
 
 pub fn transforms() -> Vec<Transform> {
-    vec![Transform::Global {
-        name: "syn_transforms",
-        apply: |content, path| {
-            crate::syn_transforms::apply_with_path(content, path)
-                .unwrap_or_else(|| content.to_string())
-        },
-    }]
+    Vec::new()
 }

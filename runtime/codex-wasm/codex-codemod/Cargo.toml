@@ -18,3 +18,14 @@ toml_edit = "0.22"
 regex-lite = "0.1"
 walkdir = "2"
 console-log = { path = "../../crates/console-log" }
+ra_ap_hir = "0.0.327"
+ra_ap_ide = "0.0.327"
+ra_ap_ide_db = "0.0.327"
+ra_ap_load-cargo = "0.0.327"
+ra_ap_paths = "0.0.327"
+ra_ap_project_model = "0.0.327"
+ra_ap_syntax = "0.0.327"
+ra_ap_vfs = "0.0.327"
+
+[dev-dependencies]
+tempfile = "3"

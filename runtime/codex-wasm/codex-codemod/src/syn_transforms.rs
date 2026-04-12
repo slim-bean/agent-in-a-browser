@@ -3214,7 +3214,8 @@ fn foo() {
     connectors::merge_connectors_with_accessible(a, b);
 }
 "#;
-        let result = apply(input).expect("should transform");
+        let result = apply_with_path(input, Some(std::path::Path::new("tui/src/chatwidget.rs")))
+            .expect("should transform");
         assert!(
             result.contains("merge_plugin_apps_with_accessible"),
             "function should be renamed: {result}"
@@ -3516,7 +3517,7 @@ fn foo() {
         )
         .expect("should transform");
         assert!(
-            result.contains("fn which(_name: &str)"),
+            result.contains("fn which(name: &str)"),
             "use which::which should become stub fn: {result}"
         );
         assert!(
