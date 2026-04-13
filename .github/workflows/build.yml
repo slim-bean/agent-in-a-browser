@@ -25,8 +25,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Validate codex-upstream pin
+        run: ./scripts/check-codex-upstream-ref.sh
+
       - name: Checkout submodules
         run: |
+          git submodule sync --recursive
+          git submodule deinit -f -- runtime/codex-upstream stripe-cli-wasm 2>/dev/null || true
           # Clean stale submodule metadata for submodules whose commits get
           # force-pushed (self-hosted runners cache .git/modules between runs).
           # Only clean specific modules — wiping all of .git/modules breaks
@@ -36,6 +41,7 @@ jobs:
             rm -rf "$mod" 2>/dev/null || true
           done
           git submodule update --init --force stripe-cli-wasm git-cli-wasm/patches/go-git runtime/codex-upstream tree-sitter-wasm/tree-sitter tree-sitter-wasm/tree-sitter-bash pyodide
+          git -C runtime/codex-upstream fetch --force --tags origin
 
       - name: Setup Rust
         uses: moonrepo/setup-rust@v1
@@ -174,6 +180,7 @@ jobs:
           LD_PRELOAD: /tmp/no_pidfd.so
           MOON_TOOLCHAIN_FORCE_GLOBALS: "true"
         run: |
+          git config --global diff.submodule short
           pnpm exec moon run \
             runtime:fmt-check \
             runtime:check \

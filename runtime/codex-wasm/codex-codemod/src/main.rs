@@ -10,7 +10,7 @@
 //! 4. cargo component check --manifest-path runtime/codex-wasm/codex-wasm-tui/Cargo.toml --target wasm32-wasip2
 //! 5. cd runtime/codex-upstream && git add -A && git commit -m "codemod: apply wasip2 transforms"
 //! 6. git rev-list --count upstream/main..HEAD   # must print 1
-//! 7. git push origin HEAD:edge-agent --force-with-lease
+//! 7. cd ../.. && ./scripts/publish-codex-upstream.sh
 //! 8. cd ../.. && git add runtime/codex-upstream && git commit -m "sync: update codex fork"
 
 mod cargo_toml;
