@@ -255,9 +255,15 @@ impl<A: AuthProvider> ResponsesWebsocketClient<A> {
 
         // Browser WebSocket API cannot send custom auth headers.
         // OpenAI's Responses WebSocket doesn't support subprotocol auth
-        // (only the Realtime API does). Fail immediately so the upstream
-        // retry logic falls back to HTTP SSE without network round-trips.
-        Err(ApiError::Stream("websocket not supported in browser (no header auth)".into()))
+        // (only the Realtime API does). Return 426 so the upstream client
+        // takes its normal HTTP fallback path and disables websockets for
+        // the session without retrying a transport that can never work.
+        Err(ApiError::Transport(TransportError::Http {
+            status: StatusCode::UPGRADE_REQUIRED,
+            url: Some(ws_url.to_string()),
+            headers: None,
+            body: Some("websocket not supported in browser (no header auth)".into()),
+        }))
     }
 }
 
