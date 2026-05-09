@@ -141,3 +141,4 @@ ios-edge-agent/WASIShims/Package.resolved
 ios-edge-agent/MCPServerKit/.build/
 ios-edge-agent/MCPServerKit/.swiftpm/
 ios-edge-agent/MCPServerKit/Package.resolved
+.bizo11y-*
