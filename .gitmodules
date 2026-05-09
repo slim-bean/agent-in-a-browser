@@ -1,6 +1,6 @@
 [submodule "git-cli-wasm/patches/go-git"]
 	path = git-cli-wasm/patches/go-git
-	url = https://github.com/tjfontaine/go-git.git
+	url = https://github.com/slim-bean/go-git.git
 	branch = wasip1-patches
 [submodule "runtime/codex-upstream"]
 	path = runtime/codex-upstream

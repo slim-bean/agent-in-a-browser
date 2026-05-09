@@ -102,6 +102,14 @@ export const LAZY_COMMANDS: Record<string, string> = {
     'pip': 'pyodide-module',
     // Stripe CLI
     'stripe': 'stripe-module',
+    // Git CLI (Go-compiled, loaded directly via go-wasip1-loader)
+    // [bizo11y patch] Upstream omits this from LAZY_COMMANDS even though it
+    // registers `git` in the wasm-loader registry — the runtime's
+    // `getLazyModule()` only consults this table, so without this entry the
+    // shell falls through to the built-in `git` stub which prints
+    // "git-module not loaded". Adding it here routes git commands to
+    // loadGitModule() as intended.
+    'git': 'git-module',
     // Interactive shell (uses main runtime's shell:unix/command export)
     'sh': 'brush-shell',
     'shell': 'brush-shell',

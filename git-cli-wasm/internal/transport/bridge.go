@@ -153,9 +153,16 @@ func (r *responseBody) Read(p []byte) (int, error) {
 	if len(data) == 0 {
 		return 0, io.EOF
 	}
-	n := copy(p, data)
-	if n < len(data) {
-		r.buf.Write(data[n:])
+
+	// Copy data out of the unsafe.Slice immediately. The backing memory was
+	// allocated by cabiRealloc (Go's make) but goes out of scope when the
+	// host function returns — GC could reclaim it before we finish reading.
+	dataCopy := make([]byte, len(data))
+	copy(dataCopy, data)
+
+	n := copy(p, dataCopy)
+	if n < len(dataCopy) {
+		r.buf.Write(dataCopy[n:])
 	}
 	return n, nil
 }
