@@ -275,9 +275,19 @@ export async function loadGoWasip1Module(
                     // Fall back to async reads/writes
                 }
 
-                if (wantTrunc && syncHandle) {
-                    syncHandle.truncate(0);
-                    syncHandle.flush();
+                if (wantTrunc) {
+                    if (syncHandle) {
+                        syncHandle.truncate(0);
+                        syncHandle.flush();
+                    } else {
+                        // Async fallback: truncate by creating an empty writable stream
+                        try {
+                            const fh = await getOpfsFile(normalizedPath, false);
+                            const wr = await fh.createWritable();
+                            await wr.truncate(0);
+                            await wr.close();
+                        } catch { /* best effort */ }
+                    }
                     size = 0;
                 }
 
