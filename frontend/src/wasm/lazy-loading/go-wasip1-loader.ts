@@ -646,9 +646,18 @@ export async function loadGoWasip1Module(
                     off += chunk.length;
                 }
                 try {
-                    await asyncWriteFile(entry.path, combined);
+                    // Write at the current offset WITHOUT truncating.
+                    // asyncWriteFile uses createWritable() which truncates
+                    // the file on every call — that breaks multi-write files
+                    // (pack indices, git index, etc). Instead, open a writable
+                    // stream that preserves existing data and write at the
+                    // tracked offset.
+                    const fileHandle = await getOpfsFile(entry.path, true);
+                    const writable = await fileHandle.createWritable({ keepExistingData: true });
+                    await writable.write({ type: 'write', data: combined, position: entry.offset });
+                    await writable.close();
                     entry.offset += totalWritten;
-                    entry.size = (entry.size || 0) + totalWritten;
+                    entry.size = Math.max(entry.size || 0, entry.offset);
                 } catch {
                     return ERRNO.BADF;
                 }
